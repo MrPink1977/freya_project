@@ -219,7 +219,7 @@ class Orchestrator:
                         session_active = True
                         if remainder:
                             self._handle_user_content(remainder)
-                            return True
+                            continue
                     if not session_active and self._wake_detector is not None:
                         # Continue waiting for the wake word when the detector is active.
                         continue
@@ -271,7 +271,7 @@ class Orchestrator:
                     continue
 
             self._handle_user_content(content)
-            return True
+            continue
 
 
     def _text_cycle(self) -> bool:
@@ -294,7 +294,7 @@ class Orchestrator:
                 return self._handle_exit()
 
             self._handle_user_content(message)
-            return True
+            continue
 
 
     def _handle_user_content(self, content: str) -> None:
