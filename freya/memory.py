@@ -31,7 +31,14 @@ class MemoryRecord:
 
 
 class PersistentMemoryStore:
-    """SQLite-backed semantic memory store with lightweight retrieval."""
+    """SQLite-backed semantic memory store with lightweight retrieval.
+
+    Thread Safety:
+        This class uses check_same_thread=False with SQLite to allow multi-threaded
+        access, which is necessary for concurrent voice processing. All database
+        operations are protected by a threading lock to ensure thread safety and
+        prevent database corruption.
+    """
 
     _DEFAULT_SEARCH_WINDOW = 200
 
@@ -42,6 +49,8 @@ class PersistentMemoryStore:
         self._path = path
         self._lock = threading.Lock()
         self._search_window = max(10, int(search_window or self._DEFAULT_SEARCH_WINDOW))
+        # check_same_thread=False allows multi-threaded access; all operations
+        # are protected by self._lock to ensure thread safety
         self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._initialise_schema()

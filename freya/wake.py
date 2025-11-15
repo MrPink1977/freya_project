@@ -174,8 +174,14 @@ class WakeWordDetector:
         return text
 
     def close(self) -> None:
-        """Release references to the underlying faster-whisper model."""
-        self._model = None  # type: ignore[assignment]
+        """Release references to the underlying faster-whisper model.
+
+        Note: WhisperModel doesn't provide an explicit cleanup method, so we
+        release the reference and rely on Python's garbage collector to free
+        the underlying resources.
+        """
+        if hasattr(self, "_model"):
+            self._model = None  # type: ignore[assignment]
 
 
 __all__ = ["WakeWordDetector", "WakeWordDetectorError"]

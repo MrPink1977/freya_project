@@ -339,13 +339,8 @@ class Orchestrator:
                 spoke_successfully = True
 
         if self._session_window > 0 and self._get_mode() is InteractionMode.VOICE:
-            if spoke_successfully:
-                self._session_active_until = time.monotonic() + self._session_window
-            # Ensure the follow-up window remains open even if audio playback failed
-            self._session_active_until = max(
-                self._session_active_until,
-                time.monotonic() + self._session_window,
-            )
+            # Extend session window after assistant response to allow follow-up questions
+            self._session_active_until = time.monotonic() + self._session_window
 
     def _obtain_assistant_response(
         self, messages: list[dict]
