@@ -9,6 +9,8 @@ jobs:
   build:
     name: Lint / Type-Check / Test / Audit
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
