@@ -1,0 +1,59 @@
+########################################
+# FREYA PROJECT - COMPLETE GITIGNORE
+########################################
+
+# -----------------------------
+# Python cache / temp files
+# -----------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Cache inside Freya package
+freya/__pycache__/
+
+# -----------------------------
+# Virtual environments
+# -----------------------------
+freya_env/
+env/
+.venv/
+venv/
+
+# -----------------------------
+# Logs
+# -----------------------------
+*.log
+
+# -----------------------------
+# Voice model files (too large)
+# -----------------------------
+voices/*.onnx
+voices/*.onnx.json
+voices/*.pth
+voices/*.pt
+voices/*
+
+# -----------------------------
+# Local camera modules & machine-specific junk
+# -----------------------------
+Reolink_Modules/
+
+# -----------------------------
+# Backup folders accidentally created
+# -----------------------------
+freya/New folder/
+New folder/
+
+# -----------------------------
+# OS / Editor junk
+# -----------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+########################################
+# END OF GITIGNORE
+########################################

@@ -1,0 +1,128 @@
+ollama:
+  host: "http://localhost:11434"
+  model: "llama3.2:3b"
+  options:
+    temperature: 0.7          # Balanced creativity
+    top_k: 35                # Focused but natural
+    top_p: 0.88              # Good variety
+    repeat_penalty: 1.12     # Avoid repetition
+    num_predict: 180         # Good length for voice
+    repeat_last_n: 64        
+app:
+  system_prompt: |
+    You are Freya, a voice-first AI assistant running locally on the user's computer. 
+    
+    Personality:
+    - Direct, honest, confident, loyal; occasional mild profanity fits the vibe
+    - Sometimes sarcastic in a friendly way
+    - Witty
+    
+    Capabilities:
+    - Voice interaction with wake word detection
+    - Long-term memory of past conversations
+    - Remember facts when user says "remember" or "my name is"
+    - Provide concise, direct answers unless asked for detail
+    - Speak naturally and conversationally
+    
+    Rules:
+    1. Be concise unless asked for details
+    2. Be honest if unsure
+    3. Remember recent context
+    4. Track conversation flow
+    
+    Style:
+    - Short and punchy for simple questions
+    - Detailed when asked
+    - Use contractions; natural tone
+    - Calm, helpful voice
+    - Brief unless asked to explain
+    - Privacy-first, local environment (avoid suggesting cloud services)
+    
+    You're running locally on Tommy's computer with full offline capability.
+    CRITICAL RULES:
+    1. NEVER guess facts about Tommy - if you don't remember, say so
+    2. When you see "Web search results:", use that current info to answer
+    3. When you see "Relevant context from past conversations:", that's real memory
+    4. Be honest if unsure
+    5. Be concise unless asked for details
+    
+    Style:
+    - Short and punchy for simple questions
+    - Use contractions; natural tone
+    - Acknowledge sources: "According to recent search..." or "I remember you said..."
+    - Today's date is {{CURRENT_DATE}}
+  max_history: 12
+  wake_word: "Hey, Freya"
+  wake_word_sensitivity: 0.75
+  wake_session_seconds: 8.0
+  startup_mode: "normal"  # normal or diagnostic
+  prompt_for_mode: true
+  interaction_mode: "voice"  # voice or text
+  mode_toggle_hotkey: "ctrl+t"
+stt:
+  model: "base"
+  device: "auto"  # Use "cuda" or "cpu" to override automatic selection
+  sample_rate: 16000
+  silence_threshold: 0.02
+  silence_duration: 0.7
+  max_record_seconds: 30
+  prompt_tone_frequency: 880
+  prompt_tone_duration: 0.2
+  prompt_tone_volume: 0.2
+tts:
+  voice_path: "voices/en_GB-southern_english_female-low.onnx"
+  preload_phrases:
+    - "Hello, Tommy! what can I help you with?."
+    - "I'm listening."
+    - "Goodbye!"
+wake_detector:
+  model: "tiny"
+  device: "cpu"
+  sample_rate: 16000
+  chunk_seconds: 2.0
+memory:
+  short_term:
+    max_history: 12
+    enable_summarization: true
+    summary_trigger_ratio: 0.8
+    max_summaries: 3
+  long_term:
+    enabled: true
+    store_type: "sqlite"
+    db_path: "data/freya_memory.db"
+    recall_limit: 3
+    min_similarity: 0.2
+    auto_store_keywords:
+      - "remember"
+      - "my name is"
+      - "i like"
+      - "i dislike"
+      - "call me"
+      - "favorite"
+      - "my name"
+    store_assistant_messages: false
+web_search:
+  enabled: true
+  max_results: 5
+  trigger_keywords:
+    - "search"
+    - "google"
+    - "look up"
+    - "find"
+    - "what is"
+    - "weather"
+    - "news"
+    - "latest"
+    - "current"
+    - "who is"
+    - "when did"
+    - "how much"
+vision:
+  facial_recognition:
+    enabled: false
+    known_faces_dir: "data/faces"
+    detection_model: "hog"   # hog or cnn
+    encoding_model: "small"  # small or large
+    tolerance: 0.5
+    camera_channel: null
+    min_recognition_interval: 5.0
