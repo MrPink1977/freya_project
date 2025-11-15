@@ -41,6 +41,7 @@ jobs:
       - name: Run tests
         run: |
           set -o pipefail
+          # Exit code 5 means no tests were collected (not a failure)
           pytest -q || ( rc=$?; if [ "$rc" -eq 5 ]; then echo "No tests collected"; else exit $rc; fi )
 
       - name: Dependency audit (pip-audit)
