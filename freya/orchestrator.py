@@ -9,7 +9,6 @@ import threading
 import time
 from difflib import SequenceMatcher
 from enum import Enum
-
 from typing import Callable, List, Optional, Sequence
 
 try:  # pragma: no cover - optional dependency for colored output
@@ -26,6 +25,23 @@ try:  # pragma: no cover - optional hotkey dependency
 except ImportError:  # pragma: no cover - hotkey functionality is optional
     keyboard = None  # type: ignore[assignment]
 
+from requests import RequestException
+
+from .config import LongTermMemoryConfig
+from .context import ConversationContext
+from .logger import get_logger
+from .memory import MemoryRecord, PersistentMemoryStore
+from .ollama_client import (
+    OllamaClient,
+    OllamaModelNotFoundError,
+    OllamaStreamNotSupported,
+)
+from .stt import SpeechToText, SpeechToTextError
+from .tts import TextToSpeech, TextToSpeechError
+from .wake import WakeWordDetector, WakeWordDetectorError
+
+logger = get_logger("orchestrator")
+
 _BLUE = getattr(Fore, "BLUE", "")
 _GREEN = getattr(Fore, "GREEN", "")
 _RESET = getattr(Style, "RESET_ALL", "")
@@ -40,23 +56,6 @@ _DEFAULT_MEMORY_KEYWORDS: Sequence[str] = (
     "my name",
     "birthday",
 )
-
-from requests import RequestException
-
-from .config import LongTermMemoryConfig
-from .context import ConversationContext
-from .memory import MemoryRecord, PersistentMemoryStore
-from .ollama_client import (
-    OllamaClient,
-    OllamaModelNotFoundError,
-    OllamaStreamNotSupported,
-)
-from .logger import get_logger
-from .stt import SpeechToText, SpeechToTextError
-from .tts import TextToSpeech, TextToSpeechError
-from .wake import WakeWordDetector, WakeWordDetectorError
-
-logger = get_logger("orchestrator")
 
 
 class InteractionMode(Enum):

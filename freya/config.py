@@ -2,16 +2,67 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Tuple
-import os
 
 import yaml
 
 from .logger import get_logger
 
 logger = get_logger("config")
+
+
+class ConfigValidationError(ValueError):
+    """Raised when configuration validation fails."""
+
+
+def _validate_range(
+    value: float,
+    min_val: float,
+    max_val: float,
+    field_name: str,
+    section: str = "",
+) -> None:
+    """Validate that a numeric value is within the expected range."""
+    prefix = f"{section}." if section else ""
+    if not (min_val <= value <= max_val):
+        raise ConfigValidationError(
+            f"Configuration error: {prefix}{field_name} must be between {min_val} and {max_val}, "
+            f"got {value}"
+        )
+
+
+def _validate_positive(value: float, field_name: str, section: str = "") -> None:
+    """Validate that a numeric value is positive."""
+    prefix = f"{section}." if section else ""
+    if value <= 0:
+        raise ConfigValidationError(
+            f"Configuration error: {prefix}{field_name} must be positive, got {value}"
+        )
+
+
+def _validate_non_empty(value: str, field_name: str, section: str = "") -> None:
+    """Validate that a string value is not empty."""
+    prefix = f"{section}." if section else ""
+    if not value or not value.strip():
+        raise ConfigValidationError(
+            f"Configuration error: {prefix}{field_name} cannot be empty"
+        )
+
+
+def _validate_choice(
+    value: str, choices: Sequence[str], field_name: str, section: str = ""
+) -> None:
+    """Validate that a value is one of the allowed choices."""
+    prefix = f"{section}." if section else ""
+    if value not in choices:
+        choices_str = ", ".join(f"'{c}'" for c in choices)
+        raise ConfigValidationError(
+            f"Configuration error: {prefix}{field_name} must be one of {choices_str}, "
+            f"got '{value}'"
+        )
 
 
 @dataclass(frozen=True)
@@ -147,19 +198,35 @@ def load_settings(path: Optional[Path] = None) -> Settings:
     tts_raw = raw.get("tts", {})
     memory_raw = raw.get("memory", {})
 
+    # Validate Ollama configuration
+    ollama_host = ollama_raw.get("host", "http://localhost:11434")
+    ollama_model = ollama_raw.get("model", "llama3.2:3b")
+    _validate_non_empty(ollama_host, "host", "ollama")
+    _validate_non_empty(ollama_model, "model", "ollama")
+
     ollama_config = OllamaConfig(
-        host=ollama_raw.get("host", "http://localhost:11434"),
-        model=ollama_raw.get("model", "llama3.2:3b"),
+        host=ollama_host,
+        model=ollama_model,
         options=ollama_raw.get("options", {}),
     )
     default_history = int(app_raw.get("max_history", 10))
+    _validate_positive(default_history, "max_history", "app")
 
+    # Validate short-term memory configuration
     short_term_raw = memory_raw.get("short_term", {})
+    st_max_history = int(short_term_raw.get("max_history", default_history))
+    st_summary_ratio = float(short_term_raw.get("summary_trigger_ratio", 0.8))
+    st_max_summaries = int(short_term_raw.get("max_summaries", 3))
+
+    _validate_positive(st_max_history, "max_history", "memory.short_term")
+    _validate_range(st_summary_ratio, 0.0, 1.0, "summary_trigger_ratio", "memory.short_term")
+    _validate_positive(st_max_summaries, "max_summaries", "memory.short_term")
+
     short_term_config = ShortTermMemoryConfig(
-        max_history=int(short_term_raw.get("max_history", default_history)),
+        max_history=st_max_history,
         enable_summarization=bool(short_term_raw.get("enable_summarization", False)),
-        summary_trigger_ratio=float(short_term_raw.get("summary_trigger_ratio", 0.8)),
-        max_summaries=int(short_term_raw.get("max_summaries", 3)),
+        summary_trigger_ratio=st_summary_ratio,
+        max_summaries=st_max_summaries,
     )
 
     long_term_raw = memory_raw.get("long_term", {})
@@ -176,12 +243,21 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         if isinstance(keyword, (str, bytes)) and str(keyword).strip()
     )
 
+    # Validate long-term memory configuration
+    lt_recall_limit = int(long_term_raw.get("recall_limit", 3))
+    lt_min_similarity = float(long_term_raw.get("min_similarity", 0.15))
+    lt_store_type = str(long_term_raw.get("store_type", "sqlite"))
+
+    _validate_positive(lt_recall_limit, "recall_limit", "memory.long_term")
+    _validate_range(lt_min_similarity, 0.0, 1.0, "min_similarity", "memory.long_term")
+    _validate_choice(lt_store_type, ["sqlite"], "store_type", "memory.long_term")
+
     long_term_config = LongTermMemoryConfig(
         enabled=bool(long_term_raw.get("enabled", False)),
-        store_type=str(long_term_raw.get("store_type", "sqlite")),
+        store_type=lt_store_type,
         db_path=str(long_term_raw.get("db_path", "freya_memory.db")),
-        recall_limit=int(long_term_raw.get("recall_limit", 3)),
-        min_similarity=float(long_term_raw.get("min_similarity", 0.15)),
+        recall_limit=lt_recall_limit,
+        min_similarity=lt_min_similarity,
         auto_store_keywords=auto_store_keywords,
         store_assistant_messages=bool(long_term_raw.get("store_assistant_messages", False)),
     )
@@ -191,51 +267,87 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         long_term=long_term_config,
     )
 
+    # Validate app configuration
     startup_mode_raw = str(app_raw.get("startup_mode", "normal")).strip().lower()
     if startup_mode_raw not in {"normal", "diagnostic"}:
+        logger.warning(
+            "Invalid startup_mode '%s', defaulting to 'normal'", startup_mode_raw
+        )
         startup_mode_raw = "normal"
 
     interaction_mode_raw = str(app_raw.get("interaction_mode", "voice")).strip().lower()
     if interaction_mode_raw not in {"voice", "text"}:
+        logger.warning(
+            "Invalid interaction_mode '%s', defaulting to 'voice'", interaction_mode_raw
+        )
         interaction_mode_raw = "voice"
 
     toggle_hotkey = str(app_raw.get("mode_toggle_hotkey", "ctrl+t")).strip()
+    wake_word = str(app_raw.get("wake_word", "Hey, Freya"))
+    wake_sensitivity = float(app_raw.get("wake_word_sensitivity", 0.75))
+    wake_session = float(app_raw.get("wake_session_seconds", 8.0))
+
+    _validate_non_empty(wake_word, "wake_word", "app")
+    _validate_range(wake_sensitivity, 0.0, 1.0, "wake_word_sensitivity", "app")
+    if wake_session < 0:
+        raise ConfigValidationError(
+            f"Configuration error: app.wake_session_seconds cannot be negative, got {wake_session}"
+        )
 
     app_config = AppConfig(
         system_prompt=app_raw.get(
             "system_prompt", "You are Freya, a helpful local AI assistant."
         ),
         max_history=memory_config.short_term.max_history,
-        wake_word=str(app_raw.get("wake_word", "Hey, Freya")),
-        wake_word_sensitivity=float(app_raw.get("wake_word_sensitivity", 0.75)),
-        wake_session_seconds=float(app_raw.get("wake_session_seconds", 8.0)),
+        wake_word=wake_word,
+        wake_word_sensitivity=wake_sensitivity,
+        wake_session_seconds=wake_session,
         startup_mode=startup_mode_raw,
         prompt_for_mode=bool(app_raw.get("prompt_for_mode", True)),
         interaction_mode=interaction_mode_raw,
         mode_toggle_hotkey=toggle_hotkey,
     )
+    # Validate STT configuration
     stt_device = stt_raw.get("device", "auto")
     if not stt_device:
         stt_device = "auto"
 
+    stt_sample_rate = int(stt_raw.get("sample_rate", 16000))
+    stt_silence_threshold = float(stt_raw.get("silence_threshold", 0.02))
+    stt_silence_duration = float(stt_raw.get("silence_duration", 0.7))
+    stt_max_record = float(stt_raw.get("max_record_seconds", 30))
+    stt_tone_volume = float(stt_raw.get("prompt_tone_volume", 0.2))
+
+    _validate_positive(stt_sample_rate, "sample_rate", "stt")
+    _validate_range(stt_silence_threshold, 0.0, 1.0, "silence_threshold", "stt")
+    _validate_positive(stt_silence_duration, "silence_duration", "stt")
+    _validate_positive(stt_max_record, "max_record_seconds", "stt")
+    _validate_range(stt_tone_volume, 0.0, 1.0, "prompt_tone_volume", "stt")
+
     stt_config = SpeechToTextConfig(
         model=stt_raw.get("model", "base"),
         device=str(stt_device),
-        sample_rate=int(stt_raw.get("sample_rate", 16000)),
-        silence_threshold=float(stt_raw.get("silence_threshold", 0.02)),
-        silence_duration=float(stt_raw.get("silence_duration", 0.7)),
-        max_record_seconds=float(stt_raw.get("max_record_seconds", 30)),
+        sample_rate=stt_sample_rate,
+        silence_threshold=stt_silence_threshold,
+        silence_duration=stt_silence_duration,
+        max_record_seconds=stt_max_record,
         prompt_tone_frequency=float(stt_raw.get("prompt_tone_frequency", 880)),
         prompt_tone_duration=float(stt_raw.get("prompt_tone_duration", 0.2)),
-        prompt_tone_volume=float(stt_raw.get("prompt_tone_volume", 0.2)),
+        prompt_tone_volume=stt_tone_volume,
     )
+
+    # Validate wake detector configuration
+    wake_sample_rate = int(wake_detector_raw.get("sample_rate", stt_config.sample_rate))
+    wake_chunk_seconds = float(wake_detector_raw.get("chunk_seconds", 2.0))
+
+    _validate_positive(wake_sample_rate, "sample_rate", "wake_detector")
+    _validate_positive(wake_chunk_seconds, "chunk_seconds", "wake_detector")
+
     wake_detector_config = WakeDetectorConfig(
         model=str(wake_detector_raw.get("model", "tiny")),
         device=str(wake_detector_raw.get("device", "cpu")),
-        sample_rate=int(
-            wake_detector_raw.get("sample_rate", stt_config.sample_rate)
-        ),
-        chunk_seconds=float(wake_detector_raw.get("chunk_seconds", 2.0)),
+        sample_rate=wake_sample_rate,
+        chunk_seconds=wake_chunk_seconds,
     )
     face_raw = vision_raw.get("facial_recognition", {})
     camera_channel_raw = face_raw.get("camera_channel")
