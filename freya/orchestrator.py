@@ -830,82 +830,146 @@ class Orchestrator:
         if not self._memory_store:
             return
 
-        lowered = user_text.lower()
+        lowered = user_text.lower().strip()
 
-        # Extract name
-        name_patterns = [
-            (r"my name is (\w+)", "name", "name"),
-            (r"call me (\w+)", "name", "name"),
-            (r"i'm (\w+)", "name", "name"),
-            (r"i am (\w+)", "name", "name"),
+        # Skip extraction from questions - they're asking, not telling
+        question_indicators = [
+            "do you", "can you", "what", "when", "where", "who", "why", "how",
+            "is it", "are you", "will you", "should", "could", "would",
+            "remember my", "know my", "recall"
         ]
+        if any(lowered.startswith(indicator) or f" {indicator}" in lowered for indicator in question_indicators):
+            logger.debug("Skipping fact extraction - detected question")
+            return
 
-        for pattern, category, key in name_patterns:
-            match = re.search(pattern, lowered)
-            if match:
-                name = match.group(1).strip().title()
+        # Extract name - improved patterns
+        # Pattern 1: "my name is X" or "my name's X"
+        match = re.search(r"my name(?:'s| is) (\w+(?:\s+\w+)?)", lowered)
+        if match:
+            name = match.group(1).strip().title()
+            # Validate it's actually a name (not a number, not too short)
+            if len(name) >= 2 and not name.isdigit():
                 try:
-                    self._memory_store.store_fact(category=category, key=key, value=name)
-                    logger.info("Extracted fact: %s.%s = '%s'", category, key, name)
-                except Exception as exc:
-                    logger.warning("Failed to store fact: %s", exc)
-                return  # Only extract one fact per turn
-
-        # Extract birthday
-        birthday_patterns = [
-            (r"my birthday is (.+?)(?:\.|$)", "birthday", "birthday"),
-            (r"i was born (?:on |in )?(.+?)(?:\.|$)", "birthday", "birthday"),
-            (r"born (?:on |in )?(.+?)(?:\.|$)", "birthday", "birthday"),
-        ]
-
-        for pattern, category, key in birthday_patterns:
-            match = re.search(pattern, lowered)
-            if match:
-                birthday = match.group(1).strip().title()
-                try:
-                    self._memory_store.store_fact(category=category, key=key, value=birthday)
-                    logger.info("Extracted fact: %s.%s = '%s'", category, key, birthday)
+                    self._memory_store.store_fact(category="name", key="name", value=name)
+                    logger.info("Extracted fact: name.name = '%s'", name)
                 except Exception as exc:
                     logger.warning("Failed to store fact: %s", exc)
                 return
 
-        # Extract likes
-        likes_patterns = [
-            (r"i (?:really |absolutely )?like (.+?)(?:\.|$)", "likes"),
-            (r"i love (.+?)(?:\.|$)", "likes"),
-            (r"i enjoy (.+?)(?:\.|$)", "likes"),
-            (r"my favorite (.+?) is (.+?)(?:\.|$)", "likes"),
-        ]
+        # Pattern 2: "call me X" or "you can call me X"
+        match = re.search(r"(?:you can |just )?call me (\w+)", lowered)
+        if match:
+            name = match.group(1).strip().title()
+            if len(name) >= 2 and not name.isdigit() and name.lower() not in ["back", "later", "tomorrow"]:
+                try:
+                    self._memory_store.store_fact(category="name", key="name", value=name)
+                    logger.info("Extracted fact: name.name = '%s'", name)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
 
-        for pattern_info in likes_patterns:
-            if isinstance(pattern_info, tuple) and len(pattern_info) == 2:
-                pattern, category = pattern_info
-                match = re.search(pattern, lowered)
-                if match:
-                    thing = match.group(1).strip()
-                    key = thing.split()[0] if thing else "general"  # First word as key
-                    try:
-                        self._memory_store.store_fact(category=category, key=key, value=thing)
-                        logger.info("Extracted fact: %s.%s = '%s'", category, key, thing)
-                    except Exception as exc:
-                        logger.warning("Failed to store fact: %s", exc)
-                    return
+        # Extract birthday - improved patterns
+        # Pattern 1: "my birthday is Month Day, Year" or "my birthday is Month Day"
+        match = re.search(r"my birthday(?:'s| is) ([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)", lowered)
+        if match:
+            birthday = match.group(1).strip().title()
+            try:
+                self._memory_store.store_fact(category="birthday", key="birthday", value=birthday)
+                logger.info("Extracted fact: birthday.birthday = '%s'", birthday)
+            except Exception as exc:
+                logger.warning("Failed to store fact: %s", exc)
+            return
+
+        # Pattern 2: "I was born in/on Month Day, Year" or "born in Year"
+        match = re.search(r"(?:i was )?born (?:on |in )?([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?|\d{4}|[a-z]+ \d{4})", lowered)
+        if match:
+            birthday = match.group(1).strip().title()
+            # Don't extract if it's a question word like "in?"
+            if not birthday.endswith("?") and len(birthday) >= 4:
+                try:
+                    self._memory_store.store_fact(category="birthday", key="birthday", value=birthday)
+                    logger.info("Extracted fact: birthday.birthday = '%s'", birthday)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Extract likes - improved patterns
+        # Pattern 1: "I like X" (but not "I like to")
+        match = re.search(r"i (?:really |absolutely )?like ([a-z]+(?:\s+[a-z]+)?)", lowered)
+        if match:
+            thing = match.group(1).strip()
+            # Filter out common false positives
+            if thing not in ["to", "that", "this", "it", "how", "when", "where"] and len(thing) >= 3:
+                key = thing.split()[0]
+                try:
+                    self._memory_store.store_fact(category="likes", key=key, value=thing)
+                    logger.info("Extracted fact: likes.%s = '%s'", key, thing)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Pattern 2: "I love X"
+        match = re.search(r"i love ([a-z]+(?:\s+[a-z]+)?)", lowered)
+        if match:
+            thing = match.group(1).strip()
+            if thing not in ["to", "that", "this", "it", "how", "when", "where"] and len(thing) >= 3:
+                key = thing.split()[0]
+                try:
+                    self._memory_store.store_fact(category="likes", key=key, value=thing)
+                    logger.info("Extracted fact: likes.%s = '%s'", key, thing)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Pattern 3: "I enjoy X"
+        match = re.search(r"i enjoy ([a-z]+(?:\s+[a-z]+)?)", lowered)
+        if match:
+            thing = match.group(1).strip()
+            if len(thing) >= 3:
+                key = thing.split()[0]
+                try:
+                    self._memory_store.store_fact(category="likes", key=key, value=thing)
+                    logger.info("Extracted fact: likes.%s = '%s'", key, thing)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
 
         # Extract dislikes
-        dislikes_patterns = [
-            (r"i (?:don't|do not|dont) like (.+?)(?:\.|$)", "dislikes"),
-            (r"i hate (.+?)(?:\.|$)", "dislikes"),
-            (r"i dislike (.+?)(?:\.|$)", "dislikes"),
-        ]
-
-        for pattern, category in dislikes_patterns:
-            match = re.search(pattern, lowered)
-            if match:
-                thing = match.group(1).strip()
-                key = thing.split()[0] if thing else "general"
+        # Pattern 1: "I don't like X"
+        match = re.search(r"i (?:don't|do not|dont) like ([a-z]+(?:\s+[a-z]+)?)", lowered)
+        if match:
+            thing = match.group(1).strip()
+            if thing not in ["to", "that", "this", "it", "how", "when", "where"] and len(thing) >= 3:
+                key = thing.split()[0]
                 try:
-                    self._memory_store.store_fact(category=category, key=key, value=thing)
-                    logger.info("Extracted fact: %s.%s = '%s'", category, key, thing)
+                    self._memory_store.store_fact(category="dislikes", key=key, value=thing)
+                    logger.info("Extracted fact: dislikes.%s = '%s'", key, thing)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Pattern 2: "I hate X"
+        match = re.search(r"i hate ([a-z]+(?:\s+[a-z]+)?)", lowered)
+        if match:
+            thing = match.group(1).strip()
+            if len(thing) >= 3:
+                key = thing.split()[0]
+                try:
+                    self._memory_store.store_fact(category="dislikes", key=key, value=thing)
+                    logger.info("Extracted fact: dislikes.%s = '%s'", key, thing)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Pattern 3: "I dislike X"
+        match = re.search(r"i dislike ([a-z]+(?:\s+[a-z]+)?)", lowered)
+        if match:
+            thing = match.group(1).strip()
+            if len(thing) >= 3:
+                key = thing.split()[0]
+                try:
+                    self._memory_store.store_fact(category="dislikes", key=key, value=thing)
+                    logger.info("Extracted fact: dislikes.%s = '%s'", key, thing)
                 except Exception as exc:
                     logger.warning("Failed to store fact: %s", exc)
                 return
