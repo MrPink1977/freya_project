@@ -1,42 +1,31 @@
-import pyaudio
+import sounddevice as sd
 import numpy as np
 import time
 
 CHUNK = 1024
-FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 16000
 SAMPLE_DURATION = 5  # seconds
 
-p = pyaudio.PyAudio()
-
 print("Opening microphone... will check levels every 5 seconds")
 print("Press Ctrl+C to stop\n")
-
-stream = p.open(
-    format=FORMAT,
-    channels=CHANNELS,
-    rate=RATE,
-    input=True,
-    frames_per_buffer=CHUNK
-)
 
 try:
     sample_count = 1
     while True:
         print(f"Sample #{sample_count} - Recording for {SAMPLE_DURATION} seconds... SPEAK NOW!")
         
-        frames = []
-        for i in range(0, int(RATE / CHUNK * SAMPLE_DURATION)):
-            try:
-                data = stream.read(CHUNK, exception_on_overflow=False)
-                frames.append(data)
-            except Exception as e:
-                print(f"Error reading audio: {e}")
-                continue
+        # Record audio using sounddevice
+        audio_data = sd.rec(
+            int(SAMPLE_DURATION * RATE),
+            samplerate=RATE,
+            channels=CHANNELS,
+            dtype='int16'
+        )
+        sd.wait()  # Wait until recording is finished
         
-        # Combine all frames
-        audio_data = np.frombuffer(b''.join(frames), dtype=np.int16)
+        # Flatten the audio data
+        audio_data = audio_data.flatten()
         
         # Calculate average and peak volume
         if len(audio_data) > 0:
@@ -65,8 +54,3 @@ try:
 
 except KeyboardInterrupt:
     print("\n\n✓ Stopped!")
-    
-finally:
-    stream.stop_stream()
-    stream.close()
-    p.terminate()

@@ -121,9 +121,9 @@ class SystemCheck:
             return False, f"piper-tts missing: {exc}"
 
         try:
-            import pyaudio  # noqa: F401  # pragma: no cover - import check only
+            import sounddevice  # noqa: F401  # pragma: no cover - import check only
         except ImportError as exc:  # pragma: no cover - optional dependency
-            return False, f"pyaudio missing: {exc}"
+            return False, f"sounddevice missing: {exc}"
 
         voice_file = Path(voice_path).expanduser()
         if not voice_file.exists():

@@ -26,12 +26,12 @@ else:  # pragma: no cover - passthrough
         AudioChunk = None  # type: ignore[assignment]
 
 try:  # pragma: no cover - exercised via runtime import availability
-    import pyaudio
+    import sounddevice as sd
 except ImportError as exc:  # pragma: no cover - depends on optional dep
-    pyaudio = None  # type: ignore[assignment]
-    _PYAUDIO_ERROR = exc
+    sd = None  # type: ignore[assignment]
+    _SOUNDDEVICE_ERROR = exc
 else:  # pragma: no cover - passthrough
-    _PYAUDIO_ERROR = None
+    _SOUNDDEVICE_ERROR = None
 
 try:  # pragma: no cover - optional helper for Piper array outputs
     import numpy as np
@@ -59,10 +59,10 @@ class TextToSpeech:
             raise TextToSpeechError(
                 "Text-to-speech dependency missing: piper-tts (pip install piper-tts)."
             ) from _PIPER_ERROR
-        if _PYAUDIO_ERROR is not None:
+        if _SOUNDDEVICE_ERROR is not None:
             raise TextToSpeechError(
-                "Audio playback dependency missing: pyaudio (pip install pyaudio)."
-            ) from _PYAUDIO_ERROR
+                "Audio playback dependency missing: sounddevice (pip install sounddevice)."
+            ) from _SOUNDDEVICE_ERROR
 
         voice_path = Path(config.voice_path).expanduser()
         if not voice_path.exists():
@@ -498,7 +498,7 @@ class TextToSpeech:
         return audio_bytes
 
     def _stream_pcm_chunks(self, chunks: Iterable[bytes]) -> None:
-        """Play PCM audio chunks using PyAudio as they are produced."""
+        """Play PCM audio chunks using SoundDevice as they are produced."""
         iterator = iter(chunks)
 
         first_chunk: bytes | None = None
@@ -514,31 +514,23 @@ class TextToSpeech:
             raise TextToSpeechError("PCM playback requires a known sample rate")
 
         try:
-            audio = pyaudio.PyAudio()
-            try:
-                stream = audio.open(
-                    format=pyaudio.paInt16,
-                    channels=1,
-                    rate=self._sample_rate,
-                    output=True,
-                )
-                try:
-                    self._write_stream_chunk(stream, first_chunk)
-                    for chunk in iterator:
-                        if not chunk:
-                            continue
-                        self._write_stream_chunk(stream, chunk)
-                finally:
-                    stream.stop_stream()
-                    stream.close()
-            finally:
-                audio.terminate()
+            # Open an output stream with SoundDevice
+            with sd.OutputStream(
+                samplerate=self._sample_rate,
+                channels=1,
+                dtype='int16',
+            ) as stream:
+                self._write_stream_chunk(stream, first_chunk)
+                for chunk in iterator:
+                    if not chunk:
+                        continue
+                    self._write_stream_chunk(stream, chunk)
         except Exception as exc:  # pragma: no cover - backend specific
             logger.exception("Failed to play PCM audio: %s", exc)
             raise TextToSpeechError("Failed to play PCM audio output") from exc
 
     def _write_stream_chunk(self, stream, data: bytes) -> None:
-        """Write a block of PCM data to the active PyAudio stream."""
+        """Write a block of PCM data to the active SoundDevice stream."""
         if not data:
             return
 
@@ -547,13 +539,18 @@ class TextToSpeech:
             logger.debug("Speech interrupted by stop signal")
             return
 
+        # Convert bytes to int16 numpy array for SoundDevice
+        audio_array = np.frombuffer(data, dtype=np.int16)
+        
         chunk_size = 2048
-        for start in range(0, len(data), chunk_size):
+        for start in range(0, len(audio_array), chunk_size):
             # Check stop signal between chunks for responsiveness
             if self._stop_speech.is_set():
                 logger.debug("Speech interrupted mid-chunk")
                 return
-            stream.write(data[start : start + chunk_size])
+            end = min(start + chunk_size, len(audio_array))
+            chunk = audio_array[start:end].reshape(-1, 1)
+            stream.write(chunk)
 
     def _normalise_audio_block(self, block: object) -> bytes:
         """Convert a Piper audio block into 16-bit PCM bytes."""
