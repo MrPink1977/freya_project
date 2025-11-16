@@ -361,6 +361,12 @@ class Orchestrator:
         logger.info("User input: %s", content)
         self._context.add_user_message(content)
 
+        # Extract and store any facts from user input
+        try:
+            self._extract_and_store_facts(content)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("Failed to extract facts: %s", exc)
+
         try:
             payload = self._prepare_messages(content)
             response, streamed, stream_tts_ok = self._obtain_assistant_response(payload)
@@ -819,15 +825,208 @@ class Orchestrator:
 
         return query
 
+    def _extract_and_store_facts(self, user_text: str) -> None:
+        """Extract and store structured facts from user input."""
+        if not self._memory_store:
+            return
+
+        lowered = user_text.lower().strip()
+
+        # Skip extraction from questions - they're asking, not telling
+        question_indicators = [
+            "do you", "can you", "what", "when", "where", "who", "why", "how",
+            "is it", "are you", "will you", "should", "could", "would",
+            "remember my", "know my", "recall"
+        ]
+        if any(lowered.startswith(indicator) or f" {indicator}" in lowered for indicator in question_indicators):
+            logger.debug("Skipping fact extraction - detected question")
+            return
+
+        # Extract name - improved patterns
+        # Pattern 1: "my name is X" or "my name's X"
+        match = re.search(r"my name(?:'s| is) (\w+(?:\s+\w+)?)", lowered)
+        if match:
+            name = match.group(1).strip().title()
+            # Validate it's actually a name (not a number, not too short)
+            if len(name) >= 2 and not name.isdigit():
+                try:
+                    self._memory_store.store_fact(category="name", key="name", value=name)
+                    logger.info("Extracted fact: name.name = '%s'", name)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Pattern 2: "call me X" or "you can call me X"
+        match = re.search(r"(?:you can |just )?call me (\w+)", lowered)
+        if match:
+            name = match.group(1).strip().title()
+            if len(name) >= 2 and not name.isdigit() and name.lower() not in ["back", "later", "tomorrow"]:
+                try:
+                    self._memory_store.store_fact(category="name", key="name", value=name)
+                    logger.info("Extracted fact: name.name = '%s'", name)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Extract birthday - improved patterns
+        # Pattern 1: "my birthday is Month Day, Year" or "my birthday is Month Day"
+        match = re.search(r"my birthday(?:'s| is) ([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)", lowered)
+        if match:
+            birthday = match.group(1).strip().title()
+            try:
+                self._memory_store.store_fact(category="birthday", key="birthday", value=birthday)
+                logger.info("Extracted fact: birthday.birthday = '%s'", birthday)
+            except Exception as exc:
+                logger.warning("Failed to store fact: %s", exc)
+            return
+
+        # Pattern 2: "I was born in/on Month Day, Year" or "born in Year"
+        match = re.search(r"(?:i was )?born (?:on |in )?([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?|\d{4}|[a-z]+ \d{4})", lowered)
+        if match:
+            birthday = match.group(1).strip().title()
+            # Don't extract if it's a question word like "in?"
+            if not birthday.endswith("?") and len(birthday) >= 4:
+                try:
+                    self._memory_store.store_fact(category="birthday", key="birthday", value=birthday)
+                    logger.info("Extracted fact: birthday.birthday = '%s'", birthday)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Extract likes - improved patterns
+        # Pattern 1: "I like X" (but not "I like to")
+        match = re.search(r"i (?:really |absolutely )?like ([a-z]+(?:\s+[a-z]+)?)", lowered)
+        if match:
+            thing = match.group(1).strip()
+            # Filter out common false positives
+            if thing not in ["to", "that", "this", "it", "how", "when", "where"] and len(thing) >= 3:
+                key = thing.split()[0]
+                try:
+                    self._memory_store.store_fact(category="likes", key=key, value=thing)
+                    logger.info("Extracted fact: likes.%s = '%s'", key, thing)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Pattern 2: "I love X"
+        match = re.search(r"i love ([a-z]+(?:\s+[a-z]+)?)", lowered)
+        if match:
+            thing = match.group(1).strip()
+            if thing not in ["to", "that", "this", "it", "how", "when", "where"] and len(thing) >= 3:
+                key = thing.split()[0]
+                try:
+                    self._memory_store.store_fact(category="likes", key=key, value=thing)
+                    logger.info("Extracted fact: likes.%s = '%s'", key, thing)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Pattern 3: "I enjoy X"
+        match = re.search(r"i enjoy ([a-z]+(?:\s+[a-z]+)?)", lowered)
+        if match:
+            thing = match.group(1).strip()
+            if len(thing) >= 3:
+                key = thing.split()[0]
+                try:
+                    self._memory_store.store_fact(category="likes", key=key, value=thing)
+                    logger.info("Extracted fact: likes.%s = '%s'", key, thing)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Extract dislikes
+        # Pattern 1: "I don't like X"
+        match = re.search(r"i (?:don't|do not|dont) like ([a-z]+(?:\s+[a-z]+)?)", lowered)
+        if match:
+            thing = match.group(1).strip()
+            if thing not in ["to", "that", "this", "it", "how", "when", "where"] and len(thing) >= 3:
+                key = thing.split()[0]
+                try:
+                    self._memory_store.store_fact(category="dislikes", key=key, value=thing)
+                    logger.info("Extracted fact: dislikes.%s = '%s'", key, thing)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Pattern 2: "I hate X"
+        match = re.search(r"i hate ([a-z]+(?:\s+[a-z]+)?)", lowered)
+        if match:
+            thing = match.group(1).strip()
+            if len(thing) >= 3:
+                key = thing.split()[0]
+                try:
+                    self._memory_store.store_fact(category="dislikes", key=key, value=thing)
+                    logger.info("Extracted fact: dislikes.%s = '%s'", key, thing)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Pattern 3: "I dislike X"
+        match = re.search(r"i dislike ([a-z]+(?:\s+[a-z]+)?)", lowered)
+        if match:
+            thing = match.group(1).strip()
+            if len(thing) >= 3:
+                key = thing.split()[0]
+                try:
+                    self._memory_store.store_fact(category="dislikes", key=key, value=thing)
+                    logger.info("Extracted fact: dislikes.%s = '%s'", key, thing)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+    def _retrieve_facts(self, query: str) -> Optional[str]:
+        """Check if query is asking for a fact and retrieve it."""
+        if not self._memory_store:
+            return None
+
+        lowered = query.lower()
+
+        # Check for name queries
+        if any(phrase in lowered for phrase in ["my name", "what's my name", "who am i", "do you know my name"]):
+            fact = self._memory_store.get_fact("name", "name")
+            if fact:
+                return f"FACT: Your name is {fact.value}."
+
+        # Check for birthday queries
+        if any(phrase in lowered for phrase in ["my birthday", "when was i born", "when am i born", "my birth"]):
+            fact = self._memory_store.get_fact("birthday", "birthday")
+            if fact:
+                return f"FACT: Your birthday is {fact.value}."
+
+        # Check for likes queries
+        if any(phrase in lowered for phrase in ["what do i like", "things i like", "my favorite", "do i like"]):
+            facts = self._memory_store.get_fact("likes")
+            if isinstance(facts, list) and facts:
+                likes_list = [f.value for f in facts[:3]]  # Top 3
+                return f"FACT: You like: {', '.join(likes_list)}."
+
+        # Check for dislikes queries
+        if any(phrase in lowered for phrase in ["what do i dislike", "what don't i like", "things i hate", "do i dislike"]):
+            facts = self._memory_store.get_fact("dislikes")
+            if isinstance(facts, list) and facts:
+                dislikes_list = [f.value for f in facts[:3]]
+                return f"FACT: You dislike: {', '.join(dislikes_list)}."
+
+        return None
+
     def _prepare_messages(self, user_text: str) -> List[dict]:
         base_messages = self._context.as_messages()
 
         # Check if web search is needed
         search_results = self._maybe_search_web(user_text)
 
-        # Retrieve relevant memories
-        memory_block: Optional[str] = None
+        # Check for structured facts first (instant lookup)
+        facts_block: Optional[str] = None
         if self._memory_store and self._memory_config:
+            try:
+                facts_block = self._retrieve_facts(user_text)
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.exception("Failed to retrieve facts: %s", exc)
+
+        # Retrieve relevant semantic memories
+        memory_block: Optional[str] = None
+        if self._memory_store and self._memory_config and not facts_block:
+            # Only do semantic search if facts didn't answer the question
             try:
                 matches = self._memory_store.find_similar_memories(
                     user_text,
@@ -840,14 +1039,17 @@ class Orchestrator:
             except Exception as exc:  # pragma: no cover - defensive logging
                 logger.exception("Failed to retrieve memories: %s", exc)
 
-        # Build enriched message list with search results and/or memories
-        if not search_results and not memory_block:
+        # Build enriched message list with search results, facts, and/or memories
+        if not search_results and not facts_block and not memory_block:
             return base_messages
 
         enriched_messages = [base_messages[0]]  # Start with system prompt
 
         if search_results:
             enriched_messages.append({"role": "system", "content": search_results})
+
+        if facts_block:
+            enriched_messages.append({"role": "system", "content": facts_block})
 
         if memory_block:
             enriched_messages.append({"role": "system", "content": memory_block})
