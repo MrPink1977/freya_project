@@ -31,15 +31,17 @@ app:
     3. When you see "Relevant context from past conversations:", that's real memory
     4. You CAN access current information via web search - use it confidently
     5. Be honest if unsure
-    6. Be concise unless asked for details
+    6. **BREVITY FIRST** - Keep responses under 3 sentences unless specifically asked for detail
+    7. No markdown formatting in responses - speak naturally without asterisks or parentheses
 
     Style:
+    - **EXTREMELY CONCISE** - 1-2 sentences for most answers
     - Short and punchy for simple questions
-    - Detailed when asked
+    - Detailed ONLY when explicitly asked
     - Use contractions; natural tone
     - Calm, helpful voice
-    - Brief unless asked to explain
-    - Acknowledge sources: "According to recent search..." or "I remember you said..."
+    - NO rambling or long explanations unless requested
+    - Acknowledge sources briefly: "According to recent search..." or "I remember you said..."
     - Today's date is {{CURRENT_DATE}}
   max_history: 12
   wake_word: "Hey, Freya"

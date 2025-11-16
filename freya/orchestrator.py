@@ -47,6 +47,44 @@ _BLUE = getattr(Fore, "BLUE", "")
 _GREEN = getattr(Fore, "GREEN", "")
 _RESET = getattr(Style, "RESET_ALL", "")
 
+
+def _strip_markdown_for_speech(text: str) -> str:
+    """Remove markdown formatting from text before TTS.
+
+    Removes:
+    - Bold/italic markers: **, *, _
+    - Code blocks: ```
+    - Inline code: `
+    - Links: [text](url) -> text
+    - Parenthetical asides in conversational text
+    """
+    if not text:
+        return text
+
+    # Remove code blocks first
+    cleaned = re.sub(r"```[\s\S]*?```", "", text)
+
+    # Remove inline code
+    cleaned = re.sub(r"`([^`]+)`", r"\1", cleaned)
+
+    # Remove bold/italic markers
+    cleaned = re.sub(r"\*\*([^*]+)\*\*", r"\1", cleaned)
+    cleaned = re.sub(r"\*([^*]+)\*", r"\1", cleaned)
+    cleaned = re.sub(r"__([^_]+)__", r"\1", cleaned)
+    cleaned = re.sub(r"_([^_]+)_", r"\1", cleaned)
+
+    # Remove markdown links [text](url) -> text
+    cleaned = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", cleaned)
+
+    # Remove extra parenthetical asides that sound awkward when spoken
+    # Only remove if they look like clarifications/metadata
+    cleaned = re.sub(r"\s*\([A-Z][^)]{0,30}\)\s*", " ", cleaned)
+
+    # Clean up multiple spaces
+    cleaned = re.sub(r"\s+", " ", cleaned)
+
+    return cleaned.strip()
+
 _DEFAULT_MEMORY_KEYWORDS: Sequence[str] = (
     "remember",
     "my name is",
@@ -119,6 +157,7 @@ class Orchestrator:
         self._current_mode = InteractionMode.from_string(interaction_mode)
         self._mode_toggle_hotkey = mode_toggle_hotkey.strip()
         self._hotkey_handle: Optional[int] = None
+        self._stop_speech_hotkey_handle: Optional[int] = None
         self._hotkey_available = keyboard is not None and bool(self._mode_toggle_hotkey)
         self._wake_detector = wake_detector
         normalized = wake_word.strip()
@@ -162,6 +201,7 @@ class Orchestrator:
 
     def run(self) -> None:
         self._register_mode_hotkey()
+        self._register_stop_speech_hotkey()
         try:
             self._announce_startup()
             while True:
@@ -176,6 +216,7 @@ class Orchestrator:
             self._output("\n[Interrupted] Shutting down Freya. Goodbye!")
         finally:
             self._unregister_mode_hotkey()
+            self._unregister_stop_speech_hotkey()
 
 
     def _announce_startup(self) -> None:
@@ -185,6 +226,7 @@ class Orchestrator:
             self._output(
                 f"Freya: Press {self._mode_toggle_hotkey} to toggle between voice and text modes at any time."
             )
+            self._output("Freya: Press SPACE to stop Freya from speaking.")
         elif self._mode_toggle_hotkey and keyboard is None:
             logger.warning(
                 "keyboard package not available; interaction mode hotkey '%s' is disabled",
@@ -209,7 +251,7 @@ class Orchestrator:
 
         if speak and mode is InteractionMode.VOICE:
             try:
-                self._tts.speak(self._voice_ready_prompt)
+                self._tts.speak(_strip_markdown_for_speech(self._voice_ready_prompt))
             except TextToSpeechError:
                 self._output("[Warning] Unable to initialize speech output. Check logs.")
 
@@ -346,7 +388,7 @@ class Orchestrator:
         spoke_successfully = stream_tts_ok if streamed else False
         if not streamed:
             try:
-                self._tts.speak(response)
+                self._tts.speak(_strip_markdown_for_speech(response))
             except TextToSpeechError:
                 self._output("[Warning] Unable to speak the response. Check logs.")
             else:
@@ -385,7 +427,7 @@ class Orchestrator:
                     chunk_queue.task_done()
                     break
                 try:
-                    self._tts.speak(item)
+                    self._tts.speak(_strip_markdown_for_speech(item))
                 except TextToSpeechError as exc:
                     if tts_error is None:
                         tts_error = str(exc) or "tts-error"
@@ -485,7 +527,7 @@ class Orchestrator:
             goodbye_line = f"{_GREEN}{goodbye_line}{_RESET}"
         self._output(goodbye_line)
         try:
-            self._tts.speak(goodbye)
+            self._tts.speak(_strip_markdown_for_speech(goodbye))
         except TextToSpeechError:
             self._output("[Warning] Unable to speak the goodbye message.")
         return False
@@ -516,6 +558,33 @@ class Orchestrator:
             logger.debug("Failed to remove hotkey '%s': %s", self._mode_toggle_hotkey, exc)
         finally:
             self._hotkey_handle = None
+
+    def _register_stop_speech_hotkey(self) -> None:
+        """Register the space bar hotkey to stop speech playback."""
+        if keyboard is None:
+            return
+        try:
+            self._stop_speech_hotkey_handle = keyboard.add_hotkey("space", self._stop_speech)
+            logger.info("Registered stop speech hotkey: SPACE")
+        except Exception as exc:  # pragma: no cover - depends on OS hooks
+            logger.warning("Failed to register stop speech hotkey: %s", exc)
+            self._stop_speech_hotkey_handle = None
+
+    def _unregister_stop_speech_hotkey(self) -> None:
+        """Unregister the stop speech hotkey."""
+        if self._stop_speech_hotkey_handle is None or keyboard is None:
+            return
+        try:
+            keyboard.remove_hotkey(self._stop_speech_hotkey_handle)
+        except Exception as exc:  # pragma: no cover - depends on OS hooks
+            logger.debug("Failed to remove stop speech hotkey: %s", exc)
+        finally:
+            self._stop_speech_hotkey_handle = None
+
+    def _stop_speech(self) -> None:
+        """Stop current TTS playback."""
+        logger.info("Stop speech hotkey pressed")
+        self._tts.stop_speaking()
 
 
     def _get_mode(self) -> InteractionMode:
@@ -728,7 +797,22 @@ class Orchestrator:
                 # Get last 3-5 words as query
                 query = " ".join(words[-min(5, len(words)):])
 
-        # Final cleanup
+        # Final cleanup - remove trailing questions and phrases
+        query = query.strip()
+
+        # Remove common trailing questions/phrases that don't belong in search queries
+        trailing_patterns = [
+            r"\s+and tell me .*$",
+            r"\s+and let me know .*$",
+            r"\s+and find out .*$",
+            r"\s+and see .*$",
+            r"\s+please$",
+            r"\s+thanks?$",
+            r"\s+thank you$",
+        ]
+        for pattern in trailing_patterns:
+            query = re.sub(pattern, "", query, flags=re.IGNORECASE)
+
         query = query.strip()
         if not query or len(query) < 2:
             return None
