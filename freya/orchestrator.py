@@ -361,6 +361,12 @@ class Orchestrator:
         logger.info("User input: %s", content)
         self._context.add_user_message(content)
 
+        # Extract and store any facts from user input
+        try:
+            self._extract_and_store_facts(content)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("Failed to extract facts: %s", exc)
+
         try:
             payload = self._prepare_messages(content)
             response, streamed, stream_tts_ok = self._obtain_assistant_response(payload)
@@ -819,15 +825,144 @@ class Orchestrator:
 
         return query
 
+    def _extract_and_store_facts(self, user_text: str) -> None:
+        """Extract and store structured facts from user input."""
+        if not self._memory_store:
+            return
+
+        lowered = user_text.lower()
+
+        # Extract name
+        name_patterns = [
+            (r"my name is (\w+)", "name", "name"),
+            (r"call me (\w+)", "name", "name"),
+            (r"i'm (\w+)", "name", "name"),
+            (r"i am (\w+)", "name", "name"),
+        ]
+
+        for pattern, category, key in name_patterns:
+            match = re.search(pattern, lowered)
+            if match:
+                name = match.group(1).strip().title()
+                try:
+                    self._memory_store.store_fact(category=category, key=key, value=name)
+                    logger.info("Extracted fact: %s.%s = '%s'", category, key, name)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return  # Only extract one fact per turn
+
+        # Extract birthday
+        birthday_patterns = [
+            (r"my birthday is (.+?)(?:\.|$)", "birthday", "birthday"),
+            (r"i was born (?:on |in )?(.+?)(?:\.|$)", "birthday", "birthday"),
+            (r"born (?:on |in )?(.+?)(?:\.|$)", "birthday", "birthday"),
+        ]
+
+        for pattern, category, key in birthday_patterns:
+            match = re.search(pattern, lowered)
+            if match:
+                birthday = match.group(1).strip().title()
+                try:
+                    self._memory_store.store_fact(category=category, key=key, value=birthday)
+                    logger.info("Extracted fact: %s.%s = '%s'", category, key, birthday)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+        # Extract likes
+        likes_patterns = [
+            (r"i (?:really |absolutely )?like (.+?)(?:\.|$)", "likes"),
+            (r"i love (.+?)(?:\.|$)", "likes"),
+            (r"i enjoy (.+?)(?:\.|$)", "likes"),
+            (r"my favorite (.+?) is (.+?)(?:\.|$)", "likes"),
+        ]
+
+        for pattern_info in likes_patterns:
+            if isinstance(pattern_info, tuple) and len(pattern_info) == 2:
+                pattern, category = pattern_info
+                match = re.search(pattern, lowered)
+                if match:
+                    thing = match.group(1).strip()
+                    key = thing.split()[0] if thing else "general"  # First word as key
+                    try:
+                        self._memory_store.store_fact(category=category, key=key, value=thing)
+                        logger.info("Extracted fact: %s.%s = '%s'", category, key, thing)
+                    except Exception as exc:
+                        logger.warning("Failed to store fact: %s", exc)
+                    return
+
+        # Extract dislikes
+        dislikes_patterns = [
+            (r"i (?:don't|do not|dont) like (.+?)(?:\.|$)", "dislikes"),
+            (r"i hate (.+?)(?:\.|$)", "dislikes"),
+            (r"i dislike (.+?)(?:\.|$)", "dislikes"),
+        ]
+
+        for pattern, category in dislikes_patterns:
+            match = re.search(pattern, lowered)
+            if match:
+                thing = match.group(1).strip()
+                key = thing.split()[0] if thing else "general"
+                try:
+                    self._memory_store.store_fact(category=category, key=key, value=thing)
+                    logger.info("Extracted fact: %s.%s = '%s'", category, key, thing)
+                except Exception as exc:
+                    logger.warning("Failed to store fact: %s", exc)
+                return
+
+    def _retrieve_facts(self, query: str) -> Optional[str]:
+        """Check if query is asking for a fact and retrieve it."""
+        if not self._memory_store:
+            return None
+
+        lowered = query.lower()
+
+        # Check for name queries
+        if any(phrase in lowered for phrase in ["my name", "what's my name", "who am i", "do you know my name"]):
+            fact = self._memory_store.get_fact("name", "name")
+            if fact:
+                return f"FACT: Your name is {fact.value}."
+
+        # Check for birthday queries
+        if any(phrase in lowered for phrase in ["my birthday", "when was i born", "when am i born", "my birth"]):
+            fact = self._memory_store.get_fact("birthday", "birthday")
+            if fact:
+                return f"FACT: Your birthday is {fact.value}."
+
+        # Check for likes queries
+        if any(phrase in lowered for phrase in ["what do i like", "things i like", "my favorite", "do i like"]):
+            facts = self._memory_store.get_fact("likes")
+            if isinstance(facts, list) and facts:
+                likes_list = [f.value for f in facts[:3]]  # Top 3
+                return f"FACT: You like: {', '.join(likes_list)}."
+
+        # Check for dislikes queries
+        if any(phrase in lowered for phrase in ["what do i dislike", "what don't i like", "things i hate", "do i dislike"]):
+            facts = self._memory_store.get_fact("dislikes")
+            if isinstance(facts, list) and facts:
+                dislikes_list = [f.value for f in facts[:3]]
+                return f"FACT: You dislike: {', '.join(dislikes_list)}."
+
+        return None
+
     def _prepare_messages(self, user_text: str) -> List[dict]:
         base_messages = self._context.as_messages()
 
         # Check if web search is needed
         search_results = self._maybe_search_web(user_text)
 
-        # Retrieve relevant memories
-        memory_block: Optional[str] = None
+        # Check for structured facts first (instant lookup)
+        facts_block: Optional[str] = None
         if self._memory_store and self._memory_config:
+            try:
+                facts_block = self._retrieve_facts(user_text)
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.exception("Failed to retrieve facts: %s", exc)
+
+        # Retrieve relevant semantic memories
+        memory_block: Optional[str] = None
+        if self._memory_store and self._memory_config and not facts_block:
+            # Only do semantic search if facts didn't answer the question
             try:
                 matches = self._memory_store.find_similar_memories(
                     user_text,
@@ -840,14 +975,17 @@ class Orchestrator:
             except Exception as exc:  # pragma: no cover - defensive logging
                 logger.exception("Failed to retrieve memories: %s", exc)
 
-        # Build enriched message list with search results and/or memories
-        if not search_results and not memory_block:
+        # Build enriched message list with search results, facts, and/or memories
+        if not search_results and not facts_block and not memory_block:
             return base_messages
 
         enriched_messages = [base_messages[0]]  # Start with system prompt
 
         if search_results:
             enriched_messages.append({"role": "system", "content": search_results})
+
+        if facts_block:
+            enriched_messages.append({"role": "system", "content": facts_block})
 
         if memory_block:
             enriched_messages.append({"role": "system", "content": memory_block})

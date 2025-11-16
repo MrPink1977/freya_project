@@ -35,6 +35,19 @@ class MemoryRecord:
     score: float
 
 
+@dataclass
+class Fact:
+    """Structured fact about the user."""
+
+    id: int
+    category: str  # 'name', 'birthday', 'likes', 'dislikes', 'preference', 'custom'
+    key: str
+    value: str
+    confidence: float
+    created_at: datetime
+    updated_at: datetime
+
+
 class PersistentMemoryStore:
     """SQLite-backed semantic memory store with lightweight retrieval.
 
@@ -343,8 +356,176 @@ class PersistentMemoryStore:
             self._conn.commit()
             logger.debug("Pruned %s old memory entries", to_remove)
 
+    def store_fact(
+        self,
+        *,
+        category: str,
+        key: str,
+        value: str,
+        confidence: float = 1.0,
+    ) -> int:
+        """Store or update a structured fact about the user.
+
+        Args:
+            category: Type of fact ('name', 'birthday', 'likes', 'dislikes', 'preference', 'custom')
+            key: Specific identifier for this fact ('name', 'coffee', 'color', etc.)
+            value: The actual value
+            confidence: How confident we are in this fact (0.0-1.0)
+
+        Returns:
+            The fact ID
+        """
+        category = (category or "").strip().lower()
+        key = (key or "").strip().lower()
+        value = (value or "").strip()
+
+        if not category or not key or not value:
+            raise ValueError("category, key, and value must all be non-empty")
+
+        confidence = max(0.0, min(1.0, float(confidence)))
+        now = datetime.now(timezone.utc).isoformat()
+
+        with self._lock:
+            # Check if fact already exists
+            cursor = self._conn.execute(
+                "SELECT id FROM facts WHERE category = ? AND key = ?",
+                (category, key),
+            )
+            existing = cursor.fetchone()
+
+            if existing:
+                # Update existing fact
+                self._conn.execute(
+                    """
+                    UPDATE facts
+                    SET value = ?, confidence = ?, updated_at = ?
+                    WHERE category = ? AND key = ?
+                    """,
+                    (value, confidence, now, category, key),
+                )
+                fact_id = int(existing[0])
+                logger.debug("Updated fact %s: %s.%s = '%s'", fact_id, category, key, value)
+            else:
+                # Insert new fact
+                cursor = self._conn.execute(
+                    """
+                    INSERT INTO facts (category, key, value, confidence, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (category, key, value, confidence, now, now),
+                )
+                fact_id = int(cursor.lastrowid)
+                logger.debug("Stored new fact %s: %s.%s = '%s'", fact_id, category, key, value)
+
+            self._conn.commit()
+            return fact_id
+
+    def get_fact(self, category: str, key: Optional[str] = None) -> Optional[Fact] | List[Fact]:
+        """Retrieve a fact or facts by category and optional key.
+
+        Args:
+            category: The fact category to search
+            key: Optional specific key within that category
+
+        Returns:
+            Single Fact if key provided, List[Fact] if only category, None if not found
+        """
+        category = (category or "").strip().lower()
+        if not category:
+            return None if key is not None else []
+
+        with self._lock:
+            if key is not None:
+                # Get specific fact
+                key = key.strip().lower()
+                cursor = self._conn.execute(
+                    """
+                    SELECT id, category, key, value, confidence, created_at, updated_at
+                    FROM facts
+                    WHERE category = ? AND key = ?
+                    """,
+                    (category, key),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return None
+
+                return Fact(
+                    id=int(row["id"]),
+                    category=row["category"],
+                    key=row["key"],
+                    value=row["value"],
+                    confidence=float(row["confidence"]),
+                    created_at=self._parse_timestamp(row["created_at"]),
+                    updated_at=self._parse_timestamp(row["updated_at"]),
+                )
+            else:
+                # Get all facts in category
+                cursor = self._conn.execute(
+                    """
+                    SELECT id, category, key, value, confidence, created_at, updated_at
+                    FROM facts
+                    WHERE category = ?
+                    ORDER BY updated_at DESC
+                    """,
+                    (category,),
+                )
+                facts = []
+                for row in cursor:
+                    facts.append(
+                        Fact(
+                            id=int(row["id"]),
+                            category=row["category"],
+                            key=row["key"],
+                            value=row["value"],
+                            confidence=float(row["confidence"]),
+                            created_at=self._parse_timestamp(row["created_at"]),
+                            updated_at=self._parse_timestamp(row["updated_at"]),
+                        )
+                    )
+                return facts
+
+    def search_facts(self, query: str) -> List[Fact]:
+        """Search for facts whose values match the query.
+
+        Args:
+            query: Text to search for in fact values
+
+        Returns:
+            List of matching facts
+        """
+        query = (query or "").strip().lower()
+        if not query:
+            return []
+
+        with self._lock:
+            cursor = self._conn.execute(
+                """
+                SELECT id, category, key, value, confidence, created_at, updated_at
+                FROM facts
+                WHERE LOWER(value) LIKE ?
+                ORDER BY confidence DESC, updated_at DESC
+                """,
+                (f"%{query}%",),
+            )
+            facts = []
+            for row in cursor:
+                facts.append(
+                    Fact(
+                        id=int(row["id"]),
+                        category=row["category"],
+                        key=row["key"],
+                        value=row["value"],
+                        confidence=float(row["confidence"]),
+                        created_at=self._parse_timestamp(row["created_at"]),
+                        updated_at=self._parse_timestamp(row["updated_at"]),
+                    )
+                )
+            return facts
+
     def _initialise_schema(self) -> None:
         with self._lock:
+            # Memories table - semantic memory storage
             self._conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS memories (
@@ -371,6 +552,35 @@ class PersistentMemoryStore:
                 ON memories (importance DESC)
                 """
             )
+
+            # Facts table - structured user facts for instant lookup
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS facts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    category TEXT NOT NULL,
+                    key TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    confidence REAL DEFAULT 1.0,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(category, key)
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_facts_category
+                ON facts (category)
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_facts_key
+                ON facts (key)
+                """
+            )
+
             self._conn.commit()
 
     @staticmethod
@@ -407,4 +617,4 @@ class PersistentMemoryStore:
         return max(0.0, 0.1 * (1 - hours / 168))
 
 
-__all__ = ["MemoryRecord", "PersistentMemoryStore"]
+__all__ = ["MemoryRecord", "Fact", "PersistentMemoryStore"]
