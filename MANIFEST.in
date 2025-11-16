@@ -1,0 +1,29 @@
+# Include documentation files
+include README.md
+include LICENSE
+
+# Include configuration templates
+recursive-include config *.yaml *.yml *.json *.txt
+
+# Include data files (if any)
+recursive-include data *.txt *.json
+
+# Exclude unwanted files
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
+global-exclude *.swp
+global-exclude *.swo
+
+# Exclude test files from distribution
+prune tests
+prune docs
+
+# Exclude voice model files (large files)
+prune voices
+
+# Exclude virtual environments
+prune freya_env
+prune env
+prune .venv
+prune venv
