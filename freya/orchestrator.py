@@ -637,20 +637,8 @@ class Orchestrator:
         if not needs_search:
             return None
 
-        # Extract search query (use the full user text as query for now)
-        # Could be made smarter by removing trigger words
-        search_query = user_text.strip()
-
-        # Remove common trigger phrases to clean up the query
-        for trigger in _WEB_SEARCH_TRIGGERS:
-            if lowered.startswith(trigger):
-                # Remove the trigger from the start
-                search_query = user_text[len(trigger):].strip()
-                # Remove leading "for", "about", etc.
-                for filler in ["for", "about", "on"]:
-                    if search_query.lower().startswith(filler + " "):
-                        search_query = search_query[len(filler) + 1:].strip()
-                break
+        # Smart query extraction - extract meaningful search terms
+        search_query = self._extract_search_query(user_text, lowered)
 
         if not search_query:
             return None
@@ -661,7 +649,7 @@ class Orchestrator:
             results = search_web(search_query, max_results=3)
 
             if results and "No search results" not in results:
-                formatted = f"Current web search results for '{search_query}':\n{results}\n\nUse this information to answer the user's question."
+                formatted = f"WEB SEARCH RESULTS for '{search_query}':\n{results}\n\nYou have web search capability. Use the above current information to answer the user's question accurately."
                 logger.debug("Web search successful, %d chars returned", len(results))
                 return formatted
 
@@ -672,6 +660,80 @@ class Orchestrator:
             logger.exception("Unexpected web search error: %s", exc)
 
         return None
+
+    def _extract_search_query(self, user_text: str, lowered: str) -> Optional[str]:
+        """Extract the actual search query from user input.
+
+        Handles conversational input like:
+        - "search for Python tutorials"
+        - "I want to hear the news from today, search the internet"
+        - "what is machine learning"
+        """
+        # Remove common conversational filler at start
+        conversational_prefixes = [
+            "no, ", "yes, ", "ok, ", "okay, ", "sure, ", "alright, ",
+            "i want to ", "i'd like to ", "i need to ", "can you ",
+            "could you ", "please ", "will you "
+        ]
+
+        cleaned = lowered
+        for prefix in conversational_prefixes:
+            if cleaned.startswith(prefix):
+                cleaned = cleaned[len(prefix):].strip()
+
+        # Find which trigger was used and its position
+        trigger_found = None
+        trigger_pos = -1
+        for trigger in _WEB_SEARCH_TRIGGERS:
+            pos = cleaned.find(trigger)
+            if pos >= 0:
+                trigger_found = trigger
+                trigger_pos = pos
+                break
+
+        if not trigger_found:
+            return None
+
+        # Extract query based on trigger position
+        if trigger_pos == 0:
+            # Trigger at start: "search for X" or "what is X"
+            query = cleaned[len(trigger_found):].strip()
+            # Remove common connecting words
+            for connector in ["for", "about", "on", "the", "a", "an"]:
+                if query.startswith(connector + " "):
+                    query = query[len(connector) + 1:].strip()
+        else:
+            # Trigger in middle/end: "hear the news from today, search the internet"
+            # Extract the topic before the trigger
+            before_trigger = cleaned[:trigger_pos].strip()
+
+            # Remove trailing punctuation and connectors
+            before_trigger = before_trigger.rstrip(",.!?;:")
+
+            # Extract key phrases
+            if "news" in before_trigger:
+                # Extract news-related query
+                if "from today" in before_trigger or "today's" in before_trigger:
+                    query = "today's news"
+                elif "from yesterday" in before_trigger or "yesterday's" in before_trigger:
+                    query = "yesterday's news"
+                else:
+                    query = "news"
+            elif "weather" in before_trigger:
+                query = "weather"
+                # Could add location extraction here
+            else:
+                # Use last meaningful phrase before trigger
+                words = before_trigger.split()
+                # Get last 3-5 words as query
+                query = " ".join(words[-min(5, len(words)):])
+
+        # Final cleanup
+        query = query.strip()
+        if not query or len(query) < 2:
+            return None
+
+        return query
 
     def _prepare_messages(self, user_text: str) -> List[dict]:
         base_messages = self._context.as_messages()
