@@ -85,6 +85,7 @@ def _strip_markdown_for_speech(text: str) -> str:
 
     return cleaned.strip()
 
+
 _DEFAULT_MEMORY_KEYWORDS: Sequence[str] = (
     "remember",
     "my name is",
@@ -171,9 +172,7 @@ class Orchestrator:
         base = normalized.lower()
         punctless = base.translate(str.maketrans("", "", string.punctuation))
         variants = {base, punctless, " ".join(punctless.split())}
-        self._wake_word_variants = [
-            variant for variant in sorted(variants, key=len, reverse=True) if variant
-        ]
+        self._wake_word_variants = [variant for variant in sorted(variants, key=len, reverse=True) if variant]
         if not self._wake_word_variants:
             raise ValueError("wake_word must contain alphanumeric characters")
         self._wake_word_token_variants: List[Sequence[str]] = [
@@ -218,21 +217,17 @@ class Orchestrator:
             self._unregister_mode_hotkey()
             self._unregister_stop_speech_hotkey()
 
-
     def _announce_startup(self) -> None:
         speak = self._get_mode() is InteractionMode.VOICE
         self._announce_mode(speak=speak)
         if self._hotkey_available:
-            self._output(
-                f"Freya: Press {self._mode_toggle_hotkey} to toggle between voice and text modes at any time."
-            )
+            self._output(f"Freya: Press {self._mode_toggle_hotkey} to toggle between voice and text modes at any time.")
             self._output("Freya: Press SPACE to stop Freya from speaking.")
         elif self._mode_toggle_hotkey and keyboard is None:
             logger.warning(
                 "keyboard package not available; interaction mode hotkey '%s' is disabled",
                 self._mode_toggle_hotkey,
             )
-
 
     def _announce_mode(self, speak: bool = False) -> None:
         mode = self._get_mode()
@@ -254,7 +249,6 @@ class Orchestrator:
                 self._tts.speak(_strip_markdown_for_speech(self._voice_ready_prompt))
             except TextToSpeechError:
                 self._output("[Warning] Unable to initialize speech output. Check logs.")
-
 
     def _voice_cycle(self) -> bool:
         while True:
@@ -329,7 +323,6 @@ class Orchestrator:
             self._handle_user_content(content)
             continue
 
-
     def _text_cycle(self) -> bool:
         while True:
             if self._get_mode() is not InteractionMode.TEXT:
@@ -351,7 +344,6 @@ class Orchestrator:
 
             self._handle_user_content(message)
             continue
-
 
     def _handle_user_content(self, content: str) -> None:
         user_line = f"You said: {content}"
@@ -391,22 +383,17 @@ class Orchestrator:
         if _GREEN:
             assistant_line = f"{_GREEN}{assistant_line}{_RESET}"
         self._output(assistant_line)
-        spoke_successfully = stream_tts_ok if streamed else False
         if not streamed:
             try:
                 self._tts.speak(_strip_markdown_for_speech(response))
             except TextToSpeechError:
                 self._output("[Warning] Unable to speak the response. Check logs.")
-            else:
-                spoke_successfully = True
 
         if self._session_window > 0 and self._get_mode() is InteractionMode.VOICE:
             # Extend session window after assistant response to allow follow-up questions
             self._session_active_until = time.monotonic() + self._session_window
 
-    def _obtain_assistant_response(
-        self, messages: list[dict]
-    ) -> tuple[str, bool, bool]:
+    def _obtain_assistant_response(self, messages: list[dict]) -> tuple[str, bool, bool]:
         """Return the assistant reply and whether streaming was used."""
 
         try:
@@ -466,9 +453,7 @@ class Orchestrator:
 
         return "".join(collected).strip(), tts_error is None
 
-    def _partition_speakable(
-        self, buffer: str, *, force: bool = False
-    ) -> tuple[list[str], str]:
+    def _partition_speakable(self, buffer: str, *, force: bool = False) -> tuple[list[str], str]:
         """Split accumulated text into speakable chunks."""
 
         pieces: list[str] = []
@@ -525,7 +510,6 @@ class Orchestrator:
             split_idx += 1
         return split_idx
 
-
     def _handle_exit(self) -> bool:
         goodbye = "Goodbye!"
         goodbye_line = goodbye
@@ -537,7 +521,6 @@ class Orchestrator:
         except TextToSpeechError:
             self._output("[Warning] Unable to speak the goodbye message.")
         return False
-
 
     def _register_mode_hotkey(self) -> None:
         if not self._hotkey_available or keyboard is None:
@@ -553,7 +536,6 @@ class Orchestrator:
             )
             self._hotkey_handle = None
             self._hotkey_available = False
-
 
     def _unregister_mode_hotkey(self) -> None:
         if self._hotkey_handle is None or keyboard is None:
@@ -592,18 +574,15 @@ class Orchestrator:
         logger.info("Stop speech hotkey pressed")
         self._tts.stop_speaking()
 
-
     def _get_mode(self) -> InteractionMode:
         with self._mode_lock:
             return self._current_mode
-
 
     def _set_mode(self, mode: InteractionMode) -> None:
         with self._mode_lock:
             self._current_mode = mode
             if mode is not InteractionMode.VOICE:
                 self._session_active_until = 0.0
-
 
     def _toggle_mode(self) -> None:
         current = self._get_mode()
@@ -637,8 +616,7 @@ class Orchestrator:
                 candidate = tokens[offset : offset + required]
                 normalized = [match.group().lower() for match in candidate]
                 scores = [
-                    SequenceMatcher(None, cand, variant_tokens[idx]).ratio()
-                    for idx, cand in enumerate(normalized)
+                    SequenceMatcher(None, cand, variant_tokens[idx]).ratio() for idx, cand in enumerate(normalized)
                 ]
                 average = sum(scores) / required if required else 0.0
                 if average >= self._wake_sensitivity:
@@ -655,10 +633,7 @@ class Orchestrator:
             return False, ""
 
         announced = False
-        while (
-            self._get_mode() is InteractionMode.VOICE
-            and time.monotonic() >= self._session_active_until
-        ):
+        while self._get_mode() is InteractionMode.VOICE and time.monotonic() >= self._session_active_until:
             if not announced:
                 self._output(f"Waiting for '{self._wake_word_display}'...")
                 announced = True
@@ -666,9 +641,7 @@ class Orchestrator:
                 transcript = detector.listen_once()
             except WakeWordDetectorError as exc:
                 logger.warning("Wake detector disabled after error: %s", exc)
-                self._output(
-                    "[Warning] Wake detector unavailable; falling back to full transcription."
-                )
+                self._output("[Warning] Wake detector unavailable; falling back to full transcription.")
                 self._wake_detector = None
                 return False, ""
 
@@ -685,10 +658,7 @@ class Orchestrator:
 
         return False, ""
 
-
-    def _initialise_memory_keywords(
-        self, memory_config: Optional[LongTermMemoryConfig]
-    ) -> Sequence[str]:
+    def _initialise_memory_keywords(self, memory_config: Optional[LongTermMemoryConfig]) -> Sequence[str]:
         if not memory_config or not memory_config.enabled:
             return ()
         configured = tuple(keyword for keyword in memory_config.auto_store_keywords if keyword)
@@ -724,7 +694,11 @@ class Orchestrator:
             results = search_web(search_query, max_results=3)
 
             if results and "No search results" not in results:
-                formatted = f"WEB SEARCH RESULTS for '{search_query}':\n{results}\n\nYou have web search capability. Use the above current information to answer the user's question accurately."
+                formatted = (
+                    f"WEB SEARCH RESULTS for '{search_query}':\n{results}\n\n"
+                    "You have web search capability. Use the above current information "
+                    "to answer the user's question accurately."
+                )
                 logger.debug("Web search successful, %d chars returned", len(results))
                 return formatted
 
@@ -746,15 +720,25 @@ class Orchestrator:
         """
         # Remove common conversational filler at start
         conversational_prefixes = [
-            "no, ", "yes, ", "ok, ", "okay, ", "sure, ", "alright, ",
-            "i want to ", "i'd like to ", "i need to ", "can you ",
-            "could you ", "please ", "will you "
+            "no, ",
+            "yes, ",
+            "ok, ",
+            "okay, ",
+            "sure, ",
+            "alright, ",
+            "i want to ",
+            "i'd like to ",
+            "i need to ",
+            "can you ",
+            "could you ",
+            "please ",
+            "will you ",
         ]
 
         cleaned = lowered
         for prefix in conversational_prefixes:
             if cleaned.startswith(prefix):
-                cleaned = cleaned[len(prefix):].strip()
+                cleaned = cleaned[len(prefix) :].strip()
 
         # Find which trigger was used and its position
         trigger_found = None
@@ -772,11 +756,11 @@ class Orchestrator:
         # Extract query based on trigger position
         if trigger_pos == 0:
             # Trigger at start: "search for X" or "what is X"
-            query = cleaned[len(trigger_found):].strip()
+            query = cleaned[len(trigger_found) :].strip()
             # Remove common connecting words
             for connector in ["for", "about", "on", "the", "a", "an"]:
                 if query.startswith(connector + " "):
-                    query = query[len(connector) + 1:].strip()
+                    query = query[len(connector) + 1 :].strip()
         else:
             # Trigger in middle/end: "hear the news from today, search the internet"
             # Extract the topic before the trigger
@@ -801,7 +785,7 @@ class Orchestrator:
                 # Use last meaningful phrase before trigger
                 words = before_trigger.split()
                 # Get last 3-5 words as query
-                query = " ".join(words[-min(5, len(words)):])
+                query = " ".join(words[-min(5, len(words)) :])
 
         # Final cleanup - remove trailing questions and phrases
         query = query.strip()
@@ -834,9 +818,23 @@ class Orchestrator:
 
         # Skip extraction from questions - they're asking, not telling
         question_indicators = [
-            "do you", "can you", "what", "when", "where", "who", "why", "how",
-            "is it", "are you", "will you", "should", "could", "would",
-            "remember my", "know my", "recall"
+            "do you",
+            "can you",
+            "what",
+            "when",
+            "where",
+            "who",
+            "why",
+            "how",
+            "is it",
+            "are you",
+            "will you",
+            "should",
+            "could",
+            "would",
+            "remember my",
+            "know my",
+            "recall",
         ]
         if any(lowered.startswith(indicator) or f" {indicator}" in lowered for indicator in question_indicators):
             logger.debug("Skipping fact extraction - detected question")
@@ -881,7 +879,9 @@ class Orchestrator:
             return
 
         # Pattern 2: "I was born in/on Month Day, Year" or "born in Year"
-        match = re.search(r"(?:i was )?born (?:on |in )?([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?|\d{4}|[a-z]+ \d{4})", lowered)
+        match = re.search(
+            r"(?:i was )?born (?:on |in )?([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?|\d{4}|[a-z]+ \d{4})", lowered
+        )
         if match:
             birthday = match.group(1).strip().title()
             # Don't extract if it's a question word like "in?"
@@ -1001,7 +1001,9 @@ class Orchestrator:
                 return f"FACT: You like: {', '.join(likes_list)}."
 
         # Check for dislikes queries
-        if any(phrase in lowered for phrase in ["what do i dislike", "what don't i like", "things i hate", "do i dislike"]):
+        if any(
+            phrase in lowered for phrase in ["what do i dislike", "what don't i like", "things i hate", "do i dislike"]
+        ):
             facts = self._memory_store.get_fact("dislikes")
             if isinstance(facts, list) and facts:
                 dislikes_list = [f.value for f in facts[:3]]

@@ -60,9 +60,7 @@ class WakeWordDetector:
         if _WHISPER_ERROR is not None:
             missing.append(f"faster-whisper ({_WHISPER_ERROR})")
         if missing:
-            raise WakeWordDetectorError(
-                "Wake word detector dependencies missing: " + ", ".join(missing)
-            )
+            raise WakeWordDetectorError("Wake word detector dependencies missing: " + ", ".join(missing))
 
     def _load_model(self, config: WakeDetectorConfig) -> Tuple["WhisperModel", str]:
         if WhisperModel is None:  # pragma: no cover - handled via dependency check

@@ -1,4 +1,5 @@
 """Expose main module functions for testing."""
+
 import sys
 from pathlib import Path
 

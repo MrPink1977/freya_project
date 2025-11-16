@@ -29,8 +29,7 @@ def _validate_range(
     prefix = f"{section}." if section else ""
     if not (min_val <= value <= max_val):
         raise ConfigValidationError(
-            f"Configuration error: {prefix}{field_name} must be between {min_val} and {max_val}, "
-            f"got {value}"
+            f"Configuration error: {prefix}{field_name} must be between {min_val} and {max_val}, " f"got {value}"
         )
 
 
@@ -38,30 +37,23 @@ def _validate_positive(value: float, field_name: str, section: str = "") -> None
     """Validate that a numeric value is positive."""
     prefix = f"{section}." if section else ""
     if value <= 0:
-        raise ConfigValidationError(
-            f"Configuration error: {prefix}{field_name} must be positive, got {value}"
-        )
+        raise ConfigValidationError(f"Configuration error: {prefix}{field_name} must be positive, got {value}")
 
 
 def _validate_non_empty(value: str, field_name: str, section: str = "") -> None:
     """Validate that a string value is not empty."""
     prefix = f"{section}." if section else ""
     if not value or not value.strip():
-        raise ConfigValidationError(
-            f"Configuration error: {prefix}{field_name} cannot be empty"
-        )
+        raise ConfigValidationError(f"Configuration error: {prefix}{field_name} cannot be empty")
 
 
-def _validate_choice(
-    value: str, choices: Sequence[str], field_name: str, section: str = ""
-) -> None:
+def _validate_choice(value: str, choices: Sequence[str], field_name: str, section: str = "") -> None:
     """Validate that a value is one of the allowed choices."""
     prefix = f"{section}." if section else ""
     if value not in choices:
         choices_str = ", ".join(f"'{c}'" for c in choices)
         raise ConfigValidationError(
-            f"Configuration error: {prefix}{field_name} must be one of {choices_str}, "
-            f"got '{value}'"
+            f"Configuration error: {prefix}{field_name} must be one of {choices_str}, " f"got '{value}'"
         )
 
 
@@ -270,16 +262,12 @@ def load_settings(path: Optional[Path] = None) -> Settings:
     # Validate app configuration
     startup_mode_raw = str(app_raw.get("startup_mode", "normal")).strip().lower()
     if startup_mode_raw not in {"normal", "diagnostic"}:
-        logger.warning(
-            "Invalid startup_mode '%s', defaulting to 'normal'", startup_mode_raw
-        )
+        logger.warning("Invalid startup_mode '%s', defaulting to 'normal'", startup_mode_raw)
         startup_mode_raw = "normal"
 
     interaction_mode_raw = str(app_raw.get("interaction_mode", "voice")).strip().lower()
     if interaction_mode_raw not in {"voice", "text"}:
-        logger.warning(
-            "Invalid interaction_mode '%s', defaulting to 'voice'", interaction_mode_raw
-        )
+        logger.warning("Invalid interaction_mode '%s', defaulting to 'voice'", interaction_mode_raw)
         interaction_mode_raw = "voice"
 
     toggle_hotkey = str(app_raw.get("mode_toggle_hotkey", "ctrl+t")).strip()
@@ -295,9 +283,7 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         )
 
     app_config = AppConfig(
-        system_prompt=app_raw.get(
-            "system_prompt", "You are Freya, a helpful local AI assistant."
-        ),
+        system_prompt=app_raw.get("system_prompt", "You are Freya, a helpful local AI assistant."),
         max_history=memory_config.short_term.max_history,
         wake_word=wake_word,
         wake_word_sensitivity=wake_sensitivity,
@@ -364,9 +350,7 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         encoding_model=str(face_raw.get("encoding_model", "small")),
         tolerance=float(face_raw.get("tolerance", 0.5)),
         camera_channel=camera_channel,
-        min_recognition_interval=float(
-            face_raw.get("min_recognition_interval", 5.0)
-        ),
+        min_recognition_interval=float(face_raw.get("min_recognition_interval", 5.0)),
     )
     vision_config = VisionConfig(facial_recognition=face_config)
     voice_path = tts_raw.get("voice_path", "voices/en_GB-southern_english_female-low.onnx")
@@ -379,9 +363,7 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         preload_iterable = ()
 
     preload_phrases: Tuple[str, ...] = tuple(
-        str(phrase).strip()
-        for phrase in preload_iterable
-        if isinstance(phrase, (str, bytes)) and str(phrase).strip()
+        str(phrase).strip() for phrase in preload_iterable if isinstance(phrase, (str, bytes)) and str(phrase).strip()
     )
 
     tts_config = TextToSpeechConfig(

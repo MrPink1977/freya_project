@@ -69,9 +69,7 @@ class SpeechToText:
         """Return the device faster-whisper is currently using."""
         return self._active_device
 
-    def _load_whisper_model(
-        self, config: SpeechToTextConfig
-    ) -> tuple["WhisperModel", str]:
+    def _load_whisper_model(self, config: SpeechToTextConfig) -> tuple["WhisperModel", str]:
         """Load faster-whisper on the requested device, falling back to CPU if needed."""
         if WhisperModel is None:  # pragma: no cover - handled in _ensure_dependencies
             raise SpeechToTextError("faster-whisper is not available")
@@ -104,9 +102,7 @@ class SpeechToText:
             compute_type = "int8_float16" if device.startswith("cuda") else "int8"
 
             try:
-                logger.info(
-                    "Loading faster-whisper model '%s' on device '%s'", config.model, device
-                )
+                logger.info("Loading faster-whisper model '%s' on device '%s'", config.model, device)
                 model = WhisperModel(
                     config.model,
                     device=device,
@@ -114,9 +110,7 @@ class SpeechToText:
                 )
             except Exception as exc:  # pragma: no cover - depends on runtime
                 last_error = exc
-                logger.warning(
-                    "Failed to load faster-whisper model on device '%s': %s", device, exc
-                )
+                logger.warning("Failed to load faster-whisper model on device '%s': %s", device, exc)
                 continue
 
             if requested not in {"", "auto", device}:
@@ -171,10 +165,9 @@ class SpeechToText:
             return
         samplerate = self._config.sample_rate
         t = np.linspace(0, duration, int(samplerate * duration), False)
-        tone = (
-            self._config.prompt_tone_volume
-            * np.sin(2 * np.pi * self._config.prompt_tone_frequency * t)
-        ).astype(np.float32)
+        tone = (self._config.prompt_tone_volume * np.sin(2 * np.pi * self._config.prompt_tone_frequency * t)).astype(
+            np.float32
+        )
         logger.debug("Playing prompt tone for %.2f seconds", duration)
         try:
             sd.play(tone, samplerate)
@@ -237,9 +230,7 @@ class SpeechToText:
         silence_duration = self._config.silence_duration
         max_duration = self._config.max_record_seconds
 
-        logger.debug(
-            "Recording with sample rate %s, silence threshold %s", samplerate, silence_threshold
-        )
+        logger.debug("Recording with sample rate %s, silence threshold %s", samplerate, silence_threshold)
 
         def _callback(indata: np.ndarray, frames: int, time_info, status) -> None:
             if status:

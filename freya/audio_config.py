@@ -94,9 +94,7 @@ def load_channel_configs(config_path: str | Path) -> List[ChannelConfig]:
             logger.error("Error loading config for channel %s: %s", channel_id, exc)
             continue
         configs.append(config)
-        logger.info(
-            "Loaded config for channel %s (%s)", channel_id, config.channel_type.value
-        )
+        logger.info("Loaded config for channel %s (%s)", channel_id, config.channel_type.value)
 
     return configs
 

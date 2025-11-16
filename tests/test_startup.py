@@ -26,12 +26,12 @@ def test_select_startup_mode_prompt_default(monkeypatch):
     cfg = make_config(startup_mode="normal", prompt_for_mode=True)
     # simulate interactive and an empty response
     monkeypatch.setattr(os, "isatty", lambda fd: True)
-    monkeypatch.setattr(builtins, "input", lambda prompt='': "")
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "")
     assert main._select_startup_mode(cfg) == main.StartupMode.NORMAL
 
 
 def test_select_startup_mode_prompt_choice(monkeypatch):
     cfg = make_config(startup_mode="normal", prompt_for_mode=True)
     monkeypatch.setattr(os, "isatty", lambda fd: True)
-    monkeypatch.setattr(builtins, "input", lambda prompt='': "d")
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "d")
     assert main._select_startup_mode(cfg) == main.StartupMode.DIAGNOSTIC

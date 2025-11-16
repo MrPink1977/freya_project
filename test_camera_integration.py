@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from freya.audio_config import load_channel_configs
 
+
 def test_camera_config():
     """Test loading camera configuration."""
 
@@ -72,6 +73,7 @@ def test_camera_config():
         print("✗ Configuration Test FAILED")
         print("=" * 60)
         return False
+
 
 if __name__ == "__main__":
     success = test_camera_config()

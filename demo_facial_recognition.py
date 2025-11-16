@@ -25,6 +25,7 @@ from freya.config import FaceRecognitionConfig
 from freya.rtsp_stream import RTSPStreamHandler
 from freya.multi_channel_coordinator import ChannelConfig, ChannelType
 
+
 def main():
     print("=" * 70)
     print("Freya Facial Recognition Demo - Reolink Camera")
@@ -33,7 +34,8 @@ def main():
 
     # Check for face_recognition library
     try:
-        import face_recognition
+        import face_recognition  # noqa: F401
+
         print("✓ face_recognition library installed")
     except ImportError:
         print("✗ face_recognition library NOT installed")
@@ -72,7 +74,7 @@ def main():
         detection_model="hog",  # Use "cnn" for GPU acceleration
         encoding_model="small",
         tolerance=0.5,
-        min_recognition_interval=3.0
+        min_recognition_interval=3.0,
     )
 
     print(f"Loading known faces from: {faces_dir}")
@@ -113,7 +115,7 @@ def main():
         rtsp_port=554,
         username=cam_user,
         password=cam_pass,
-        description="Main camera"
+        description="Main camera",
     )
 
     # Track frames and detections
@@ -176,6 +178,7 @@ def main():
 
         except Exception as e:
             import traceback
+
             print(f"Recognition error: {e}")
             print(f"Traceback: {traceback.format_exc()}")
 
@@ -185,11 +188,7 @@ def main():
         pass  # Ignore audio for this demo
 
     print(f"✓ Connecting to camera at {cam_ip}...")
-    stream = RTSPStreamHandler(
-        config=cam_config,
-        audio_callback=on_audio_chunk,
-        video_callback=on_video_frame
-    )
+    stream = RTSPStreamHandler(config=cam_config, audio_callback=on_audio_chunk, video_callback=on_video_frame)
 
     try:
         stream.start()
@@ -227,6 +226,7 @@ def main():
     print()
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
