@@ -1,0 +1,42 @@
+# Multi-Channel Audio Configuration Example for Freya
+# This configuration enables multiple audio input sources including Reolink cameras
+
+audio:
+  channels:
+    # Primary system microphone (default)
+    primary:
+      type: system
+      enabled: true
+      device_index: null  # Use system default microphone
+      description: "Primary desktop/laptop microphone"
+
+    # First Reolink camera (e.g., front door)
+    camera_front_door:
+      type: reolink
+      enabled: true
+      ip: "192.168.1.100"
+      rtsp_port: 554
+      username: "${REOLINK_FRONT_USER}"  # Use environment variables for credentials
+      password: "${REOLINK_FRONT_PASS}"
+      description: "Front door camera with 2-way audio"
+
+    # Second Reolink camera (e.g., back door or garage)
+    camera_back_door:
+      type: reolink
+      enabled: true
+      ip: "192.168.1.101"
+      rtsp_port: 554
+      username: "${REOLINK_BACK_USER}"
+      password: "${REOLINK_BACK_PASS}"
+      description: "Back door camera with 2-way audio"
+
+# Optional: Vision settings for facial recognition on camera feeds
+vision:
+  facial_recognition:
+    enabled: true
+    camera_channel: "camera_front_door"  # Which camera to use for face recognition
+    known_faces_dir: "data/faces"
+    detection_model: "hog"  # or "cnn" for more accuracy (slower)
+    encoding_model: "small"  # or "large" for better accuracy
+    tolerance: 0.5
+    min_recognition_interval: 5.0  # seconds between recognitions per face
