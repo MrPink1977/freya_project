@@ -121,7 +121,8 @@ def main():
     faces_detected = 0
     last_detection = {}
 
-    def on_video_frame(channel_id: str, frame, timestamp: float):
+    def on_video_frame(frame):
+        """Callback for video frames from RTSP stream."""
         nonlocal frames_processed, faces_detected, last_detection
 
         frames_processed += 1
@@ -132,6 +133,7 @@ def main():
 
         try:
             # Recognize faces in this frame
+            timestamp = time.time()
             results = face_rec.recognize_faces(frame, timestamp)
 
             if results:
@@ -154,7 +156,8 @@ def main():
             print(f"Recognition error: {e}")
 
     # Start RTSP stream
-    def on_audio_chunk(channel_id: str, audio_chunk):
+    def on_audio_chunk(audio_chunk):
+        """Callback for audio chunks from RTSP stream."""
         pass  # Ignore audio for this demo
 
     print(f"✓ Connecting to camera at {cam_ip}...")
