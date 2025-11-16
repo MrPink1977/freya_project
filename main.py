@@ -45,7 +45,7 @@ def _select_startup_mode(app_config: AppConfig) -> StartupMode:
     This function respects app_config.startup_mode and app_config.prompt_for_mode.
     If prompt_for_mode is enabled the user is prompted (unless non-interactive),
     otherwise the configured default is returned.
-    """  
+    """
     default_mode = _parse_mode(app_config.startup_mode)
     if not app_config.prompt_for_mode:
         return default_mode
@@ -58,10 +58,7 @@ def _select_startup_mode(app_config: AppConfig) -> StartupMode:
         # If the platform doesn't support isatty, continue to attempt prompt
         pass
 
-    prompt = (
-        "Select startup mode - [N]ormal or [D]iagnostic "
-        f"(default: {default_mode.value.title()}): "
-    )
+    prompt = "Select startup mode - [N]ormal or [D]iagnostic " f"(default: {default_mode.value.title()}): "
     try:
         choice = input(prompt).strip().lower()
     except EOFError:
@@ -81,6 +78,7 @@ _ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
 
 def _build_output(mode: StartupMode) -> Callable[[str], None]:
     if mode is StartupMode.NORMAL:
+
         def _normal_output(message: str) -> None:
             normalized = _ANSI_PATTERN.sub("", message)
             if normalized.startswith("You said:") or normalized.startswith("Freya:"):
@@ -206,17 +204,13 @@ def main() -> None:
         stt = SpeechToText(settings.stt)
     except SpeechToTextError as exc:
         logger.error("Failed to initialize speech-to-text: %s", exc)
-        raise SystemExit(
-            "Speech input is unavailable. Install the required voice dependencies (see README)."
-        ) from exc
+        raise SystemExit("Speech input is unavailable. Install the required voice dependencies (see README).") from exc
 
     try:
         tts = TextToSpeech(settings.tts)
     except TextToSpeechError as exc:
         logger.error("Failed to initialize text-to-speech: %s", exc)
-        raise SystemExit(
-            "Speech output is unavailable. Install the required voice dependencies (see README)."
-        ) from exc
+        raise SystemExit("Speech output is unavailable. Install the required voice dependencies (see README).") from exc
 
     wake_detector: WakeWordDetector | None = None
     try:
@@ -230,7 +224,7 @@ def main() -> None:
     facial_recognition = None
     if settings.vision.facial_recognition.enabled:
         try:
-            from freya.facial_recognition import FacialRecognition, FaceRecognitionError
+            from freya.facial_recognition import FacialRecognition
 
             facial_recognition = FacialRecognition(settings.vision.facial_recognition)
             logger.info(

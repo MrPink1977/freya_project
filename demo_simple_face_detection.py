@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from freya.rtsp_stream import RTSPStreamHandler
 from freya.multi_channel_coordinator import ChannelConfig, ChannelType
 
+
 def main():
     print("=" * 70)
     print("Simple Face Detection Demo - OpenCV Only")
@@ -42,11 +43,11 @@ def main():
         rtsp_port=554,
         username=cam_user,
         password=cam_pass,
-        description="Main camera"
+        description="Main camera",
     )
 
     # Load OpenCV face detector
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
     print(f"✓ Loaded face detector")
 
     # Track frames and detections
@@ -65,7 +66,6 @@ def main():
 
         try:
             frame = video_frame.frame
-            timestamp = video_frame.timestamp
 
             # Resize for speed
             height, width = frame.shape[:2]
@@ -82,7 +82,7 @@ def main():
             if len(faces) > 0:
                 faces_detected += len(faces)
                 print(f"✓ Detected {len(faces)} face(s) at {time.strftime('%H:%M:%S')}")
-                for (x, y, w, h) in faces:
+                for x, y, w, h in faces:
                     print(f"  Location: x={x}, y={y}, size={w}x{h}")
 
         except Exception as e:
@@ -92,11 +92,7 @@ def main():
         pass
 
     print(f"✓ Connecting to camera at {cam_ip}...")
-    stream = RTSPStreamHandler(
-        config=cam_config,
-        audio_callback=on_audio_chunk,
-        video_callback=on_video_frame
-    )
+    stream = RTSPStreamHandler(config=cam_config, audio_callback=on_audio_chunk, video_callback=on_video_frame)
 
     try:
         stream.start()
@@ -115,7 +111,6 @@ def main():
             # Show status every 10 seconds
             elapsed = time.time() - start_time
             if int(elapsed) % 10 == 0 and int(elapsed) > 0:
-                fps = frames_processed / elapsed if elapsed > 0 else 0
                 print(f"Status: {frames_processed} frames, {faces_detected} faces detected")
 
     except KeyboardInterrupt:
@@ -134,6 +129,7 @@ def main():
     print()
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

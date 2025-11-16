@@ -24,11 +24,11 @@ stream.close()
 p.terminate()
 
 # Save to file
-wf = wave.open("test_recording.wav", 'wb')
+wf = wave.open("test_recording.wav", "wb")
 wf.setnchannels(CHANNELS)
 wf.setsampwidth(p.get_sample_size(FORMAT))
 wf.setframerate(RATE)
-wf.writeframes(b''.join(frames))
+wf.writeframes(b"".join(frames))
 wf.close()
 
 print("Saved to test_recording.wav - play it to hear what your mic captured!")

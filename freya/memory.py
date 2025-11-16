@@ -266,8 +266,11 @@ class PersistentMemoryStore:
                 ((now, record.id) for record in selected),
             )
             self._conn.commit()
-            logger.debug("Retrieved %s semantic memory matches (avg score: %.2f)",
-                        len(selected), sum(r.score for r in selected) / len(selected))
+            logger.debug(
+                "Retrieved %s semantic memory matches (avg score: %.2f)",
+                len(selected),
+                sum(r.score for r in selected) / len(selected),
+            )
             return selected
 
     def _lexical_search(

@@ -9,11 +9,9 @@ from __future__ import annotations
 import queue
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Dict, List, Optional
-
-import numpy as np
 
 from .logger import get_logger
 from .multi_channel_coordinator import ChannelConfig, ChannelType
@@ -241,11 +239,7 @@ class MultiChannelCoordinator:
         elif config.channel_type == ChannelType.REOLINK:
             # Reolink camera via RTSP
             audio_callback = lambda chunk: self._on_audio_chunk(channel_id, chunk)
-            video_callback = (
-                lambda frame: self._on_video_frame(channel_id, frame)
-                if self._video_callback
-                else None
-            )
+            video_callback = lambda frame: self._on_video_frame(channel_id, frame) if self._video_callback else None
 
             rtsp_handler = RTSPStreamHandler(
                 config,
