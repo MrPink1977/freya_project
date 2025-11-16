@@ -299,6 +299,7 @@ class OllamaClient:
         """Parse legacy streaming responses."""
 
         buffer = []
+        data = None
         for raw_line in response.iter_lines(decode_unicode=True):
             if not raw_line:
                 continue
@@ -317,7 +318,7 @@ class OllamaClient:
                 break
 
         if not buffer:
-            message = data.get("message") if "data" in locals() else None
+            message = data.get("message") if data is not None else None
             if isinstance(message, dict):
                 content = message.get("content")
                 if content:

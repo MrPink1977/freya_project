@@ -1,8 +1,12 @@
-"""Entry point for the Freya voice-enabled assistant."""
+"""
+ENTRY POINT FOR THE FREYA VOICE-ENABLED ASSISTANT.
+"""
 
 from __future__ import annotations
 
+import argparse
 import logging
+import os
 import re
 from enum import Enum
 from typing import Callable
@@ -33,9 +37,23 @@ def _parse_mode(value: str) -> StartupMode:
 
 
 def _select_startup_mode(app_config: AppConfig) -> StartupMode:
+    """Select startup mode based on configuration.
+
+    This function respects app_config.startup_mode and app_config.prompt_for_mode.
+    If prompt_for_mode is enabled the user is prompted (unless non-interactive),
+    otherwise the configured default is returned.
+    """  
     default_mode = _parse_mode(app_config.startup_mode)
     if not app_config.prompt_for_mode:
         return default_mode
+
+    # If stdin is not a TTY (non-interactive), fall back to default without prompting
+    try:
+        if not os.isatty(0):  # pragma: no cover - environment specific
+            return default_mode
+    except Exception:
+        # If the platform doesn't support isatty, continue to attempt prompt
+        pass
 
     prompt = (
         "Select startup mode - [N]ormal or [D]iagnostic "
@@ -54,6 +72,7 @@ def _select_startup_mode(app_config: AppConfig) -> StartupMode:
         return StartupMode.DIAGNOSTIC
     return default_mode
 
+
 _ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
 
 
@@ -70,7 +89,41 @@ def _build_output(mode: StartupMode) -> Callable[[str], None]:
 
 
 def main() -> None:
+    # Parse CLI args and environment overrides first so we can run non-interactively
+    parser = argparse.ArgumentParser(prog="freya", description="Freya voice assistant")
+    parser.add_argument(
+        "--startup-mode",
+        choices=[StartupMode.NORMAL.value, StartupMode.DIAGNOSTIC.value],
+        help="Select startup mode (overrides config)",
+    )
+    parser.add_argument(
+        "--no-prompt",
+        action="store_true",
+        help="Do not prompt for startup mode (non-interactive)",
+    )
+
+    # Use parse_known_args to be tolerant of other args used by downstream callers
+    args, _ = parser.parse_known_args()
+
+    # Load settings and apply overrides from env/CLI
     settings = load_settings()
+
+    # Environment variable override: FREYA_STARTUP_MODE
+    env_mode = os.getenv("FREYA_STARTUP_MODE")
+    if env_mode:
+        settings.app.startup_mode = env_mode
+
+    # Environment variable to control prompting: FREYA_PROMPT_FOR_MODE (1/0, true/false)
+    env_prompt = os.getenv("FREYA_PROMPT_FOR_MODE")
+    if env_prompt is not None:
+        settings.app.prompt_for_mode = env_prompt.lower() in ("1", "true", "yes")
+
+    # CLI overrides take precedence
+    if args.startup_mode:
+        settings.app.startup_mode = args.startup_mode
+    if args.no_prompt:
+        settings.app.prompt_for_mode = False
+
     mode = _select_startup_mode(settings.app)
 
     console_level = logging.INFO if mode is StartupMode.DIAGNOSTIC else logging.ERROR
@@ -145,13 +198,8 @@ def main() -> None:
                 "Facial recognition initialised with %d known face(s)",
                 len(facial_recognition.known_face_names),
             )
-        except FaceRecognitionError as exc:
-            logger.error("Failed to initialise facial recognition: %s", exc)
-        except ImportError as exc:
-            logger.error(
-                "Facial recognition dependencies are missing: %s", exc
-            )
         except Exception as exc:  # pragma: no cover - backend specific
+            # Consolidate and log unexpected issues; specific errors are handled inside module
             logger.exception("Unexpected error initialising facial recognition: %s", exc)
             facial_recognition = None
 

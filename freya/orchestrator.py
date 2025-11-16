@@ -9,7 +9,6 @@ import threading
 import time
 from difflib import SequenceMatcher
 from enum import Enum
-
 from typing import Callable, List, Optional, Sequence
 
 try:  # pragma: no cover - optional dependency for colored output
@@ -26,6 +25,23 @@ try:  # pragma: no cover - optional hotkey dependency
 except ImportError:  # pragma: no cover - hotkey functionality is optional
     keyboard = None  # type: ignore[assignment]
 
+from requests import RequestException
+
+from .config import LongTermMemoryConfig
+from .context import ConversationContext
+from .logger import get_logger
+from .memory import MemoryRecord, PersistentMemoryStore
+from .ollama_client import (
+    OllamaClient,
+    OllamaModelNotFoundError,
+    OllamaStreamNotSupported,
+)
+from .stt import SpeechToText, SpeechToTextError
+from .tts import TextToSpeech, TextToSpeechError
+from .wake import WakeWordDetector, WakeWordDetectorError
+
+logger = get_logger("orchestrator")
+
 _BLUE = getattr(Fore, "BLUE", "")
 _GREEN = getattr(Fore, "GREEN", "")
 _RESET = getattr(Style, "RESET_ALL", "")
@@ -40,23 +56,6 @@ _DEFAULT_MEMORY_KEYWORDS: Sequence[str] = (
     "my name",
     "birthday",
 )
-
-from requests import RequestException
-
-from .config import LongTermMemoryConfig
-from .context import ConversationContext
-from .memory import MemoryRecord, PersistentMemoryStore
-from .ollama_client import (
-    OllamaClient,
-    OllamaModelNotFoundError,
-    OllamaStreamNotSupported,
-)
-from .logger import get_logger
-from .stt import SpeechToText, SpeechToTextError
-from .tts import TextToSpeech, TextToSpeechError
-from .wake import WakeWordDetector, WakeWordDetectorError
-
-logger = get_logger("orchestrator")
 
 
 class InteractionMode(Enum):
@@ -219,7 +218,7 @@ class Orchestrator:
                         session_active = True
                         if remainder:
                             self._handle_user_content(remainder)
-                            return True
+                            continue
                     if not session_active and self._wake_detector is not None:
                         # Continue waiting for the wake word when the detector is active.
                         continue
@@ -271,7 +270,7 @@ class Orchestrator:
                     continue
 
             self._handle_user_content(content)
-            return True
+            continue
 
 
     def _text_cycle(self) -> bool:
@@ -294,7 +293,7 @@ class Orchestrator:
                 return self._handle_exit()
 
             self._handle_user_content(message)
-            return True
+            continue
 
 
     def _handle_user_content(self, content: str) -> None:
@@ -339,13 +338,8 @@ class Orchestrator:
                 spoke_successfully = True
 
         if self._session_window > 0 and self._get_mode() is InteractionMode.VOICE:
-            if spoke_successfully:
-                self._session_active_until = time.monotonic() + self._session_window
-            # Ensure the follow-up window remains open even if audio playback failed
-            self._session_active_until = max(
-                self._session_active_until,
-                time.monotonic() + self._session_window,
-            )
+            # Extend session window after assistant response to allow follow-up questions
+            self._session_active_until = time.monotonic() + self._session_window
 
     def _obtain_assistant_response(
         self, messages: list[dict]

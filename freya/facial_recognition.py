@@ -207,12 +207,18 @@ class FacialRecognition:
             if self._tolerance > 0:
                 confidence = max(0.0, min(1.0, 1.0 - (best_distance / self._tolerance)))
 
+            try:
+                bounding_box = tuple(int(v) for v in location)
+            except (ValueError, TypeError) as exc:
+                logger.warning("Invalid bounding box values for face '%s': %s", name, exc)
+                continue
+
             result = RecognitionResult(
                 name=name,
                 confidence=confidence,
                 distance=best_distance,
                 timestamp=timestamp_value,
-                bounding_box=tuple(int(v) for v in location),
+                bounding_box=bounding_box,
             )
             results.append(result)
             self._recent_hits[name] = timestamp_value
