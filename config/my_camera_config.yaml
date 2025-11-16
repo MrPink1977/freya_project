@@ -1,0 +1,21 @@
+# Freya Multi-Channel Audio Configuration
+# Primary mic + Reolink camera at 192.168.0.22
+
+audio:
+  channels:
+    # Your primary system microphone
+    primary:
+      type: system
+      enabled: true
+      device_index: null  # Use system default microphone
+      description: "Primary desktop microphone"
+
+    # Your Reolink camera
+    camera_main:
+      type: reolink
+      enabled: true
+      ip: "192.168.0.22"
+      rtsp_port: 554
+      username: "${REOLINK_CAM_USER}"
+      password: "${REOLINK_CAM_PASS}"
+      description: "Main Reolink camera with 2-way audio"
