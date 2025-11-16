@@ -148,7 +148,15 @@ def main():
                     print(f"Resized frame from {width}x{height} to {new_width}x{new_height}")
 
             # Recognize faces in this frame
+            if frames_processed == 5:
+                print("Starting face recognition...")
+
+            start_time = time.time()
             results = face_rec.recognize_faces(frame, timestamp)
+            elapsed = time.time() - start_time
+
+            if frames_processed == 5:
+                print(f"Face recognition took {elapsed:.2f}s")
 
             if results:
                 faces_detected += len(results)
@@ -167,7 +175,9 @@ def main():
                     print()
 
         except Exception as e:
+            import traceback
             print(f"Recognition error: {e}")
+            print(f"Traceback: {traceback.format_exc()}")
 
     # Start RTSP stream
     def on_audio_chunk(audio_chunk):
