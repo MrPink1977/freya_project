@@ -133,14 +133,19 @@ def main():
 
         try:
             # Extract numpy array from VideoFrame object
-            frame = video_frame.frame
-            timestamp = video_frame.timestamp
+            print(f"DEBUG: Received object type: {type(video_frame)}")
+            print(f"DEBUG: Has .frame attr? {hasattr(video_frame, 'frame')}")
 
-            # Debug: Check what we got
-            if frames_processed == 5:  # Only print once
-                print(f"DEBUG: video_frame type: {type(video_frame)}")
-                print(f"DEBUG: frame type: {type(frame)}")
-                print(f"DEBUG: frame shape: {frame.shape if hasattr(frame, 'shape') else 'NO SHAPE'}")
+            if hasattr(video_frame, 'frame'):
+                frame = video_frame.frame
+                timestamp = video_frame.timestamp
+            else:
+                # Maybe it's already a numpy array?
+                frame = video_frame
+                timestamp = time.time()
+
+            print(f"DEBUG: Extracted frame type: {type(frame)}")
+            print(f"DEBUG: Frame shape: {frame.shape if hasattr(frame, 'shape') else 'NO SHAPE'}")
 
             # Recognize faces in this frame
             results = face_rec.recognize_faces(frame, timestamp)
