@@ -14,6 +14,15 @@ __pycache__/
 freya/__pycache__/
 
 # -----------------------------
+# Python packaging artifacts
+# -----------------------------
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# -----------------------------
 # Virtual environments
 # -----------------------------
 freya_env/

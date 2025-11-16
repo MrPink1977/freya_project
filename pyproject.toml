@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "freya"
+version = "0.1.0"
+description = "Freya AI Assistant - A voice-controlled AI assistant with facial recognition and ONVIF camera integration"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "MrPink1977", email = "maintainer@example.com"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "requests>=2.31.0",
+    "PyYAML>=6.0.1",
+    "numpy>=1.24.0",
+    "sounddevice>=0.4.6",
+    "soundfile>=0.12.1",
+    "faster-whisper>=1.0.0",
+    "piper-tts>=1.2.0",
+    "pyaudio>=0.2.14",
+    "colorama>=0.4.6",
+    "keyboard>=0.13.5",
+    "duckduckgo-search>=6.0.0",
+    "sentence-transformers>=2.2.0",
+    "opencv-python>=4.8.0",
+    "onvif-zeep>=0.2.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[tool.setuptools]
+packages = ["freya", "freya.tools"]
+
+[tool.setuptools.package-data]
+freya = ["*.txt", "*.yaml", "*.yml"]
