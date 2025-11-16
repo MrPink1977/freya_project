@@ -8,7 +8,10 @@ import argparse
 import logging
 import os
 import re
+import shutil
+from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import Callable
 
 from freya.config import AppConfig, load_settings
@@ -86,6 +89,42 @@ def _build_output(mode: StartupMode) -> Callable[[str], None]:
         return _normal_output
 
     return print
+
+
+def backup_memory(db_path: str, logger: logging.Logger) -> None:
+    """Create a timestamped backup of Freya's memory database.
+
+    Args:
+        db_path: Path to the memory database file
+        logger: Logger instance for recording backup status
+    """
+    if not db_path:
+        logger.debug("No database path provided; skipping backup")
+        return
+
+    db_file = Path(db_path).expanduser()
+    if not db_file.exists():
+        logger.debug("Memory database does not exist yet; skipping backup")
+        return
+
+    # Create backup directory next to the database
+    backup_dir = db_file.parent / "backups"
+    try:
+        backup_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.warning("Failed to create backup directory: %s", exc)
+        return
+
+    # Create timestamped backup filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_file = backup_dir / f"{db_file.stem}_{timestamp}{db_file.suffix}"
+
+    try:
+        shutil.copy2(str(db_file), str(backup_file))
+        logger.info("Memory backed up to: %s", backup_file)
+        print(f"Memory backed up: {backup_file}")
+    except (OSError, shutil.Error) as exc:
+        logger.warning("Failed to backup memory database: %s", exc)
 
 
 def main() -> None:
@@ -220,7 +259,13 @@ def main() -> None:
         mode_toggle_hotkey=settings.app.mode_toggle_hotkey,
         wake_detector=wake_detector,
     )
-    orchestrator.run()
+
+    try:
+        orchestrator.run()
+    finally:
+        # Always backup memory on exit, even if interrupted
+        if settings.memory.long_term.enabled:
+            backup_memory(settings.memory.long_term.db_path, logger)
 
 
 if __name__ == "__main__":
