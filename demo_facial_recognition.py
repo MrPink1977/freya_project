@@ -121,7 +121,7 @@ def main():
     faces_detected = 0
     last_detection = {}
 
-    def on_video_frame(frame):
+    def on_video_frame(video_frame):
         """Callback for video frames from RTSP stream."""
         nonlocal frames_processed, faces_detected, last_detection
 
@@ -132,8 +132,11 @@ def main():
             return
 
         try:
+            # Extract numpy array from VideoFrame object
+            frame = video_frame.frame
+            timestamp = video_frame.timestamp
+
             # Recognize faces in this frame
-            timestamp = time.time()
             results = face_rec.recognize_faces(frame, timestamp)
 
             if results:
