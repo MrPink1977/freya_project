@@ -1,120 +1,34 @@
-\########################################
+# Freya Project
 
-\# FREYA PROJECT - COMPLETE GITIGNORE
+This is the documentation for the Freya Project. It explains the purpose of the project, how to set it up, and how to use it.
 
-\########################################
+## Table of Contents
 
+- [Installation](#installation)
+- [Usage](#usage)
+- [Contributing](#contributing)
+- [License](#license)
 
+## Installation
 
-\# -----------------------------
+To install the Freya Project, clone this repository and follow the instructions in the setup guide.
 
-\# Python cache / temp files
+## Usage
 
-\# -----------------------------
+Run the project using the following command:
 
-\_\_pycache\_\_/
+```bash
+python main.py
+```
 
-\*.pyc
+## Contributing
 
-\*.pyo
+We welcome contributions from the community! Please read the contribution guidelines before submitting a pull request.
 
-\*.pyd
+## License
 
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
+---
 
-\# Cache inside Freya package
-
-freya/\_\_pycache\_\_/
-
-
-
-\# -----------------------------
-
-\# Virtual environments
-
-\# -----------------------------
-
-freya\_env/
-
-env/
-
-.venv/
-
-venv/
-
-
-
-\# -----------------------------
-
-\# Logs
-
-\# -----------------------------
-
-\*.log
-
-
-
-\# -----------------------------
-
-\# Voice model files (too large)
-
-\# -----------------------------
-
-voices/\*.onnx
-
-voices/\*.onnx.json
-
-voices/\*.pth
-
-voices/\*.pt
-
-voices/\*
-
-
-
-\# -----------------------------
-
-\# Local camera modules \& machine-specific junk
-
-\# -----------------------------
-
-Reolink\_Modules/
-
-
-
-\# -----------------------------
-
-\# Backup folders accidentally created
-
-\# -----------------------------
-
-freya/New folder/
-
-New folder/
-
-
-
-\# -----------------------------
-
-\# OS / Editor junk
-
-\# -----------------------------
-
-.DS\_Store
-
-Thumbs.db
-
-\*.swp
-
-\*.swo
-
-
-
-\########################################
-
-\# END OF GITIGNORE
-
-\########################################
-
-
-
+*Updated on: 2025-11-16 17:54:30*
