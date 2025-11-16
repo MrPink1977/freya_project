@@ -133,19 +133,19 @@ def main():
 
         try:
             # Extract numpy array from VideoFrame object
-            print(f"DEBUG: Received object type: {type(video_frame)}")
-            print(f"DEBUG: Has .frame attr? {hasattr(video_frame, 'frame')}")
+            frame = video_frame.frame
+            timestamp = video_frame.timestamp
 
-            if hasattr(video_frame, 'frame'):
-                frame = video_frame.frame
-                timestamp = video_frame.timestamp
-            else:
-                # Maybe it's already a numpy array?
-                frame = video_frame
-                timestamp = time.time()
-
-            print(f"DEBUG: Extracted frame type: {type(frame)}")
-            print(f"DEBUG: Frame shape: {frame.shape if hasattr(frame, 'shape') else 'NO SHAPE'}")
+            # Resize frame for faster face recognition
+            # Large frames (4K+) are too slow, resize to max 1280px width
+            height, width = frame.shape[:2]
+            if width > 1280:
+                scale = 1280 / width
+                new_width = 1280
+                new_height = int(height * scale)
+                frame = cv2.resize(frame, (new_width, new_height))
+                if frames_processed == 5:  # Log once
+                    print(f"Resized frame from {width}x{height} to {new_width}x{new_height}")
 
             # Recognize faces in this frame
             results = face_rec.recognize_faces(frame, timestamp)
