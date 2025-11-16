@@ -11,6 +11,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence
 
+try:  # pragma: no cover - optional dependency
+    from sentence_transformers import SentenceTransformer
+except ImportError:  # pragma: no cover - runtime check
+    SentenceTransformer = None  # type: ignore[assignment, misc]
+
 from .logger import get_logger
 
 logger = get_logger("memory")
@@ -41,20 +46,37 @@ class PersistentMemoryStore:
     """
 
     _DEFAULT_SEARCH_WINDOW = 200
+    _DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"  # Fast, lightweight, 384-dim embeddings
 
-    def __init__(self, db_path: str, search_window: int | None = None) -> None:
+    def __init__(self, db_path: str, search_window: int | None = None, use_embeddings: bool = True) -> None:
         path = Path(db_path).expanduser()
         if path.parent and not path.parent.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
         self._path = path
         self._lock = threading.Lock()
         self._search_window = max(10, int(search_window or self._DEFAULT_SEARCH_WINDOW))
+
+        # Initialize embedding model for semantic search
+        self._use_embeddings = use_embeddings and SentenceTransformer is not None
+        self._embedding_model: Optional[SentenceTransformer] = None
+
+        if self._use_embeddings:
+            try:
+                logger.info("Loading embedding model: %s", self._DEFAULT_EMBEDDING_MODEL)
+                self._embedding_model = SentenceTransformer(self._DEFAULT_EMBEDDING_MODEL)
+                logger.debug("Embedding model loaded successfully (384 dimensions)")
+            except Exception as exc:  # pragma: no cover - model loading
+                logger.warning("Failed to load embedding model: %s. Falling back to lexical search.", exc)
+                self._use_embeddings = False
+        elif use_embeddings and SentenceTransformer is None:
+            logger.warning("sentence-transformers not installed. Install with: pip install sentence-transformers")
+
         # check_same_thread=False allows multi-threaded access; all operations
         # are protected by self._lock to ensure thread safety
         self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._initialise_schema()
-        logger.debug("PersistentMemoryStore ready at %s", self._path)
+        logger.debug("PersistentMemoryStore ready at %s (embeddings: %s)", self._path, self._use_embeddings)
 
     def close(self) -> None:
         with self._lock:
@@ -65,6 +87,35 @@ class PersistentMemoryStore:
 
     def __exit__(self, exc_type, exc, tb) -> None:  # pragma: no cover - convenience
         self.close()
+
+    def _generate_embedding(self, text: str) -> Optional[List[float]]:
+        """Generate a semantic embedding vector for the given text."""
+        if not self._use_embeddings or self._embedding_model is None:
+            return None
+
+        try:
+            embedding = self._embedding_model.encode(text, convert_to_numpy=True)
+            return embedding.tolist()
+        except Exception as exc:  # pragma: no cover - model runtime
+            logger.warning("Failed to generate embedding: %s", exc)
+            return None
+
+    @staticmethod
+    def _cosine_similarity(vec1: Sequence[float], vec2: Sequence[float]) -> float:
+        """Calculate cosine similarity between two vectors."""
+        import math
+
+        if len(vec1) != len(vec2):
+            return 0.0
+
+        dot_product = sum(a * b for a, b in zip(vec1, vec2))
+        magnitude1 = math.sqrt(sum(a * a for a in vec1))
+        magnitude2 = math.sqrt(sum(b * b for b in vec2))
+
+        if magnitude1 == 0 or magnitude2 == 0:
+            return 0.0
+
+        return dot_product / (magnitude1 * magnitude2)
 
     def store_memory(
         self,
@@ -81,6 +132,10 @@ class PersistentMemoryStore:
         if not text:
             raise ValueError("content must be a non-empty string")
 
+        # Auto-generate embedding if not provided and embeddings are enabled
+        if embedding is None and self._use_embeddings:
+            embedding = self._generate_embedding(text)
+
         metadata_json = json.dumps(metadata or {})
         embedding_json = json.dumps(list(embedding)) if embedding is not None else None
         now = datetime.now(timezone.utc).isoformat()
@@ -95,7 +150,7 @@ class PersistentMemoryStore:
             )
             self._conn.commit()
             memory_id = int(cursor.lastrowid)
-            logger.debug("Stored memory %s (%s)", memory_id, role)
+            logger.debug("Stored memory %s (%s) [embedding: %s]", memory_id, role, embedding is not None)
             return memory_id
 
     def find_similar_memories(
@@ -105,18 +160,115 @@ class PersistentMemoryStore:
         limit: int = 5,
         min_score: float = 0.15,
     ) -> List[MemoryRecord]:
-        """Return the most similar memories for the provided text query."""
+        """Return the most similar memories for the provided text query using semantic search."""
 
         normalized = (query or "").strip()
         if not normalized:
             return []
 
-        query_tokens = self._tokenize(normalized)
-        if not query_tokens:
-            return []
-
         limit = max(1, int(limit))
         min_score = max(0.0, float(min_score))
+
+        # Use semantic search if embeddings are enabled
+        if self._use_embeddings:
+            return self._semantic_search(normalized, limit=limit, min_score=min_score)
+
+        # Fallback to lexical search if embeddings disabled
+        return self._lexical_search(normalized, limit=limit, min_score=min_score)
+
+    def _semantic_search(
+        self,
+        query: str,
+        *,
+        limit: int = 5,
+        min_score: float = 0.15,
+    ) -> List[MemoryRecord]:
+        """Semantic vector search using embeddings and cosine similarity."""
+
+        # Generate embedding for query
+        query_embedding = self._generate_embedding(query)
+        if query_embedding is None:
+            logger.debug("Could not generate query embedding; falling back to lexical search")
+            return self._lexical_search(query, limit=limit, min_score=min_score)
+
+        with self._lock:
+            cursor = self._conn.execute(
+                """
+                SELECT id, role, content, metadata, importance, embedding, created_at, last_accessed
+                FROM memories
+                WHERE embedding IS NOT NULL
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (self._search_window,),
+            )
+
+            candidates: List[MemoryRecord] = []
+            for row in cursor:
+                embedding_json = row["embedding"]
+                if not embedding_json:
+                    continue
+
+                try:
+                    memory_embedding = json.loads(embedding_json)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+
+                # Calculate cosine similarity
+                semantic_score = self._cosine_similarity(query_embedding, memory_embedding)
+
+                if semantic_score < min_score:
+                    continue
+
+                importance = max(1, int(row["importance"]))
+                created_at = self._parse_timestamp(row["created_at"])
+                last_accessed = self._parse_timestamp(row["last_accessed"])
+                metadata_json = row["metadata"]
+                metadata = json.loads(metadata_json) if metadata_json else {}
+
+                # Combine semantic score with importance and recency
+                score = semantic_score + 0.05 * importance + self._recency_boost(created_at)
+                candidates.append(
+                    MemoryRecord(
+                        id=int(row["id"]),
+                        role=row["role"],
+                        content=row["content"],
+                        metadata=metadata,
+                        importance=importance,
+                        created_at=created_at,
+                        last_accessed=last_accessed,
+                        score=score,
+                    )
+                )
+
+            candidates.sort(key=lambda record: record.score, reverse=True)
+            selected = candidates[:limit]
+
+            if not selected:
+                return []
+
+            now = datetime.now(timezone.utc).isoformat()
+            self._conn.executemany(
+                "UPDATE memories SET last_accessed = ? WHERE id = ?",
+                ((now, record.id) for record in selected),
+            )
+            self._conn.commit()
+            logger.debug("Retrieved %s semantic memory matches (avg score: %.2f)",
+                        len(selected), sum(r.score for r in selected) / len(selected))
+            return selected
+
+    def _lexical_search(
+        self,
+        query: str,
+        *,
+        limit: int = 5,
+        min_score: float = 0.15,
+    ) -> List[MemoryRecord]:
+        """Fallback lexical search using token matching."""
+
+        query_tokens = self._tokenize(query)
+        if not query_tokens:
+            return []
 
         with self._lock:
             cursor = self._conn.execute(
@@ -167,7 +319,7 @@ class PersistentMemoryStore:
                 ((now, record.id) for record in selected),
             )
             self._conn.commit()
-            logger.debug("Retrieved %s memory matches", len(selected))
+            logger.debug("Retrieved %s lexical memory matches", len(selected))
             return selected
 
     def prune(self, max_entries: int) -> None:
