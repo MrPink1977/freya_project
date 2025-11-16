@@ -37,6 +37,7 @@ from .ollama_client import (
     OllamaStreamNotSupported,
 )
 from .stt import SpeechToText, SpeechToTextError
+from .tools.web_search import search_web, WebSearchError
 from .tts import TextToSpeech, TextToSpeechError
 from .wake import WakeWordDetector, WakeWordDetectorError
 
@@ -55,6 +56,20 @@ _DEFAULT_MEMORY_KEYWORDS: Sequence[str] = (
     "favorite",
     "my name",
     "birthday",
+)
+
+_WEB_SEARCH_TRIGGERS: Sequence[str] = (
+    "search",
+    "search for",
+    "look up",
+    "find information about",
+    "what is",
+    "who is",
+    "when did",
+    "where is",
+    "how many",
+    "tell me about",
+    "find out",
 )
 
 
@@ -608,28 +623,90 @@ class Orchestrator:
             lower_keywords = ()
         return lower_keywords or _DEFAULT_MEMORY_KEYWORDS
 
-    def _prepare_messages(self, user_text: str) -> List[dict]:
-        base_messages = self._context.as_messages()
-        if not base_messages or not self._memory_store or not self._memory_config:
-            return base_messages
+    def _maybe_search_web(self, user_text: str) -> Optional[str]:
+        """Check if the query needs web search and perform it if needed.
+
+        Returns:
+            Formatted search results as a string, or None if search not needed/failed
+        """
+        lowered = user_text.lower().strip()
+
+        # Check if any search trigger is present
+        needs_search = any(trigger in lowered for trigger in _WEB_SEARCH_TRIGGERS)
+
+        if not needs_search:
+            return None
+
+        # Extract search query (use the full user text as query for now)
+        # Could be made smarter by removing trigger words
+        search_query = user_text.strip()
+
+        # Remove common trigger phrases to clean up the query
+        for trigger in _WEB_SEARCH_TRIGGERS:
+            if lowered.startswith(trigger):
+                # Remove the trigger from the start
+                search_query = user_text[len(trigger):].strip()
+                # Remove leading "for", "about", etc.
+                for filler in ["for", "about", "on"]:
+                    if search_query.lower().startswith(filler + " "):
+                        search_query = search_query[len(filler) + 1:].strip()
+                break
+
+        if not search_query:
+            return None
 
         try:
-            matches = self._memory_store.find_similar_memories(
-                user_text,
-                limit=self._memory_config.recall_limit,
-                min_score=self._memory_config.min_similarity,
-            )
-        except Exception as exc:  # pragma: no cover - defensive logging
-            logger.exception("Failed to retrieve memories: %s", exc)
+            logger.info("Performing web search for: %s", search_query)
+            self._output(f"[Searching the web for: {search_query}]")
+            results = search_web(search_query, max_results=3)
+
+            if results and "No search results" not in results:
+                formatted = f"Current web search results for '{search_query}':\n{results}\n\nUse this information to answer the user's question."
+                logger.debug("Web search successful, %d chars returned", len(results))
+                return formatted
+
+        except WebSearchError as exc:
+            logger.warning("Web search failed: %s", exc)
+            self._output(f"[Web search unavailable: {exc}]")
+        except Exception as exc:  # pragma: no cover - safety net
+            logger.exception("Unexpected web search error: %s", exc)
+
+        return None
+
+    def _prepare_messages(self, user_text: str) -> List[dict]:
+        base_messages = self._context.as_messages()
+
+        # Check if web search is needed
+        search_results = self._maybe_search_web(user_text)
+
+        # Retrieve relevant memories
+        memory_block: Optional[str] = None
+        if self._memory_store and self._memory_config:
+            try:
+                matches = self._memory_store.find_similar_memories(
+                    user_text,
+                    limit=self._memory_config.recall_limit,
+                    min_score=self._memory_config.min_similarity,
+                )
+                if matches:
+                    memory_block = self._format_memory_block(matches)
+                    logger.debug("Injected %s memory snippets into prompt", len(matches))
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.exception("Failed to retrieve memories: %s", exc)
+
+        # Build enriched message list with search results and/or memories
+        if not search_results and not memory_block:
             return base_messages
 
-        if not matches:
-            return base_messages
+        enriched_messages = [base_messages[0]]  # Start with system prompt
 
-        memory_block = self._format_memory_block(matches)
-        enriched_messages = [base_messages[0], {"role": "system", "content": memory_block}]
-        enriched_messages.extend(base_messages[1:])
-        logger.debug("Injected %s memory snippets into prompt", len(matches))
+        if search_results:
+            enriched_messages.append({"role": "system", "content": search_results})
+
+        if memory_block:
+            enriched_messages.append({"role": "system", "content": memory_block})
+
+        enriched_messages.extend(base_messages[1:])  # Add conversation history
         return enriched_messages
 
     @staticmethod
