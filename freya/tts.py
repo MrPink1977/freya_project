@@ -6,6 +6,7 @@ import contextlib
 import io
 import json
 import tempfile
+import threading
 import wave
 from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
@@ -52,6 +53,7 @@ class TextToSpeech:
 
     def __init__(self, config: TextToSpeechConfig) -> None:
         self._config = config
+        self._stop_speech = threading.Event()
 
         if _PIPER_ERROR is not None:
             raise TextToSpeechError(
@@ -85,6 +87,9 @@ class TextToSpeech:
             logger.debug("No text provided for speech output")
             return
 
+        # Clear stop flag at start of new speech
+        self._stop_speech.clear()
+
         trimmed = text.strip()
         logger.info("Speaking response: %s", trimmed[:1000])
 
@@ -107,6 +112,11 @@ class TextToSpeech:
         except Exception as exc:  # pragma: no cover - depends on audio backend
             logger.exception("Failed to play audio: %s", exc)
             raise TextToSpeechError("Failed to play the synthesised audio") from exc
+
+    def stop_speaking(self) -> None:
+        """Signal the TTS to stop current playback."""
+        self._stop_speech.set()
+        logger.debug("Stop speech signal set")
 
     def preload_phrase(self, text: str) -> None:
         """Generate and cache speech audio for the provided phrase."""
@@ -531,8 +541,18 @@ class TextToSpeech:
         """Write a block of PCM data to the active PyAudio stream."""
         if not data:
             return
+
+        # Check if stop was requested before writing
+        if self._stop_speech.is_set():
+            logger.debug("Speech interrupted by stop signal")
+            return
+
         chunk_size = 2048
         for start in range(0, len(data), chunk_size):
+            # Check stop signal between chunks for responsiveness
+            if self._stop_speech.is_set():
+                logger.debug("Speech interrupted mid-chunk")
+                return
             stream.write(data[start : start + chunk_size])
 
     def _normalise_audio_block(self, block: object) -> bytes:

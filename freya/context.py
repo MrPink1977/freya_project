@@ -84,7 +84,11 @@ class ConversationContext:
     def as_messages(self) -> List[dict]:
         """Return the conversation history formatted for Ollama."""
 
-        payload: List[dict] = [{"role": "system", "content": self.system_prompt}]
+        # Replace template variables in system prompt
+        current_date = datetime.now().strftime("%B %d, %Y")
+        processed_system_prompt = self.system_prompt.replace("{{CURRENT_DATE}}", current_date)
+
+        payload: List[dict] = [{"role": "system", "content": processed_system_prompt}]
         payload.extend({"role": "system", "content": summary} for summary in self._summaries)
         payload.extend({"role": msg.role, "content": msg.content} for msg in self._messages)
         logger.debug("Current message payload: %s", payload)
