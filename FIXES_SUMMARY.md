@@ -94,12 +94,33 @@ This document summarizes all the code quality and bug fixes applied to the Freya
 - All critical functions already have complete type annotations
 - No changes needed
 
+### 11. CI/CD Workflow Issue
+**Status:** ✅ Fixed
+**Commit:** `a40d914`
+
+- Simplified pytest error handling for better failure visibility
+- Replaced complex subshell logic with clearer conditional checks
+- Updated pip cache key from `requirements.txt` to `pyproject.toml`
+- Modernized dependency installation to use `pip install -e ".[dev]"`
+- Properly handles exit code 5 (no tests collected) as warning
+
+### 12. Security Concerns - Camera Credentials
+**Status:** ✅ Fixed
+**Commit:** `8ca5465`
+
+- Added `_validate_credential_security()` function to detect plaintext credentials
+- Warns users when credentials don't use environment variable syntax
+- Updated example config to use `${REOLINK_CAM_USER}` and `${REOLINK_CAM_PASS}`
+- Prevents accidental storage of plaintext passwords in YAML files
+- Existing configs already used `os.path.expandvars()` for env var expansion
+
 ## Summary
 
-- **Total commits:** 7
+- **Total commits:** 9
 - **Critical fixes:** 2
 - **Medium priority fixes:** 4
 - **Low priority fixes:** 1
+- **Security enhancements:** 2
 - **No action needed:** 3
 
 All identified issues have been addressed. The codebase now has:
@@ -110,6 +131,8 @@ All identified issues have been addressed. The codebase now has:
 - ✅ More configurability
 - ✅ Robust validation
 - ✅ Memory leak prevention
+- ✅ Improved CI/CD workflow
+- ✅ Enhanced credential security
 
 ## Next Steps
 
