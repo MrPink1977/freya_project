@@ -18,7 +18,7 @@ class ListFilesTool(FreyaTool):
     def description(self) -> str:
         return "List files and folders in a directory"
 
-    def execute(
+    def execute(  # type: ignore[override]
         self,
         path: str = ".",
         pattern: str = "*",
@@ -102,11 +102,12 @@ class ListFilesTool(FreyaTool):
     @staticmethod
     def _format_size(size: int) -> str:
         """Format file size in human-readable format."""
+        size_float = float(size)
         for unit in ['B', 'KB', 'MB', 'GB']:
-            if size < 1024:
-                return f"{size:.1f}{unit}"
-            size /= 1024
-        return f"{size:.1f}TB"
+            if size_float < 1024:
+                return f"{size_float:.1f}{unit}"
+            size_float /= 1024
+        return f"{size_float:.1f}TB"
 
 
 class ReadFileTool(FreyaTool):
@@ -120,7 +121,7 @@ class ReadFileTool(FreyaTool):
     def description(self) -> str:
         return "Read the contents of a text file"
 
-    def execute(self, path: str, max_lines: int = 100) -> ToolResult:
+    def execute(self, path: str, max_lines: int = 100) -> ToolResult:  # type: ignore[override]
         """Read a text file.
 
         Args:
@@ -179,7 +180,7 @@ class WriteFileTool(FreyaTool):
     def description(self) -> str:
         return "Write content to a text file (creates or overwrites)"
 
-    def execute(self, path: str, content: str, append: bool = False) -> ToolResult:
+    def execute(self, path: str, content: str, append: bool = False) -> ToolResult:  # type: ignore[override]
         """Write to a file.
 
         Args:

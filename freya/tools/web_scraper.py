@@ -6,14 +6,14 @@ import re
 from urllib.parse import urljoin, urlparse
 
 try:
-    import requests
+    import requests  # type: ignore[import-untyped]
 except ImportError:
-    requests = None
+    requests = None  # type: ignore[assignment]
 
 try:
     from bs4 import BeautifulSoup
 except ImportError:
-    BeautifulSoup = None
+    BeautifulSoup = None  # type: ignore[assignment,misc]
 
 from .base import FreyaTool, ToolResult
 
@@ -29,7 +29,7 @@ class WebScraperTool(FreyaTool):
     def description(self) -> str:
         return "Scrape and extract text content, links, or specific elements from web pages"
 
-    def execute(
+    def execute(  # type: ignore[override]
         self,
         url: str,
         mode: str = "text",
@@ -91,9 +91,11 @@ class WebScraperTool(FreyaTool):
                 links = []
                 for link in soup.find_all('a', href=True):
                     href = link['href']
+                    # href could be a string or list; normalize to string
+                    href_str = href[0] if isinstance(href, list) else str(href)
                     text = link.get_text().strip()
-                    full_url = urljoin(url, href)
-                    if text and href:
+                    full_url = urljoin(url, href_str)
+                    if text and href_str:
                         links.append(f"- {text}: {full_url}")
 
                 output = "\n".join(links[:50])  # Limit to 50 links
@@ -142,6 +144,9 @@ class WebScraperTool(FreyaTool):
             if len(output) > max_length:
                 output = output[:max_length] + f"... (truncated from {len(output)} chars)"
 
+            title_tag = soup.find('title')
+            title_text = title_tag.get_text().strip() if title_tag else None
+
             return ToolResult(
                 success=True,
                 output=output,
@@ -149,7 +154,7 @@ class WebScraperTool(FreyaTool):
                     "url": url,
                     "mode": mode,
                     "length": len(output),
-                    "title": soup.find('title').get_text().strip() if soup.find('title') else None
+                    "title": title_text
                 }
             )
 

@@ -42,7 +42,7 @@ class CalculatorTool(FreyaTool):
         'e': math.e,
     }
 
-    def execute(self, expression: str) -> ToolResult:
+    def execute(self, expression: str) -> ToolResult:  # type: ignore[override]
         """Evaluate a mathematical expression.
 
         Args:

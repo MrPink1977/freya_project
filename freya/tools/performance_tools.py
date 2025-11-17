@@ -21,7 +21,7 @@ class PerformanceMonitorTool(FreyaTool):
     def description(self) -> str:
         return "Monitor system performance: CPU, RAM, disk usage, network, processes, and GPU (if available)"
 
-    def execute(self, metric: str = "all") -> ToolResult:
+    def execute(self, metric: str = "all") -> ToolResult:  # type: ignore[override]
         """Get system performance metrics.
 
         Args:
