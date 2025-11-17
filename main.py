@@ -207,7 +207,10 @@ def main() -> None:
     memory_store: PersistentMemoryStore | None = None
     if settings.memory.long_term.enabled:
         try:
-            memory_store = PersistentMemoryStore(settings.memory.long_term.db_path)
+            memory_store = PersistentMemoryStore(
+                settings.memory.long_term.db_path,
+                embedding_model=settings.memory.long_term.embedding_model,
+            )
         except Exception as exc:  # pragma: no cover - runtime specific
             logger.error("Failed to initialise long-term memory store: %s", exc)
     try:

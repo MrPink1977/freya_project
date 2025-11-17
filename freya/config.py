@@ -136,6 +136,7 @@ class LongTermMemoryConfig:
     min_similarity: float
     auto_store_keywords: Tuple[str, ...]
     store_assistant_messages: bool
+    embedding_model: str = "all-MiniLM-L6-v2"  # Fast, lightweight, 384-dim embeddings
 
 
 @dataclass(frozen=True)
@@ -302,6 +303,7 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         min_similarity=lt_min_similarity,
         auto_store_keywords=auto_store_keywords,
         store_assistant_messages=bool(long_term_raw.get("store_assistant_messages", False)),
+        embedding_model=str(long_term_raw.get("embedding_model", "all-MiniLM-L6-v2")),
     )
 
     memory_config = MemoryConfig(
