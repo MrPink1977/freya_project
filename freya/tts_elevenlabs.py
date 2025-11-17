@@ -105,13 +105,12 @@ class ElevenLabsTTS:
         logger.info("Speaking response: %s", trimmed[:1000])
 
         try:
-            # Generate audio stream from ElevenLabs
-            audio_stream = self._client.generate(
+            # Generate audio stream from ElevenLabs (new API)
+            audio_stream = self._client.text_to_speech.convert_as_stream(
+                voice_id=self._voice_id,
                 text=trimmed,
-                voice=self._voice_id,
-                model=self._model_id,
+                model_id=self._model_id,
                 voice_settings=self._voice_settings,
-                stream=True,  # Enable streaming for lower latency
             )
 
             # Stream and play audio
