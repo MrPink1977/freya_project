@@ -22,6 +22,7 @@ class ToolManager:
         from .calculator import CalculatorTool
         from .datetime_tools import CalculateTimeUntil, GetCurrentDate, GetCurrentTime
         from .file_tools import ListFilesTool, ReadFileTool, WriteFileTool
+        from .performance_tools import PerformanceMonitorTool
         from .system_tools import ExecuteCommandTool, SystemInfoTool
         from .web_scraper import WebScraperTool
 
@@ -41,6 +42,7 @@ class ToolManager:
             CalculatorTool,
             SystemInfoTool,
             ExecuteCommandTool,
+            PerformanceMonitorTool,
         ]
 
         for tool_class in default_tools:

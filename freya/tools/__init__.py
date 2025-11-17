@@ -5,6 +5,7 @@ from .calculator import CalculatorTool
 from .datetime_tools import CalculateTimeUntil, GetCurrentDate, GetCurrentTime
 from .file_tools import ListFilesTool, ReadFileTool, WriteFileTool
 from .manager import ToolManager
+from .performance_tools import PerformanceMonitorTool
 from .system_tools import ExecuteCommandTool, SystemInfoTool
 from .web_scraper import WebScraperTool
 from .web_search import WebSearchError, search_web
@@ -26,6 +27,7 @@ __all__ = [
     "CalculatorTool",
     "SystemInfoTool",
     "ExecuteCommandTool",
+    "PerformanceMonitorTool",
     # Legacy web search
     "search_web",
     "WebSearchError",

@@ -810,6 +810,19 @@ class Orchestrator:
             except Exception as exc:
                 logger.warning("System info tool failed: %s", exc)
 
+        # Performance monitoring
+        perf_patterns = ["performance", "cpu usage", "memory usage", "ram usage", "disk usage",
+                         "gpu usage", "task manager", "resource usage", "system performance"]
+        if any(pattern in lowered for pattern in perf_patterns):
+            try:
+                logger.info("Detected performance monitoring request")
+                self._output("[Checking system performance...]")
+                result = self._tool_manager.execute_tool("performance_monitor", metric="all")
+                if result.success:
+                    return f"TOOL RESULT (performance_monitor): {result.output}\n\nShare this performance data with the user."
+            except Exception as exc:
+                logger.warning("Performance monitor tool failed: %s", exc)
+
         return None
 
     def _extract_search_query(self, user_text: str, lowered: str) -> Optional[str]:
