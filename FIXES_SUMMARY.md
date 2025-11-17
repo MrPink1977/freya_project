@@ -96,13 +96,15 @@ This document summarizes all the code quality and bug fixes applied to the Freya
 
 ### 11. CI/CD Workflow Issue
 **Status:** ✅ Fixed
-**Commit:** `a40d914`
+**Commits:** `a40d914`, `4b4556b`
 
 - Simplified pytest error handling for better failure visibility
 - Replaced complex subshell logic with clearer conditional checks
 - Updated pip cache key from `requirements.txt` to `pyproject.toml`
 - Modernized dependency installation to use `pip install -e ".[dev]"`
 - Properly handles exit code 5 (no tests collected) as warning
+- Added system audio dependencies (portaudio19-dev, ffmpeg, libsndfile1)
+- Fixed pyaudio build failure in CI environment
 
 ### 12. Security Concerns - Camera Credentials
 **Status:** ✅ Fixed
@@ -173,12 +175,12 @@ This document summarizes all the code quality and bug fixes applied to the Freya
 
 ## Summary
 
-- **Total commits:** 14
+- **Total commits:** 15
 - **Critical fixes:** 2
 - **Medium priority fixes:** 4
 - **Low priority fixes:** 1
 - **Security enhancements:** 3
-- **Infrastructure improvements:** 4
+- **Infrastructure improvements:** 5
 - **No action needed:** 3
 
 All identified issues have been addressed. The codebase now has:
