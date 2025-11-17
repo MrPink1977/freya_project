@@ -107,6 +107,14 @@ def backup_memory(db_path: str, logger: logging.Logger) -> None:
         logger.debug("Memory database does not exist yet; skipping backup")
         return
 
+    # Check if file is accessible (prevents corruption from locked files)
+    try:
+        with open(db_file, 'rb') as f:
+            pass
+    except (IOError, PermissionError) as exc:
+        logger.warning("Cannot access database file for backup: %s", exc)
+        return
+
     # Create backup directory next to the database
     backup_dir = db_file.parent / "backups"
     try:
