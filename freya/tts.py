@@ -718,4 +718,54 @@ class TextToSpeech:
             self._sample_rate = sample_rate
 
 
-__all__ = ["TextToSpeech", "TextToSpeechError"]
+def create_tts(config: TextToSpeechConfig):
+    """Factory function to create the appropriate TTS engine.
+
+    Args:
+        config: TTS configuration
+
+    Returns:
+        TextToSpeech or ElevenLabsTTS instance
+
+    Raises:
+        TextToSpeechError: If engine is invalid or initialization fails
+    """
+    engine = config.engine.lower()
+
+    if engine == "piper":
+        logger.info("Initializing Piper TTS (local)")
+        return TextToSpeech(config)
+
+    elif engine == "elevenlabs":
+        logger.info("Initializing ElevenLabs TTS (cloud)")
+        try:
+            from .tts_elevenlabs import ElevenLabsTTS
+        except ImportError as exc:
+            raise TextToSpeechError(
+                "ElevenLabs TTS selected but module not available. "
+                "Install with: pip install elevenlabs"
+            ) from exc
+
+        if not config.elevenlabs.api_key:
+            raise TextToSpeechError(
+                "ElevenLabs API key not configured. "
+                "Add your API key to config/default.yaml under tts.elevenlabs.api_key"
+            )
+
+        return ElevenLabsTTS(
+            api_key=config.elevenlabs.api_key,
+            voice_id=config.elevenlabs.voice_id,
+            model_id=config.elevenlabs.model,
+            stability=config.elevenlabs.stability,
+            similarity_boost=config.elevenlabs.similarity_boost,
+            style=config.elevenlabs.style,
+            use_speaker_boost=config.elevenlabs.use_speaker_boost,
+        )
+
+    else:
+        raise TextToSpeechError(
+            f"Invalid TTS engine '{engine}'. Options: 'piper' or 'elevenlabs'"
+        )
+
+
+__all__ = ["TextToSpeech", "TextToSpeechError", "create_tts"]

@@ -132,9 +132,22 @@ class SpeechToTextConfig:
 
 
 @dataclass(frozen=True)
+class ElevenLabsConfig:
+    api_key: str
+    voice_id: str
+    model: str
+    stability: float
+    similarity_boost: float
+    style: float
+    use_speaker_boost: bool
+
+
+@dataclass(frozen=True)
 class TextToSpeechConfig:
+    engine: str  # "piper" or "elevenlabs"
     voice_path: str
     preload_phrases: Tuple[str, ...]
+    elevenlabs: ElevenLabsConfig
 
 
 @dataclass(frozen=True)
@@ -369,6 +382,9 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         ),
     )
     vision_config = VisionConfig(facial_recognition=face_config)
+
+    # Parse TTS configuration
+    tts_engine = str(tts_raw.get("engine", "piper")).lower()
     voice_path = tts_raw.get("voice_path", "voices/en_GB-southern_english_female-low.onnx")
     preload_raw = tts_raw.get("preload_phrases", ())
     if isinstance(preload_raw, str):
@@ -384,9 +400,23 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         if isinstance(phrase, (str, bytes)) and str(phrase).strip()
     )
 
+    # Parse ElevenLabs configuration
+    elevenlabs_raw = tts_raw.get("elevenlabs", {})
+    elevenlabs_config = ElevenLabsConfig(
+        api_key=str(elevenlabs_raw.get("api_key", "")),
+        voice_id=str(elevenlabs_raw.get("voice_id", "21m00Tcm4TlvDq8ikWAM")),
+        model=str(elevenlabs_raw.get("model", "eleven_turbo_v2_5")),
+        stability=float(elevenlabs_raw.get("stability", 0.5)),
+        similarity_boost=float(elevenlabs_raw.get("similarity_boost", 0.75)),
+        style=float(elevenlabs_raw.get("style", 0.0)),
+        use_speaker_boost=bool(elevenlabs_raw.get("use_speaker_boost", True)),
+    )
+
     tts_config = TextToSpeechConfig(
+        engine=tts_engine,
         voice_path=str(voice_path),
         preload_phrases=preload_phrases,
+        elevenlabs=elevenlabs_config,
     )
 
     settings = Settings(

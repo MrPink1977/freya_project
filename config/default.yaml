@@ -76,11 +76,29 @@ stt:
   prompt_tone_duration: 0.2
   prompt_tone_volume: 0.2
 tts:
+  engine: "piper"  # Options: "piper" (local, free) or "elevenlabs" (cloud, premium)
+
+  # Piper settings (for local TTS)
   voice_path: "voices/en_GB-southern_english_female-low.onnx"
   preload_phrases:
     - "Hello, Tommy! what can I help you with?."
     - "I'm listening."
     - "Goodbye!"
+
+  # ElevenLabs settings (for cloud TTS)
+  elevenlabs:
+    api_key: ""  # Add your ElevenLabs API key here
+    voice_id: "21m00Tcm4TlvDq8ikWAM"  # Rachel (default) - calm, clear female voice
+    # Other popular voices:
+    # "AZnzlk1XvdvUeBnXmlld" - Domi (strong, confident female)
+    # "EXAVITQu4vr4xnSDxMaL" - Bella (soft, warm female)
+    # "ErXwobaYiN019PkySvjV" - Antoni (well-rounded male)
+    # "TxGEqnHWrfWFTfGW9XjX" - Josh (deep, authoritative male)
+    model: "eleven_turbo_v2_5"  # Options: eleven_turbo_v2_5 (fast), eleven_multilingual_v2 (quality)
+    stability: 0.5  # 0-1: Higher = more consistent/stable
+    similarity_boost: 0.75  # 0-1: Higher = more similar to original voice
+    style: 0.0  # 0-1: Higher = more expressive/exaggerated
+    use_speaker_boost: true  # Enhance clarity
 wake_detector:
   model: "tiny"
   device: "cpu"

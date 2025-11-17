@@ -22,7 +22,7 @@ from freya.ollama_client import OllamaClient
 from freya.orchestrator import Orchestrator
 from freya.stt import SpeechToText, SpeechToTextError
 from freya.system_check import run_system_check
-from freya.tts import TextToSpeech, TextToSpeechError
+from freya.tts import TextToSpeech, TextToSpeechError, create_tts
 from freya.wake import WakeWordDetector, WakeWordDetectorError
 
 
@@ -211,7 +211,7 @@ def main() -> None:
         ) from exc
 
     try:
-        tts = TextToSpeech(settings.tts)
+        tts = create_tts(settings.tts)
     except TextToSpeechError as exc:
         logger.error("Failed to initialize text-to-speech: %s", exc)
         raise SystemExit(
