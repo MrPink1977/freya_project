@@ -1255,5 +1255,63 @@ class Orchestrator:
                 return keyword
         return None
 
+    def health_check(self) -> dict:
+        """Check health status of all system components.
+
+        Returns:
+            Dictionary with component statuses:
+            - 'ollama': True if Ollama is reachable
+            - 'stt': True if STT is initialized
+            - 'tts': True if TTS is initialized
+            - 'memory': True if memory store is available
+            - 'wake_detector': True if wake word detector is available
+            - 'tool_manager': Number of registered tools
+            - 'overall': True if all critical components are healthy
+
+        Example:
+            >>> status = orchestrator.health_check()
+            >>> if status['overall']:
+            ...     print("All systems operational")
+        """
+        health = {}
+
+        # Check Ollama client
+        try:
+            # Try to list models to verify connection
+            self._client.list_models()
+            health["ollama"] = True
+        except Exception as exc:
+            logger.warning("Ollama health check failed: %s", exc)
+            health["ollama"] = False
+
+        # Check STT
+        health["stt"] = self._stt is not None
+
+        # Check TTS
+        health["tts"] = self._tts is not None
+
+        # Check memory store
+        health["memory"] = self._memory_store is not None
+
+        # Check wake detector
+        health["wake_detector"] = self._wake_detector is not None
+
+        # Check tool manager
+        try:
+            tools = self._tool_manager.list_tools()
+            health["tool_manager"] = len(tools)
+        except Exception as exc:
+            logger.warning("Tool manager health check failed: %s", exc)
+            health["tool_manager"] = 0
+
+        # Overall health - critical components must be operational
+        health["overall"] = (
+            health["ollama"]
+            and health["stt"]
+            and health["tts"]
+        )
+
+        return health
+
 
 __all__ = ["Orchestrator"]
