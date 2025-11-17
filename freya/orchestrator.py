@@ -213,6 +213,38 @@ class Orchestrator:
             except Exception as exc:  # pragma: no cover - defensive logging only
                 logger.debug("Unable to preload common speech phrases: %s", exc)
 
+    @staticmethod
+    def _sanitize_user_input(user_input: str) -> str:
+        """Sanitize user input to prevent injection attacks and resource exhaustion.
+
+        Args:
+            user_input: Raw user input from voice or text
+
+        Returns:
+            Sanitized input string
+        """
+        # Remove null bytes (potential injection vector)
+        sanitized = user_input.replace("\x00", "")
+
+        # Remove other control characters except newlines, tabs, and carriage returns
+        # Keep \n (10), \r (13), \t (9) as they're commonly used in normal text
+        sanitized = "".join(
+            char for char in sanitized
+            if char >= " " or char in ("\n", "\r", "\t")
+        )
+
+        # Limit length to prevent memory exhaustion (10,000 chars ~= 2,000 words)
+        max_length = 10000
+        if len(sanitized) > max_length:
+            logger.warning(
+                "User input truncated from %d to %d characters",
+                len(sanitized),
+                max_length
+            )
+            sanitized = sanitized[:max_length]
+
+        return sanitized
+
     def run(self) -> None:
         self._register_mode_hotkey()
         self._register_stop_speech_hotkey()
@@ -368,6 +400,9 @@ class Orchestrator:
 
 
     def _handle_user_content(self, content: str) -> None:
+        # Sanitize user input to prevent injection attacks
+        content = self._sanitize_user_input(content)
+
         user_line = f"You said: {content}"
         if _BLUE:
             user_line = f"{_BLUE}{user_line}{_RESET}"
