@@ -26,6 +26,31 @@ def _expand_env(value: object) -> object:
     return value
 
 
+def _validate_credential_security(field_name: str, value: object) -> None:
+    """Warn if credentials appear to be stored as plaintext instead of environment variables."""
+
+    if not isinstance(value, str):
+        return
+
+    # Check if the value looks like an environment variable reference
+    # Valid patterns: ${VAR}, $VAR, or empty/placeholder values
+    if not value:
+        return
+
+    is_env_var = (
+        value.startswith("${") and value.endswith("}") or  # ${VAR} syntax
+        value.startswith("$") and not value.startswith("${") or  # $VAR syntax
+        value in ("your_password_here", "your_username_here", "PLACEHOLDER")  # Placeholders
+    )
+
+    if not is_env_var:
+        logger.warning(
+            "Security: %s appears to contain a literal credential instead of an environment variable. "
+            "Consider using ${ENV_VAR} syntax and storing credentials in a .env file.",
+            field_name
+        )
+
+
 def _parse_channel(channel_id: str, raw: dict) -> ChannelConfig:
     """Create a :class:`ChannelConfig` from the YAML mapping."""
 
@@ -47,14 +72,20 @@ def _parse_channel(channel_id: str, raw: dict) -> ChannelConfig:
             description=raw.get("description"),
         )
     elif channel_type == ChannelType.REOLINK:
+        # Validate credential security before expansion
+        username_raw = raw.get("username")
+        password_raw = raw.get("password")
+        _validate_credential_security(f"Channel '{channel_id}' username", username_raw)
+        _validate_credential_security(f"Channel '{channel_id}' password", password_raw)
+
         config = ChannelConfig(
             channel_id=channel_id,
             channel_type=channel_type,
             enabled=enabled,
             ip=_expand_env(raw.get("ip")),
             rtsp_port=int(raw.get("rtsp_port", 554)),
-            username=_expand_env(raw.get("username")),
-            password=_expand_env(raw.get("password")),
+            username=_expand_env(username_raw),
+            password=_expand_env(password_raw),
             description=raw.get("description"),
         )
     else:  # pragma: no cover - ChannelType exhaustive
@@ -120,8 +151,9 @@ def create_example_config(output_path: str | Path = "audio_config.yaml") -> Path
                     "enabled": False,
                     "ip": "192.168.1.100",
                     "rtsp_port": 554,
-                    "username": "admin",
-                    "password": "your_password_here",
+                    "username": "${REOLINK_CAM_USER}",
+                    "password": "${REOLINK_CAM_PASS}",
+                    "description": "Front door camera with 2-way audio",
                 },
             }
         }
