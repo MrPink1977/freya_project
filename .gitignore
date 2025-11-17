@@ -63,3 +63,7 @@ PR_DESCRIPTION.md
 # END OF GITIGNORE
 ########################################
 data/freya_memory.db 
+
+# Environment variables (API keys, secrets)
+.env
+.env.local
