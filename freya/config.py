@@ -22,19 +22,31 @@ def _load_env_file() -> None:
 
     try:
         with env_path.open("r", encoding="utf-8") as f:
-            for line in f:
+            for line_num, line in enumerate(f, 1):
                 line = line.strip()
                 # Skip comments and empty lines
                 if not line or line.startswith("#"):
                     continue
-                # Parse KEY=VALUE
-                if "=" in line:
-                    key, value = line.split("=", 1)
-                    key = key.strip()
-                    value = value.strip()
-                    # Only set if not already in environment
-                    if key and not os.getenv(key):
-                        os.environ[key] = value
+
+                # Check for malformed lines (missing =)
+                if "=" not in line:
+                    logger.warning("Malformed .env line %d: %s", line_num, line)
+                    continue
+
+                # Parse KEY=VALUE using partition (handles multiple = signs)
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip()
+
+                # Remove quotes if present (handles both single and double quotes)
+                if len(value) >= 2:
+                    if (value.startswith('"') and value.endswith('"')) or \
+                       (value.startswith("'") and value.endswith("'")):
+                        value = value[1:-1]
+
+                # Only set if key is valid and not already in environment
+                if key and key not in os.environ:
+                    os.environ[key] = value
         logger.debug("Loaded environment variables from .env file")
     except Exception as exc:
         logger.warning("Failed to load .env file: %s", exc)
