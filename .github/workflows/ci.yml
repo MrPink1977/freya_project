@@ -19,6 +19,11 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y portaudio19-dev
+
       - name: Cache pip
         uses: actions/cache@v4
         with:
@@ -41,6 +46,7 @@ jobs:
       - name: Run tests
         run: |
           set -o pipefail
+          export PYTHONPATH="${PYTHONPATH}:${PWD}"
           pytest -q || ( rc=$?; if [ "$rc" -eq 5 ]; then echo "No tests collected"; else exit $rc; fi )
 
       - name: Dependency audit (pip-audit)

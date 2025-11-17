@@ -72,8 +72,13 @@ class _TextToSpeechError(Exception):
     pass
 
 
+def _create_tts(config):  # pragma: no cover - placeholder for type references
+    return _TextToSpeech()
+
+
 tts_stub.TextToSpeech = _TextToSpeech
 tts_stub.TextToSpeechError = _TextToSpeechError
+tts_stub.create_tts = _create_tts
 sys.modules.setdefault("freya.tts", tts_stub)
 
 wake_stub = types.ModuleType("freya.wake")
