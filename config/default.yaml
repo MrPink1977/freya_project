@@ -1,12 +1,12 @@
 ollama:
   host: "http://localhost:11434"
-  model: "llama3.2:3b"
+  model: "dolphin-mixtral:8x7b"
   options:
-    temperature: 0.7          # Balanced creativity
-    top_k: 35                # Focused but natural
-    top_p: 0.88              # Good variety
-    repeat_penalty: 1.12     # Avoid repetition
-    num_predict: 180         # Good length for voice
+    temperature: 0.8          # Dolphin handles higher temps well
+    top_k: 40                # Good variety for Mixtral
+    top_p: 0.95              # Let the model breathe
+    repeat_penalty: 1.15     # Prevent repetition
+    num_predict: 256         # Mixtral is smarter, can handle more
     repeat_last_n: 64        
 app:
   system_prompt: |
