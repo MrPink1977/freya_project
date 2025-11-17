@@ -12,7 +12,8 @@ from enum import Enum
 from typing import Callable, List, Optional, Sequence
 
 try:  # pragma: no cover - optional dependency for colored output
-    from colorama import Fore, Style, init as colorama_init
+    from colorama import Fore, Style
+    from colorama import init as colorama_init
 except ImportError:  # pragma: no cover - runtime optional
     Fore = None  # type: ignore[assignment]
     Style = None  # type: ignore[assignment]
@@ -37,7 +38,7 @@ from .ollama_client import (
     OllamaStreamNotSupported,
 )
 from .stt import SpeechToText, SpeechToTextError
-from .tools.web_search import search_web, WebSearchError
+from .tools.web_search import WebSearchError, search_web
 from .tts import TextToSpeech, TextToSpeechError
 from .wake import WakeWordDetector, WakeWordDetectorError
 
@@ -391,14 +392,11 @@ class Orchestrator:
         if _GREEN:
             assistant_line = f"{_GREEN}{assistant_line}{_RESET}"
         self._output(assistant_line)
-        spoke_successfully = stream_tts_ok if streamed else False
         if not streamed:
             try:
                 self._tts.speak(_strip_markdown_for_speech(response))
             except TextToSpeechError:
                 self._output("[Warning] Unable to speak the response. Check logs.")
-            else:
-                spoke_successfully = True
 
         if self._session_window > 0 and self._get_mode() is InteractionMode.VOICE:
             # Extend session window after assistant response to allow follow-up questions

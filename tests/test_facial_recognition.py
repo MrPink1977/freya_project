@@ -11,8 +11,8 @@ try:  # pragma: no cover - numpy is an optional dependency in CI
 except ImportError:  # pragma: no cover - handled via skip
     np = None  # type: ignore[assignment]
 
-from freya.config import FaceRecognitionConfig
 from freya import facial_recognition
+from freya.config import FaceRecognitionConfig
 
 
 @unittest.skipIf(np is None, "numpy not available")

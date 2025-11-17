@@ -45,7 +45,7 @@ def _select_startup_mode(app_config: AppConfig) -> StartupMode:
     This function respects app_config.startup_mode and app_config.prompt_for_mode.
     If prompt_for_mode is enabled the user is prompted (unless non-interactive),
     otherwise the configured default is returned.
-    """  
+    """
     default_mode = _parse_mode(app_config.startup_mode)
     if not app_config.prompt_for_mode:
         return default_mode
@@ -230,7 +230,7 @@ def main() -> None:
     facial_recognition = None
     if settings.vision.facial_recognition.enabled:
         try:
-            from freya.facial_recognition import FacialRecognition, FaceRecognitionError
+            from freya.facial_recognition import FacialRecognition
 
             facial_recognition = FacialRecognition(settings.vision.facial_recognition)
             logger.info(

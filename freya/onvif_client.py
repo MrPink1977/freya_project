@@ -7,7 +7,6 @@ the ONVIF protocol, enabling Freya to speak through the camera's speaker.
 from __future__ import annotations
 
 import socket
-import threading
 import time
 from typing import Optional
 
@@ -80,7 +79,7 @@ class ONVIFAudioClient:
                 logger.error("No media profiles found for '%s'", self._config.channel_id)
                 return False
 
-            token = profiles[0].token
+            # token = profiles[0].token  # Reserved for future implementation
 
             # Get audio backchannel capabilities
             logger.info("Checking two-way audio capabilities for '%s'...", self._config.channel_id)
@@ -153,13 +152,15 @@ class ONVIFAudioClient:
         # with audio data in the body
 
         try:
-            import requests
+            import importlib.util
+            if importlib.util.find_spec("requests") is None:
+                logger.warning("requests library not available for HTTP audio streaming")
+                return
 
-            url = f"http://{self._config.ip}/api.cgi"
-            params = {"cmd": "AudioStreamOutput"}
-
-            # Reolink expects authentication
-            auth = (self._config.username, self._config.password)
+            # Reserved for future HTTP API implementation
+            # url = f"http://{self._config.ip}/api.cgi"
+            # params = {"cmd": "AudioStreamOutput"}
+            # auth = (self._config.username, self._config.password)
 
             # Send audio data
             # Note: This is a simplified implementation

@@ -1,5 +1,5 @@
-import os
 import builtins
+import os
 from types import SimpleNamespace
 
 import freya.main as main

@@ -9,14 +9,16 @@ Use this to verify the camera feed is working properly.
 import os
 import sys
 import time
-import cv2
 from pathlib import Path
+
+import cv2
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from freya.rtsp_stream import RTSPStreamHandler
 from freya.multi_channel_coordinator import ChannelConfig, ChannelType
+from freya.rtsp_stream import RTSPStreamHandler
+
 
 def main():
     print("=" * 70)
@@ -47,7 +49,7 @@ def main():
 
     # Load OpenCV face detector
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    print(f"✓ Loaded face detector")
+    print("✓ Loaded face detector")
 
     # Track frames and detections
     frames_processed = 0
@@ -65,7 +67,6 @@ def main():
 
         try:
             frame = video_frame.frame
-            timestamp = video_frame.timestamp
 
             # Resize for speed
             height, width = frame.shape[:2]
@@ -115,7 +116,6 @@ def main():
             # Show status every 10 seconds
             elapsed = time.time() - start_time
             if int(elapsed) % 10 == 0 and int(elapsed) > 0:
-                fps = frames_processed / elapsed if elapsed > 0 else 0
                 print(f"Status: {frames_processed} frames, {faces_detected} faces detected")
 
     except KeyboardInterrupt:

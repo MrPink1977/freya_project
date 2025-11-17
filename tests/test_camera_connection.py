@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from freya.multi_channel_coordinator import ChannelConfig, ChannelType
-from freya.rtsp_stream import RTSPStreamHandler, AudioChunk, VideoFrame
+from freya.rtsp_stream import AudioChunk, RTSPStreamHandler, VideoFrame
 
 
 class CameraConnectionTester:
@@ -129,7 +129,7 @@ class CameraConnectionTester:
         success = True
 
         # Audio results
-        print(f"\nAudio:")
+        print("\nAudio:")
         if self.audio_chunks > 0:
             print(f"  ✓ Chunks received: {self.audio_chunks}")
             if self.first_audio_time and self.last_audio_time:
@@ -138,16 +138,16 @@ class CameraConnectionTester:
                     rate = self.audio_chunks / audio_duration
                     print(f"  ✓ Average rate: {rate:.2f} chunks/second")
         else:
-            print(f"  ✗ No audio chunks received!")
-            print(f"  Possible causes:")
-            print(f"    - Camera has no microphone")
-            print(f"    - Audio is disabled in camera settings")
-            print(f"    - RTSP URL is incorrect")
-            print(f"    - Network connectivity issues")
+            print("  ✗ No audio chunks received!")
+            print("  Possible causes:")
+            print("    - Camera has no microphone")
+            print("    - Audio is disabled in camera settings")
+            print("    - RTSP URL is incorrect")
+            print("    - Network connectivity issues")
             success = False
 
         # Video results
-        print(f"\nVideo:")
+        print("\nVideo:")
         if self.video_frames > 0:
             print(f"  ✓ Frames received: {self.video_frames}")
             if self.first_video_time and self.last_video_time:
@@ -156,16 +156,16 @@ class CameraConnectionTester:
                     fps = self.video_frames / video_duration
                     print(f"  ✓ Average FPS: {fps:.2f}")
         else:
-            print(f"  ✗ No video frames received!")
-            print(f"  Possible causes:")
-            print(f"    - opencv-python not installed")
-            print(f"    - RTSP URL is incorrect")
-            print(f"    - Camera credentials are wrong")
-            print(f"    - Camera is offline")
+            print("  ✗ No video frames received!")
+            print("  Possible causes:")
+            print("    - opencv-python not installed")
+            print("    - RTSP URL is incorrect")
+            print("    - Camera credentials are wrong")
+            print("    - Camera is offline")
             success = False
 
         # Overall result
-        print(f"\n" + "=" * 60)
+        print("\n" + "=" * 60)
         if success:
             print("✓ Test PASSED - Camera is working correctly!")
         else:

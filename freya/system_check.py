@@ -219,7 +219,7 @@ class SystemCheck:
             return False, f"Known faces directory missing: {directory}"
 
         try:
-            from .facial_recognition import FacialRecognition, FaceRecognitionError
+            from .facial_recognition import FaceRecognitionError, FacialRecognition
         except ImportError as exc:  # pragma: no cover - optional dependency missing
             return False, f"Facial recognition module unavailable: {exc}"
 

@@ -1,5 +1,6 @@
-import pyaudio
 import wave
+
+import pyaudio
 
 # Record 5 seconds
 CHUNK = 1024

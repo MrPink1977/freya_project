@@ -14,16 +14,18 @@ Setup:
 import os
 import sys
 import time
-import cv2
 from pathlib import Path
+
+import cv2
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from freya.facial_recognition import FacialRecognition, FaceRecognitionError
 from freya.config import FaceRecognitionConfig
-from freya.rtsp_stream import RTSPStreamHandler
+from freya.facial_recognition import FaceRecognitionError, FacialRecognition
 from freya.multi_channel_coordinator import ChannelConfig, ChannelType
+from freya.rtsp_stream import RTSPStreamHandler
+
 
 def main():
     print("=" * 70)
@@ -32,10 +34,10 @@ def main():
     print()
 
     # Check for face_recognition library
-    try:
-        import face_recognition
+    import importlib.util
+    if importlib.util.find_spec("face_recognition") is not None:
         print("✓ face_recognition library installed")
-    except ImportError:
+    else:
         print("✗ face_recognition library NOT installed")
         print()
         print("Install with: pip install face_recognition")

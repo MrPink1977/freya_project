@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from freya.audio_config import load_channel_configs
 
+
 def test_camera_config():
     """Test loading camera configuration."""
 
