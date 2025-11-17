@@ -591,7 +591,11 @@ class Orchestrator:
             self._stop_speech_hotkey_handle = None
 
     def _stop_speech(self) -> None:
-        """Stop current TTS playback."""
+        """Stop current TTS playback (only in voice mode)."""
+        # Only stop speech in voice mode - don't interfere with text mode typing
+        if self._get_mode() != InteractionMode.VOICE:
+            return
+
         logger.info("Stop speech hotkey pressed")
         self._tts.stop_speaking()
 
