@@ -38,6 +38,7 @@ from .ollama_client import (
     OllamaStreamNotSupported,
 )
 from .stt import SpeechToText, SpeechToTextError
+from .tools import ToolManager
 from .tools.web_search import WebSearchError, search_web
 from .tts import TextToSpeech, TextToSpeechError
 from .wake import WakeWordDetector, WakeWordDetectorError
@@ -185,6 +186,10 @@ class Orchestrator:
         self._max_variant_tokens = max(len(tokens) for tokens in self._wake_word_token_variants)
         self._token_offset_limit = 2
         self._token_pattern = re.compile(r"[\w']+")
+
+        # Initialize tool manager
+        self._tool_manager = ToolManager()
+        logger.info("Initialized ToolManager with %d tools", len(self._tool_manager.list_tools()))
 
         self._voice_ready_prompt = (
             "Freya is ready. Say "
@@ -734,6 +739,79 @@ class Orchestrator:
 
         return None
 
+    def _maybe_use_tools(self, user_text: str) -> Optional[str]:
+        """Detect if user wants to use a tool and execute it.
+
+        Returns:
+            Formatted tool results, or None if no tool needed/matched
+        """
+        lowered = user_text.lower().strip()
+
+        # Time/Date detection
+        if any(pattern in lowered for pattern in ["what time", "current time", "time is it"]):
+            try:
+                logger.info("Detected time query, using get_current_time tool")
+                self._output("[Getting current time...]")
+                result = self._tool_manager.execute_tool("get_current_time", timezone="UTC")
+                if result.success:
+                    return f"TOOL RESULT (get_current_time): {result.output}\n\nUse this information to answer the user naturally."
+            except Exception as exc:
+                logger.warning("Time tool failed: %s", exc)
+
+        if any(pattern in lowered for pattern in ["what date", "current date", "today's date", "what day"]):
+            try:
+                logger.info("Detected date query, using get_current_date tool")
+                self._output("[Getting current date...]")
+                result = self._tool_manager.execute_tool("get_current_date", format="long")
+                if result.success:
+                    return f"TOOL RESULT (get_current_date): {result.output}\n\nUse this information to answer the user naturally."
+            except Exception as exc:
+                logger.warning("Date tool failed: %s", exc)
+
+        # Calculator detection
+        calc_patterns = [
+            r"calculate\s+(.+)",
+            r"compute\s+(.+)",
+            r"what\s+is\s+([\d\s+\-*/().]+)",
+            r"solve\s+(.+)",
+        ]
+        for pattern in calc_patterns:
+            match = re.search(pattern, lowered)
+            if match:
+                expression = match.group(1).strip()
+                try:
+                    logger.info("Detected calculation: %s", expression)
+                    self._output(f"[Calculating: {expression}...]")
+                    result = self._tool_manager.execute_tool("calculator", expression=expression)
+                    if result.success:
+                        return f"TOOL RESULT (calculator): {result.output}\n\nProvide this answer to the user."
+                except Exception as exc:
+                    logger.warning("Calculator tool failed: %s", exc)
+
+        # File operations
+        if "list files" in lowered or "show files" in lowered:
+            try:
+                logger.info("Detected list files request")
+                self._output("[Listing files...]")
+                result = self._tool_manager.execute_tool("list_files", path=".", pattern="*", recursive=False)
+                if result.success:
+                    return f"TOOL RESULT (list_files): {result.output}\n\nShow these files to the user."
+            except Exception as exc:
+                logger.warning("List files tool failed: %s", exc)
+
+        # System info
+        if "system info" in lowered or "system information" in lowered:
+            try:
+                logger.info("Detected system info request")
+                self._output("[Getting system information...]")
+                result = self._tool_manager.execute_tool("system_info", info_type="all")
+                if result.success:
+                    return f"TOOL RESULT (system_info): {result.output}\n\nShare this information with the user."
+            except Exception as exc:
+                logger.warning("System info tool failed: %s", exc)
+
+        return None
+
     def _extract_search_query(self, user_text: str, lowered: str) -> Optional[str]:
         """Extract the actual search query from user input.
 
@@ -1010,8 +1088,11 @@ class Orchestrator:
     def _prepare_messages(self, user_text: str) -> List[dict]:
         base_messages = self._context.as_messages()
 
-        # Check if web search is needed
-        search_results = self._maybe_search_web(user_text)
+        # Check if tools are needed
+        tool_results = self._maybe_use_tools(user_text)
+
+        # Check if web search is needed (fallback to old method)
+        search_results = self._maybe_search_web(user_text) if not tool_results else None
 
         # Check for structured facts first (instant lookup)
         facts_block: Optional[str] = None
@@ -1037,11 +1118,14 @@ class Orchestrator:
             except Exception as exc:  # pragma: no cover - defensive logging
                 logger.exception("Failed to retrieve memories: %s", exc)
 
-        # Build enriched message list with search results, facts, and/or memories
-        if not search_results and not facts_block and not memory_block:
+        # Build enriched message list with tool results, search results, facts, and/or memories
+        if not tool_results and not search_results and not facts_block and not memory_block:
             return base_messages
 
         enriched_messages = [base_messages[0]]  # Start with system prompt
+
+        if tool_results:
+            enriched_messages.append({"role": "system", "content": tool_results})
 
         if search_results:
             enriched_messages.append({"role": "system", "content": search_results})
