@@ -105,16 +105,16 @@ class ElevenLabsTTS:
         logger.info("Speaking response: %s", trimmed[:1000])
 
         try:
-            # Generate audio stream from ElevenLabs (new API)
-            audio_stream = self._client.text_to_speech.convert_as_stream(
+            # Generate audio from ElevenLabs
+            audio_data = self._client.text_to_speech.convert(
                 voice_id=self._voice_id,
                 text=trimmed,
                 model_id=self._model_id,
                 voice_settings=self._voice_settings,
             )
 
-            # Stream and play audio
-            self._play_audio_stream(audio_stream)
+            # Play audio
+            self._play_audio(audio_data)
 
         except Exception as exc:
             logger.exception("Failed to synthesize or play speech: %s", exc)
@@ -133,11 +133,11 @@ class ElevenLabsTTS:
         """
         logger.debug("Preload requested for '%s' (no-op for streaming API)", text[:50])
 
-    def _play_audio_stream(self, audio_stream) -> None:
-        """Play audio stream from ElevenLabs.
+    def _play_audio(self, audio_data: bytes) -> None:
+        """Play audio data from ElevenLabs.
 
         Args:
-            audio_stream: Generator yielding audio chunks
+            audio_data: Audio bytes from ElevenLabs API
         """
         try:
             # Initialize PyAudio
@@ -150,14 +150,15 @@ class ElevenLabsTTS:
             )
 
             try:
-                # Stream audio chunks
-                for chunk in audio_stream:
+                # Play audio data in chunks to allow stop signal
+                chunk_size = 1024
+                for i in range(0, len(audio_data), chunk_size):
                     if self._stop_speech.is_set():
                         logger.debug("Stop signal received, halting playback")
                         break
 
-                    if chunk:
-                        stream.write(chunk)
+                    chunk = audio_data[i:i + chunk_size]
+                    stream.write(chunk)
 
             finally:
                 stream.stop_stream()
@@ -165,7 +166,7 @@ class ElevenLabsTTS:
                 p.terminate()
 
         except Exception as exc:
-            logger.exception("Failed to play audio stream: %s", exc)
+            logger.exception("Failed to play audio: %s", exc)
             raise TextToSpeechError("Failed to play audio") from exc
 
 
