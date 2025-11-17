@@ -24,6 +24,15 @@ except ImportError as exc:
 else:
     _PYAUDIO_ERROR = None
 
+try:
+    from pydub import AudioSegment
+    from pydub.playback import play
+except ImportError as exc:
+    AudioSegment = None  # type: ignore[assignment,misc]
+    _PYDUB_ERROR = exc
+else:
+    _PYDUB_ERROR = None
+
 from .logger import get_logger
 
 logger = get_logger("tts.elevenlabs")
@@ -61,6 +70,10 @@ class ElevenLabsTTS:
             raise TextToSpeechError(
                 "ElevenLabs dependency missing: elevenlabs (pip install elevenlabs)"
             ) from _ELEVENLABS_ERROR
+        if _PYDUB_ERROR is not None:
+            raise TextToSpeechError(
+                "Audio dependency missing: pydub (pip install pydub)"
+            ) from _PYDUB_ERROR
         if _PYAUDIO_ERROR is not None:
             raise TextToSpeechError(
                 "Audio playback dependency missing: pyaudio (pip install pyaudio)"
@@ -140,27 +153,36 @@ class ElevenLabsTTS:
         """Play audio data from ElevenLabs.
 
         Args:
-            audio_data: Audio bytes from ElevenLabs API
+            audio_data: Audio bytes from ElevenLabs API (MP3 format)
         """
         try:
+            # ElevenLabs returns MP3 audio, decode it to raw PCM
+            audio_segment = AudioSegment.from_mp3(io.BytesIO(audio_data))
+
+            # Convert to raw audio data
+            raw_data = audio_segment.raw_data
+            sample_width = audio_segment.sample_width
+            frame_rate = audio_segment.frame_rate
+            channels = audio_segment.channels
+
             # Initialize PyAudio
             p = pyaudio.PyAudio()
             stream = p.open(
-                format=pyaudio.paInt16,
-                channels=1,
-                rate=22050,  # ElevenLabs default sample rate
+                format=p.get_format_from_width(sample_width),
+                channels=channels,
+                rate=frame_rate,
                 output=True,
             )
 
             try:
                 # Play audio data in chunks to allow stop signal
                 chunk_size = 1024
-                for i in range(0, len(audio_data), chunk_size):
+                for i in range(0, len(raw_data), chunk_size):
                     if self._stop_speech.is_set():
                         logger.debug("Stop signal received, halting playback")
                         break
 
-                    chunk = audio_data[i:i + chunk_size]
+                    chunk = raw_data[i:i + chunk_size]
                     stream.write(chunk)
 
             finally:
