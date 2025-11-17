@@ -1,12 +1,12 @@
 ollama:
   host: "http://localhost:11434"
-  model: "llama3.2:3b"
+  model: "dolphin-mixtral:8x7b"
   options:
-    temperature: 0.7          # Balanced creativity
-    top_k: 35                # Focused but natural
-    top_p: 0.88              # Good variety
-    repeat_penalty: 1.12     # Avoid repetition
-    num_predict: 180         # Good length for voice
+    temperature: 0.8          # Dolphin handles higher temps well
+    top_k: 40                # Good variety for Mixtral
+    top_p: 0.95              # Let the model breathe
+    repeat_penalty: 1.15     # Prevent repetition
+    num_predict: 256         # Mixtral is smarter, can handle more
     repeat_last_n: 64        
 app:
   system_prompt: |
@@ -17,25 +17,39 @@ app:
     - Sometimes sarcastic in a friendly way
     - Witty
 
-    YOUR CAPABILITIES:
-    - Voice interaction with wake word detection
-    - **WEB SEARCH** - You can search the internet for current information (news, weather, facts, etc.)
-    - Long-term memory of past conversations
-    - Remember facts when user says "remember" or "my name is"
-    - Provide concise, direct answers unless asked for detail
-    - Speak naturally and conversationally
+    YOUR MEMORY SYSTEMS (YOU HAVE BOTH):
+    - SHORT-TERM MEMORY: You maintain conversation context across multiple turns - you CAN remember what was said earlier in our conversation
+    - LONG-TERM MEMORY: You have persistent memory across sessions using semantic search in SQLite - you CAN remember facts, preferences, and conversations from previous sessions
+    - When you see "Relevant context from past conversations:", that's your LTM being retrieved
+    - You HAVE memory - never claim you don't!
+
+    YOUR TOOLS (you can use these automatically):
+    - get_current_time - Get current time in any timezone
+    - get_current_date - Get today's date
+    - calculate_time_until - Calculate time until a future date
+    - calculator - Perform math calculations (basic and advanced)
+    - list_files - List files in directories
+    - read_file - Read file contents
+    - write_file - Create or update files
+    - web_search - Search the internet for current information
+    - web_scraper - Extract content from websites
+    - system_info - Get OS, Python, and disk information
+    - execute_command - Run safe shell commands
+    - performance_monitor - Check CPU, GPU, RAM, disk usage (like Task Manager)
+
+    When you see "TOOL RESULT (...)", you HAVE used that tool - use the results confidently!
 
     CRITICAL RULES:
-    1. NEVER guess facts about Tommy - if you don't remember, say so
+    1. NEVER guess facts - if you don't remember, say so
     2. When you see "WEB SEARCH RESULTS:", you HAVE searched the internet - use that current info
-    3. When you see "Relevant context from past conversations:", that's real memory
-    4. You CAN access current information via web search - use it confidently
+    3. When you see "TOOL RESULT:", that's real data from your tools
+    4. You HAVE both short-term and long-term memory - use them!
     5. Be honest if unsure
-    6. **BREVITY FIRST** - Keep responses under 3 sentences unless specifically asked for detail
+    6. BREVITY FIRST - Keep responses under 3 sentences unless specifically asked for detail
     7. No markdown formatting in responses - speak naturally without asterisks or parentheses
 
     Style:
-    - **EXTREMELY CONCISE** - 1-2 sentences for most answers
+    - EXTREMELY CONCISE - 1-2 sentences for most answers
     - Short and punchy for simple questions
     - Detailed ONLY when explicitly asked
     - Use contractions; natural tone
@@ -62,11 +76,29 @@ stt:
   prompt_tone_duration: 0.2
   prompt_tone_volume: 0.2
 tts:
+  engine: "piper"  # Options: "piper" (local, free) or "elevenlabs" (cloud, premium)
+
+  # Piper settings (for local TTS)
   voice_path: "voices/en_GB-southern_english_female-low.onnx"
   preload_phrases:
     - "Hello, Tommy! what can I help you with?."
     - "I'm listening."
     - "Goodbye!"
+
+  # ElevenLabs settings (for cloud TTS)
+  elevenlabs:
+    api_key: ""  # Add your ElevenLabs API key here
+    voice_id: "21m00Tcm4TlvDq8ikWAM"  # Rachel (default) - calm, clear female voice
+    # Other popular voices:
+    # "AZnzlk1XvdvUeBnXmlld" - Domi (strong, confident female)
+    # "EXAVITQu4vr4xnSDxMaL" - Bella (soft, warm female)
+    # "ErXwobaYiN019PkySvjV" - Antoni (well-rounded male)
+    # "TxGEqnHWrfWFTfGW9XjX" - Josh (deep, authoritative male)
+    model: "eleven_turbo_v2_5"  # Options: eleven_turbo_v2_5 (fast), eleven_multilingual_v2 (quality)
+    stability: 0.5  # 0-1: Higher = more consistent/stable
+    similarity_boost: 0.75  # 0-1: Higher = more similar to original voice
+    style: 0.0  # 0-1: Higher = more expressive/exaggerated
+    use_speaker_boost: true  # Enhance clarity
 wake_detector:
   model: "tiny"
   device: "cpu"
@@ -87,11 +119,17 @@ memory:
     auto_store_keywords:
       - "remember"
       - "my name is"
+      - "my name"
+      - "call me"
       - "i like"
       - "i dislike"
-      - "call me"
+      - "i love"
+      - "i hate"
       - "favorite"
-      - "my name"
+      - "my birthday"
+      - "birthday is"
+      - "born on"
+      - "born in"
     store_assistant_messages: false
 web_search:
   enabled: true

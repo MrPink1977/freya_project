@@ -14,6 +14,32 @@ from .logger import get_logger
 logger = get_logger("config")
 
 
+def _load_env_file() -> None:
+    """Load environment variables from .env file if it exists."""
+    env_path = Path(".env")
+    if not env_path.exists():
+        return
+
+    try:
+        with env_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                # Skip comments and empty lines
+                if not line or line.startswith("#"):
+                    continue
+                # Parse KEY=VALUE
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip()
+                    # Only set if not already in environment
+                    if key and not os.getenv(key):
+                        os.environ[key] = value
+        logger.debug("Loaded environment variables from .env file")
+    except Exception as exc:
+        logger.warning("Failed to load .env file: %s", exc)
+
+
 class ConfigValidationError(ValueError):
     """Raised when configuration validation fails."""
 
@@ -132,9 +158,22 @@ class SpeechToTextConfig:
 
 
 @dataclass(frozen=True)
+class ElevenLabsConfig:
+    api_key: str
+    voice_id: str
+    model: str
+    stability: float
+    similarity_boost: float
+    style: float
+    use_speaker_boost: bool
+
+
+@dataclass(frozen=True)
 class TextToSpeechConfig:
+    engine: str  # "piper" or "elevenlabs"
     voice_path: str
     preload_phrases: Tuple[str, ...]
+    elevenlabs: ElevenLabsConfig
 
 
 @dataclass(frozen=True)
@@ -187,6 +226,9 @@ def _resolve_config_path(path: Optional[Path]) -> Path:
 
 def load_settings(path: Optional[Path] = None) -> Settings:
     """Load application settings from YAML configuration."""
+    # Load environment variables from .env file if present
+    _load_env_file()
+
     config_path = _resolve_config_path(path)
     raw = _load_raw_config(config_path)
 
@@ -369,6 +411,9 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         ),
     )
     vision_config = VisionConfig(facial_recognition=face_config)
+
+    # Parse TTS configuration
+    tts_engine = str(tts_raw.get("engine", "piper")).lower()
     voice_path = tts_raw.get("voice_path", "voices/en_GB-southern_english_female-low.onnx")
     preload_raw = tts_raw.get("preload_phrases", ())
     if isinstance(preload_raw, str):
@@ -384,9 +429,32 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         if isinstance(phrase, (str, bytes)) and str(phrase).strip()
     )
 
+    # Parse ElevenLabs configuration (environment variables take precedence)
+    elevenlabs_raw = tts_raw.get("elevenlabs", {})
+    elevenlabs_config = ElevenLabsConfig(
+        api_key=str(
+            os.getenv("ELEVENLABS_API_KEY")
+            or elevenlabs_raw.get("api_key", "")
+        ),
+        voice_id=str(
+            os.getenv("ELEVENLABS_VOICE_ID")
+            or elevenlabs_raw.get("voice_id", "21m00Tcm4TlvDq8ikWAM")
+        ),
+        model=str(
+            os.getenv("ELEVENLABS_MODEL")
+            or elevenlabs_raw.get("model", "eleven_turbo_v2_5")
+        ),
+        stability=float(elevenlabs_raw.get("stability", 0.5)),
+        similarity_boost=float(elevenlabs_raw.get("similarity_boost", 0.75)),
+        style=float(elevenlabs_raw.get("style", 0.0)),
+        use_speaker_boost=bool(elevenlabs_raw.get("use_speaker_boost", True)),
+    )
+
     tts_config = TextToSpeechConfig(
+        engine=tts_engine,
         voice_path=str(voice_path),
         preload_phrases=preload_phrases,
+        elevenlabs=elevenlabs_config,
     )
 
     settings = Settings(
