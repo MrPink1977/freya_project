@@ -7,10 +7,11 @@ import threading
 from typing import Optional
 
 try:
-    from elevenlabs import VoiceSettings, generate, play, stream
     from elevenlabs.client import ElevenLabs
+    from elevenlabs import VoiceSettings
 except ImportError as exc:
     ElevenLabs = None  # type: ignore[assignment,misc]
+    VoiceSettings = None  # type: ignore[assignment,misc]
     _ELEVENLABS_ERROR = exc
 else:
     _ELEVENLABS_ERROR = None
