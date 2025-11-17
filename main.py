@@ -22,7 +22,7 @@ from freya.ollama_client import OllamaClient
 from freya.orchestrator import Orchestrator
 from freya.stt import SpeechToText, SpeechToTextError
 from freya.system_check import run_system_check
-from freya.tts import TextToSpeech, TextToSpeechError, create_tts
+from freya.tts import TextToSpeechError, create_tts
 from freya.wake import WakeWordDetector, WakeWordDetectorError
 
 
@@ -109,7 +109,7 @@ def backup_memory(db_path: str, logger: logging.Logger) -> None:
 
     # Check if file is accessible (prevents corruption from locked files)
     try:
-        with open(db_file, 'rb') as f:
+        with open(db_file, 'rb'):
             pass
     except (IOError, PermissionError) as exc:
         logger.warning("Cannot access database file for backup: %s", exc)

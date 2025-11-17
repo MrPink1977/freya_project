@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import io
 import threading
-from typing import Optional
 
 try:
-    from elevenlabs.client import ElevenLabs
     from elevenlabs import VoiceSettings
+    from elevenlabs.client import ElevenLabs
 except ImportError as exc:
     ElevenLabs = None  # type: ignore[assignment,misc]
     VoiceSettings = None  # type: ignore[assignment,misc]
@@ -26,7 +25,6 @@ else:
 
 try:
     from pydub import AudioSegment
-    from pydub.playback import play
 except ImportError as exc:
     AudioSegment = None  # type: ignore[assignment,misc]
     _PYDUB_ERROR = exc
