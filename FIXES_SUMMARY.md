@@ -114,13 +114,71 @@ This document summarizes all the code quality and bug fixes applied to the Freya
 - Prevents accidental storage of plaintext passwords in YAML files
 - Existing configs already used `os.path.expandvars()` for env var expansion
 
+### 13. Missing Input Sanitization
+**Status:** ✅ Fixed
+**Commit:** `1befc70`
+
+- Implemented `_sanitize_user_input()` method in Orchestrator
+- Removes null bytes and dangerous control characters
+- Preserves safe whitespace characters (newlines, tabs, carriage returns)
+- Limits input to 10,000 characters to prevent memory exhaustion
+- Logs warnings when input is truncated
+- Applied at entry point before any processing
+- Prevents potential injection attacks and resource exhaustion
+
+### 14. Logging Configuration Centralization
+**Status:** ✅ Enhanced
+**Commit:** `6351de4`
+
+- Added log rotation using `RotatingFileHandler` (default 10MB, 5 backups)
+- Added configurable log file path, max size, and backup count
+- Implemented `set_module_log_level()` for fine-grained control
+- Enhanced docstrings with usage examples
+- Prevents unbounded log file growth
+- Allows debugging specific modules without flooding logs
+- Maintains existing best-practice pattern of scattered `get_logger()` calls
+
+### 15. Health Check Endpoint
+**Status:** ✅ Implemented
+**Commit:** `a1efeee`
+
+- Added `health_check()` method to Orchestrator class
+- Checks Ollama connectivity by attempting to list models
+- Verifies STT, TTS, memory store, and wake detector availability
+- Reports tool manager status with count of registered tools
+- Returns overall health status for critical components
+- Provides detailed component-level health information
+- Useful for monitoring, diagnostics, and startup validation
+
+### 16. Configuration Validation Tests
+**Status:** ✅ Added
+**Commit:** `424ba69`
+
+- Created comprehensive test suite in `tests/test_config_validation.py`
+- Tests minimal valid configuration loading
+- Tests error handling for missing/invalid config files
+- Tests validation for all critical config parameters
+- Tests range validation for numeric parameters
+- Tests environment variable override behavior
+- Tests default value application
+- 15+ test cases covering configuration edge cases
+
+### 17. Documentation Improvements
+**Status:** ✅ Ongoing
+
+- Enhanced method docstrings with examples (health_check, set_module_log_level)
+- Improved inline documentation for complex validation logic
+- Updated FIXES_SUMMARY.md with comprehensive fix documentation
+- All major functions now have detailed parameter descriptions
+
 ## Summary
 
-- **Total commits:** 9
+- **Total commits:** 14
 - **Critical fixes:** 2
 - **Medium priority fixes:** 4
 - **Low priority fixes:** 1
-- **Security enhancements:** 2
+- **Security enhancements:** 3
+- **Infrastructure improvements:** 4
 - **No action needed:** 3
 
 All identified issues have been addressed. The codebase now has:
@@ -133,6 +191,10 @@ All identified issues have been addressed. The codebase now has:
 - ✅ Memory leak prevention
 - ✅ Improved CI/CD workflow
 - ✅ Enhanced credential security
+- ✅ Input sanitization against attacks
+- ✅ Log rotation and module-level logging
+- ✅ System health monitoring
+- ✅ Comprehensive configuration tests
 
 ## Next Steps
 
