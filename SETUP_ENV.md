@@ -26,7 +26,7 @@ copy .env.example .env
 
 ### Step 2: Edit `.env` File
 
-Open `.env` in your text editor and add your API key:
+Open `.env` in your text editor and add your credentials:
 
 ```bash
 # ElevenLabs API Key
@@ -37,6 +37,10 @@ ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
 
 # Optional: Choose model
 ELEVENLABS_MODEL=eleven_turbo_v2_5
+
+# Reolink Camera Credentials (if using camera features)
+REOLINK_CAM_USER=admin
+REOLINK_CAM_PASS=your_camera_password_here
 ```
 
 ### Step 3: Run Freya
@@ -58,6 +62,15 @@ Freya will automatically load your `.env` file! ✅
 | `ELEVENLABS_API_KEY` | Your API key from elevenlabs.io | *(none)* |
 | `ELEVENLABS_VOICE_ID` | Voice to use | `21m00Tcm4TlvDq8ikWAM` (Rachel) |
 | `ELEVENLABS_MODEL` | Model to use | `eleven_turbo_v2_5` |
+
+### Reolink Camera
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REOLINK_CAM_USER` | Camera username | `admin` |
+| `REOLINK_CAM_PASS` | Camera password | *(none)* |
+
+These are used by `config/my_camera_config.yaml` via `${REOLINK_CAM_USER}` and `${REOLINK_CAM_PASS}` syntax.
 
 ---
 
