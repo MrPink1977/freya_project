@@ -191,6 +191,14 @@ class Orchestrator:
         self._tool_manager = ToolManager()
         logger.info("Initialized ToolManager with %d tools", len(self._tool_manager.list_tools()))
 
+        # Compile regex patterns once for efficiency
+        self._calc_patterns = [
+            re.compile(r"calculate\s+(.+)"),
+            re.compile(r"compute\s+(.+)"),
+            re.compile(r"what\s+is\s+([\d\s+\-*/().]+)"),
+            re.compile(r"solve\s+(.+)"),
+        ]
+
         self._voice_ready_prompt = (
             "Freya is ready. Say "
             f"{self._wake_word_display} followed by your message. "
@@ -772,15 +780,9 @@ class Orchestrator:
             except Exception as exc:
                 logger.warning("Date tool failed: %s", exc)
 
-        # Calculator detection
-        calc_patterns = [
-            r"calculate\s+(.+)",
-            r"compute\s+(.+)",
-            r"what\s+is\s+([\d\s+\-*/().]+)",
-            r"solve\s+(.+)",
-        ]
-        for pattern in calc_patterns:
-            match = re.search(pattern, lowered)
+        # Calculator detection (using pre-compiled patterns)
+        for pattern in self._calc_patterns:
+            match = pattern.search(lowered)
             if match:
                 expression = match.group(1).strip()
                 try:
