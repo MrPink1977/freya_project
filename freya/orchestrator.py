@@ -470,7 +470,11 @@ class Orchestrator:
                 chunk_queue.put(piece)
             chunk_queue.put(None)
             chunk_queue.join()
-            thread.join()
+
+            # Add timeout to prevent hanging indefinitely
+            thread.join(timeout=30.0)
+            if thread.is_alive():
+                logger.warning("TTS thread did not terminate within 30 seconds, may have hung")
 
         if tts_error is not None:
             self._output("[Warning] Unable to speak the response. Check logs.")
