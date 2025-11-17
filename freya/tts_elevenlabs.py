@@ -105,13 +105,16 @@ class ElevenLabsTTS:
         logger.info("Speaking response: %s", trimmed[:1000])
 
         try:
-            # Generate audio from ElevenLabs
-            audio_data = self._client.text_to_speech.convert(
+            # Generate audio from ElevenLabs (returns a generator)
+            audio_generator = self._client.text_to_speech.convert(
                 voice_id=self._voice_id,
                 text=trimmed,
                 model_id=self._model_id,
                 voice_settings=self._voice_settings,
             )
+
+            # Convert generator to bytes
+            audio_data = b"".join(audio_generator)
 
             # Play audio
             self._play_audio(audio_data)
