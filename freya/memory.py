@@ -101,6 +101,29 @@ class PersistentMemoryStore:
     def __exit__(self, exc_type, exc, tb) -> None:  # pragma: no cover - convenience
         self.close()
 
+    def _execute_with_lock(self, query: str, params=()) -> sqlite3.Cursor:
+        """Execute query with proper thread safety and error handling.
+
+        Args:
+            query: SQL query to execute
+            params: Query parameters
+
+        Returns:
+            Cursor from the executed query
+
+        Raises:
+            sqlite3.DatabaseError: If database operation fails after rollback
+        """
+        with self._lock:
+            try:
+                cursor = self._conn.execute(query, params)
+                self._conn.commit()
+                return cursor
+            except sqlite3.DatabaseError as exc:
+                logger.error("Database error, rolling back: %s", exc)
+                self._conn.rollback()
+                raise
+
     def _generate_embedding(self, text: str) -> Optional[List[float]]:
         """Generate a semantic embedding vector for the given text."""
         if not self._use_embeddings or self._embedding_model is None:
@@ -153,18 +176,16 @@ class PersistentMemoryStore:
         embedding_json = json.dumps(list(embedding)) if embedding is not None else None
         now = datetime.now(timezone.utc).isoformat()
 
-        with self._lock:
-            cursor = self._conn.execute(
-                """
-                INSERT INTO memories (role, content, metadata, importance, embedding, created_at, last_accessed)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (role, text, metadata_json, int(max(1, importance)), embedding_json, now, now),
-            )
-            self._conn.commit()
-            memory_id = int(cursor.lastrowid)
-            logger.debug("Stored memory %s (%s) [embedding: %s]", memory_id, role, embedding is not None)
-            return memory_id
+        cursor = self._execute_with_lock(
+            """
+            INSERT INTO memories (role, content, metadata, importance, embedding, created_at, last_accessed)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (role, text, metadata_json, int(max(1, importance)), embedding_json, now, now),
+        )
+        memory_id = int(cursor.lastrowid)
+        logger.debug("Stored memory %s (%s) [embedding: %s]", memory_id, role, embedding is not None)
+        return memory_id
 
     def find_similar_memories(
         self,
