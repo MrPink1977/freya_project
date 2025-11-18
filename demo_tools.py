@@ -25,29 +25,44 @@ def demo_tools():
 
     # Demo each category of tools
     demos = [
-        ("⏰ Time & Date", [
-            ("get_current_time", {"timezone": "America/New_York", "format": "12h"}),
-            ("get_current_date", {"format": "long"}),
-            ("calculate_time_until", {"target_date": "2025-12-25"}),
-        ]),
-        ("🧮 Calculator", [
-            ("calculator", {"expression": "2 + 2 * 3"}),
-            ("calculator", {"expression": "sqrt(16) + 10"}),
-            ("calculator", {"expression": "sin(pi/2)"}),
-        ]),
-        ("📁 File Operations", [
-            ("list_files", {"path": ".", "pattern": "*.py", "recursive": False}),
-            ("list_files", {"path": "freya/tools", "pattern": "*.py"}),
-        ]),
-        ("💻 System Info", [
-            ("system_info", {"info_type": "os"}),
-            ("system_info", {"info_type": "python"}),
-        ]),
-        ("🌐 Web (requires internet)", [
-            ("web_search", {"query": "Python programming", "max_results": 3}),
-            # Uncomment to test web scraper:
-            # ("web_scraper", {"url": "https://example.com", "mode": "title"}),
-        ]),
+        (
+            "⏰ Time & Date",
+            [
+                ("get_current_time", {"timezone": "America/New_York", "format": "12h"}),
+                ("get_current_date", {"format": "long"}),
+                ("calculate_time_until", {"target_date": "2025-12-25"}),
+            ],
+        ),
+        (
+            "🧮 Calculator",
+            [
+                ("calculator", {"expression": "2 + 2 * 3"}),
+                ("calculator", {"expression": "sqrt(16) + 10"}),
+                ("calculator", {"expression": "sin(pi/2)"}),
+            ],
+        ),
+        (
+            "📁 File Operations",
+            [
+                ("list_files", {"path": ".", "pattern": "*.py", "recursive": False}),
+                ("list_files", {"path": "freya/tools", "pattern": "*.py"}),
+            ],
+        ),
+        (
+            "💻 System Info",
+            [
+                ("system_info", {"info_type": "os"}),
+                ("system_info", {"info_type": "python"}),
+            ],
+        ),
+        (
+            "🌐 Web (requires internet)",
+            [
+                ("web_search", {"query": "Python programming", "max_results": 3}),
+                # Uncomment to test web scraper:
+                # ("web_scraper", {"url": "https://example.com", "mode": "title"}),
+            ],
+        ),
     ]
 
     for category, tool_demos in demos:

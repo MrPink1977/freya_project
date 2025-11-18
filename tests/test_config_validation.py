@@ -40,9 +40,7 @@ def minimal_config():
 @pytest.fixture
 def config_file(minimal_config):
     """Create a temporary config file."""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".yaml", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         yaml.safe_dump(minimal_config, f)
         path = Path(f.name)
 
@@ -121,9 +119,7 @@ def test_invalid_wake_word_sensitivity():
         path = Path(f.name)
 
     try:
-        with pytest.raises(
-            ConfigValidationError, match="wake_word_sensitivity must be between"
-        ):
+        with pytest.raises(ConfigValidationError, match="wake_word_sensitivity must be between"):
             load_settings(path)
     finally:
         path.unlink()
@@ -143,9 +139,7 @@ def test_negative_wake_session_seconds():
         path = Path(f.name)
 
     try:
-        with pytest.raises(
-            ConfigValidationError, match="wake_session_seconds cannot be negative"
-        ):
+        with pytest.raises(ConfigValidationError, match="wake_session_seconds cannot be negative"):
             load_settings(path)
     finally:
         path.unlink()
@@ -171,9 +165,7 @@ def test_invalid_memory_similarity():
         path = Path(f.name)
 
     try:
-        with pytest.raises(
-            ConfigValidationError, match="min_similarity must be between"
-        ):
+        with pytest.raises(ConfigValidationError, match="min_similarity must be between"):
             load_settings(path)
     finally:
         path.unlink()
@@ -199,9 +191,7 @@ def test_invalid_store_type():
         path = Path(f.name)
 
     try:
-        with pytest.raises(
-            ConfigValidationError, match="store_type must be one of"
-        ):
+        with pytest.raises(ConfigValidationError, match="store_type must be one of"):
             load_settings(path)
     finally:
         path.unlink()
@@ -227,8 +217,7 @@ def test_env_var_expansion():
         settings = load_settings(path)
         # The config loader uses os.getenv, but doesn't expand ${VAR} syntax
         # This test documents current behavior
-        assert "${TEST_OLLAMA_HOST}" in settings.ollama.host or \
-               "test.example.com" in settings.ollama.host
+        assert "${TEST_OLLAMA_HOST}" in settings.ollama.host or "test.example.com" in settings.ollama.host
     finally:
         path.unlink()
         del os.environ["TEST_OLLAMA_HOST"]

@@ -177,9 +177,7 @@ class CameraConnectionTester:
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Test Reolink camera connectivity for Freya"
-    )
+    parser = argparse.ArgumentParser(description="Test Reolink camera connectivity for Freya")
     parser.add_argument("--ip", required=True, help="Camera IP address")
     parser.add_argument("--user", "--username", default="admin", help="Camera username (default: admin)")
     parser.add_argument("--password", "--pass", required=True, help="Camera password")

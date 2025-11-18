@@ -67,3 +67,11 @@ data/freya_memory.db
 # Environment variables (API keys, secrets)
 .env
 .env.local
+
+# -----------------------------
+# Build artifacts
+# -----------------------------
+build/
+dist/
+*.egg-info/
+.eggs/

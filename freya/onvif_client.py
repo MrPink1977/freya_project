@@ -153,6 +153,7 @@ class ONVIFAudioClient:
 
         try:
             import importlib.util
+
             if importlib.util.find_spec("requests") is None:
                 logger.warning("requests library not available for HTTP audio streaming")
                 return

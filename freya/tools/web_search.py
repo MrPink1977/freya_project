@@ -31,9 +31,7 @@ def search_web(query: str, max_results: int = 5) -> str:
         WebSearchError: If search fails or DuckDuckGo not available
     """
     if DDGS is None:
-        raise WebSearchError(
-            "duckduckgo-search not installed. Run: pip install duckduckgo-search"
-        )
+        raise WebSearchError("duckduckgo-search not installed. Run: pip install duckduckgo-search")
 
     if not query or not query.strip():
         return "No search query provided."
@@ -57,11 +55,7 @@ def search_web(query: str, max_results: int = 5) -> str:
             body = result.get("body", "No description")
             href = result.get("href", "")
 
-            formatted.append(
-                f"{i}. {title}\n"
-                f"   {body}\n"
-                f"   {href}"
-            )
+            formatted.append(f"{i}. {title}\n" f"   {body}\n" f"   {href}")
 
         output = "\n\n".join(formatted)
         logger.debug("Found %d results for '%s'", len(results), query)

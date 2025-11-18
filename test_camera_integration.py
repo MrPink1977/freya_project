@@ -74,6 +74,7 @@ def test_camera_config():
         print("=" * 60)
         return False
 
+
 if __name__ == "__main__":
     success = test_camera_config()
     sys.exit(0 if success else 1)

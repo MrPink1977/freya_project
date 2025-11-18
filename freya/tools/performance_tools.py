@@ -31,11 +31,7 @@ class PerformanceMonitorTool(FreyaTool):
             ToolResult with performance data
         """
         if psutil is None:
-            return ToolResult(
-                success=False,
-                output="",
-                error="psutil not installed. Run: pip install psutil"
-            )
+            return ToolResult(success=False, output="", error="psutil not installed. Run: pip install psutil")
 
         try:
             parts = []
@@ -103,9 +99,9 @@ class PerformanceMonitorTool(FreyaTool):
         mem = psutil.virtual_memory()
         swap = psutil.swap_memory()
 
-        total_gb = mem.total / (1024 ** 3)
-        used_gb = mem.used / (1024 ** 3)
-        available_gb = mem.available / (1024 ** 3)
+        total_gb = mem.total / (1024**3)
+        used_gb = mem.used / (1024**3)
+        available_gb = mem.available / (1024**3)
 
         info = "Memory (RAM):\n"
         info += f"  Total: {total_gb:.1f} GB\n"
@@ -113,8 +109,8 @@ class PerformanceMonitorTool(FreyaTool):
         info += f"  Available: {available_gb:.1f} GB\n"
 
         if swap.total > 0:
-            swap_total_gb = swap.total / (1024 ** 3)
-            swap_used_gb = swap.used / (1024 ** 3)
+            swap_total_gb = swap.total / (1024**3)
+            swap_used_gb = swap.used / (1024**3)
             info += "\nSwap:\n"
             info += f"  Total: {swap_total_gb:.1f} GB\n"
             info += f"  Used: {swap_used_gb:.1f} GB ({swap.percent}%)"
@@ -131,14 +127,14 @@ class PerformanceMonitorTool(FreyaTool):
         # Focus on main partitions
         for partition in partitions:
             # Skip special filesystems
-            if partition.fstype in ('', 'tmpfs', 'devtmpfs', 'squashfs'):
+            if partition.fstype in ("", "tmpfs", "devtmpfs", "squashfs"):
                 continue
 
             try:
                 usage = psutil.disk_usage(partition.mountpoint)
-                total_gb = usage.total / (1024 ** 3)
-                used_gb = usage.used / (1024 ** 3)
-                free_gb = usage.free / (1024 ** 3)
+                total_gb = usage.total / (1024**3)
+                used_gb = usage.used / (1024**3)
+                free_gb = usage.free / (1024**3)
 
                 mount = partition.mountpoint
                 if mount == "/":
@@ -161,8 +157,8 @@ class PerformanceMonitorTool(FreyaTool):
         """Get network statistics."""
         net_io = psutil.net_io_counters()
 
-        sent_mb = net_io.bytes_sent / (1024 ** 2)
-        recv_mb = net_io.bytes_recv / (1024 ** 2)
+        sent_mb = net_io.bytes_sent / (1024**2)
+        recv_mb = net_io.bytes_recv / (1024**2)
 
         info = "Network (since boot):\n"
         info += f"  Sent: {sent_mb:.1f} MB\n"
@@ -176,30 +172,30 @@ class PerformanceMonitorTool(FreyaTool):
     def _get_process_info() -> str:
         """Get top processes by CPU and memory."""
         processes = []
-        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
+        for proc in psutil.process_iter(["pid", "name", "cpu_percent", "memory_percent"]):
             try:
                 processes.append(proc.info)
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
 
         # Sort by CPU usage
-        processes.sort(key=lambda x: x.get('cpu_percent', 0) or 0, reverse=True)
+        processes.sort(key=lambda x: x.get("cpu_percent", 0) or 0, reverse=True)
         top_cpu = processes[:5]
 
         # Sort by memory usage
-        processes.sort(key=lambda x: x.get('memory_percent', 0) or 0, reverse=True)
+        processes.sort(key=lambda x: x.get("memory_percent", 0) or 0, reverse=True)
         top_mem = processes[:5]
 
         info = "Top 5 Processes (CPU):\n"
         for proc in top_cpu:
-            name = proc.get('name', 'Unknown')[:25]
-            cpu = proc.get('cpu_percent', 0) or 0
+            name = proc.get("name", "Unknown")[:25]
+            cpu = proc.get("cpu_percent", 0) or 0
             info += f"  {name}: {cpu:.1f}% CPU\n"
 
         info += "\nTop 5 Processes (Memory):\n"
         for proc in top_mem:
-            name = proc.get('name', 'Unknown')[:25]
-            mem = proc.get('memory_percent', 0) or 0
+            name = proc.get("name", "Unknown")[:25]
+            mem = proc.get("memory_percent", 0) or 0
             info += f"  {name}: {mem:.1f}% RAM"
             if proc != top_mem[-1]:
                 info += "\n"
@@ -227,8 +223,8 @@ class PerformanceMonitorTool(FreyaTool):
                 utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
                 temp = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
 
-                total_gb = mem_info.total / (1024 ** 3)
-                used_gb = mem_info.used / (1024 ** 3)
+                total_gb = mem_info.total / (1024**3)
+                used_gb = mem_info.used / (1024**3)
 
                 info += f"  GPU {i}: {name}\n"
                 info += f"    Utilization: {utilization.gpu}%\n"

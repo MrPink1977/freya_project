@@ -42,9 +42,7 @@ class GetCurrentTime(FreyaTool):
             output = f"{time_str} on {date_str} ({timezone})"
 
             return ToolResult(
-                success=True,
-                output=output,
-                metadata={"timestamp": now.isoformat(), "timezone": timezone}
+                success=True, output=output, metadata={"timestamp": now.isoformat(), "timezone": timezone}
             )
         except Exception as e:
             return ToolResult(success=False, output="", error=f"Failed to get time: {e}")
@@ -85,12 +83,7 @@ class GetCurrentDate(FreyaTool):
             return ToolResult(
                 success=True,
                 output=output,
-                metadata={
-                    "year": now.year,
-                    "month": now.month,
-                    "day": now.day,
-                    "weekday": now.strftime("%A")
-                }
+                metadata={"year": now.year, "month": now.month, "day": now.day, "weekday": now.strftime("%A")},
             )
         except Exception as e:
             return ToolResult(success=False, output="", error=f"Failed to get date: {e}")
@@ -128,10 +121,7 @@ class CalculateTimeUntil(FreyaTool):
             delta = target - now
 
             if delta.total_seconds() < 0:
-                return ToolResult(
-                    success=True,
-                    output=f"That date has already passed {abs(delta.days)} days ago"
-                )
+                return ToolResult(success=True, output=f"That date has already passed {abs(delta.days)} days ago")
 
             days = delta.days
             hours, remainder = divmod(delta.seconds, 3600)
@@ -151,9 +141,7 @@ class CalculateTimeUntil(FreyaTool):
             output = f"{', '.join(parts)} until {target.strftime('%B %d, %Y at %I:%M %p')}"
 
             return ToolResult(
-                success=True,
-                output=output,
-                metadata={"total_seconds": delta.total_seconds(), "days": days}
+                success=True, output=output, metadata={"total_seconds": delta.total_seconds(), "days": days}
             )
         except Exception as e:
             return ToolResult(success=False, output="", error=f"Failed to calculate time: {e}")
