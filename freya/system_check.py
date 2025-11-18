@@ -170,7 +170,10 @@ class SystemCheck:
         try:
             from .memory import PersistentMemoryStore
 
-            store = PersistentMemoryStore(config.db_path)
+            store = PersistentMemoryStore(
+                config.db_path,
+                embedding_model=config.embedding_model,
+            )
             try:
                 # Opening the store ensures the backing database is writable.
                 pass

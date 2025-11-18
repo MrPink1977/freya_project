@@ -7,12 +7,12 @@ import threading
 from typing import Optional
 
 try:
-    from elevenlabs.client import ElevenLabs
     from elevenlabs import VoiceSettings
+    from elevenlabs.client import ElevenLabs
 except ImportError as exc:
     ElevenLabs = None  # type: ignore[assignment,misc]
     VoiceSettings = None  # type: ignore[assignment,misc]
-    _ELEVENLABS_ERROR = exc
+    _ELEVENLABS_ERROR: Optional[ImportError] = exc
 else:
     _ELEVENLABS_ERROR = None
 
@@ -20,16 +20,15 @@ try:
     import pyaudio
 except ImportError as exc:
     pyaudio = None  # type: ignore[assignment]
-    _PYAUDIO_ERROR = exc
+    _PYAUDIO_ERROR: Optional[ImportError] = exc
 else:
     _PYAUDIO_ERROR = None
 
 try:
     from pydub import AudioSegment
-    from pydub.playback import play
 except ImportError as exc:
     AudioSegment = None  # type: ignore[assignment,misc]
-    _PYDUB_ERROR = exc
+    _PYDUB_ERROR: Optional[ImportError] = exc
 else:
     _PYDUB_ERROR = None
 
@@ -79,16 +78,18 @@ class ElevenLabsTTS:
                 "Audio playback dependency missing: pyaudio (pip install pyaudio)"
             ) from _PYAUDIO_ERROR
 
-        self._api_key = api_key
-        self._voice_id = voice_id
-        self._model_id = model_id
-        self._stop_speech = threading.Event()
+        self._api_key: str = api_key
+        self._voice_id: str = voice_id
+        self._model_id: str = model_id
+        self._stop_speech: threading.Event = threading.Event()
 
         # Initialize ElevenLabs client
-        self._client = ElevenLabs(api_key=api_key)
+        # Type ignore needed because ElevenLabs might be None if import failed,
+        # but we've already raised an exception above if that's the case
+        self._client = ElevenLabs(api_key=api_key)  # type: ignore[misc]
 
         # Voice settings for optimal quality
-        self._voice_settings = VoiceSettings(
+        self._voice_settings = VoiceSettings(  # type: ignore[misc]
             stability=stability,
             similarity_boost=similarity_boost,
             style=style,

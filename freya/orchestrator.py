@@ -191,6 +191,14 @@ class Orchestrator:
         self._tool_manager = ToolManager()
         logger.info("Initialized ToolManager with %d tools", len(self._tool_manager.list_tools()))
 
+        # Compile regex patterns once for efficiency
+        self._calc_patterns = [
+            re.compile(r"calculate\s+(.+)"),
+            re.compile(r"compute\s+(.+)"),
+            re.compile(r"what\s+is\s+([\d\s+\-*/().]+)"),
+            re.compile(r"solve\s+(.+)"),
+        ]
+
         self._voice_ready_prompt = (
             "Freya is ready. Say "
             f"{self._wake_word_display} followed by your message. "
@@ -204,6 +212,38 @@ class Orchestrator:
                 preload("Goodbye!")
             except Exception as exc:  # pragma: no cover - defensive logging only
                 logger.debug("Unable to preload common speech phrases: %s", exc)
+
+    @staticmethod
+    def _sanitize_user_input(user_input: str) -> str:
+        """Sanitize user input to prevent injection attacks and resource exhaustion.
+
+        Args:
+            user_input: Raw user input from voice or text
+
+        Returns:
+            Sanitized input string
+        """
+        # Remove null bytes (potential injection vector)
+        sanitized = user_input.replace("\x00", "")
+
+        # Remove other control characters except newlines, tabs, and carriage returns
+        # Keep \n (10), \r (13), \t (9) as they're commonly used in normal text
+        sanitized = "".join(
+            char for char in sanitized
+            if char >= " " or char in ("\n", "\r", "\t")
+        )
+
+        # Limit length to prevent memory exhaustion (10,000 chars ~= 2,000 words)
+        max_length = 10000
+        if len(sanitized) > max_length:
+            logger.warning(
+                "User input truncated from %d to %d characters",
+                len(sanitized),
+                max_length
+            )
+            sanitized = sanitized[:max_length]
+
+        return sanitized
 
     def run(self) -> None:
         self._register_mode_hotkey()
@@ -360,6 +400,9 @@ class Orchestrator:
 
 
     def _handle_user_content(self, content: str) -> None:
+        # Sanitize user input to prevent injection attacks
+        content = self._sanitize_user_input(content)
+
         user_line = f"You said: {content}"
         if _BLUE:
             user_line = f"{_BLUE}{user_line}{_RESET}"
@@ -462,7 +505,11 @@ class Orchestrator:
                 chunk_queue.put(piece)
             chunk_queue.put(None)
             chunk_queue.join()
-            thread.join()
+
+            # Add timeout to prevent hanging indefinitely
+            thread.join(timeout=30.0)
+            if thread.is_alive():
+                logger.warning("TTS thread did not terminate within 30 seconds, may have hung")
 
         if tts_error is not None:
             self._output("[Warning] Unable to speak the response. Check logs.")
@@ -772,15 +819,9 @@ class Orchestrator:
             except Exception as exc:
                 logger.warning("Date tool failed: %s", exc)
 
-        # Calculator detection
-        calc_patterns = [
-            r"calculate\s+(.+)",
-            r"compute\s+(.+)",
-            r"what\s+is\s+([\d\s+\-*/().]+)",
-            r"solve\s+(.+)",
-        ]
-        for pattern in calc_patterns:
-            match = re.search(pattern, lowered)
+        # Calculator detection (using pre-compiled patterns)
+        for pattern in self._calc_patterns:
+            match = pattern.search(lowered)
             if match:
                 expression = match.group(1).strip()
                 try:
@@ -1213,6 +1254,64 @@ class Orchestrator:
             if keyword and keyword in lowered:
                 return keyword
         return None
+
+    def health_check(self) -> dict:
+        """Check health status of all system components.
+
+        Returns:
+            Dictionary with component statuses:
+            - 'ollama': True if Ollama is reachable
+            - 'stt': True if STT is initialized
+            - 'tts': True if TTS is initialized
+            - 'memory': True if memory store is available
+            - 'wake_detector': True if wake word detector is available
+            - 'tool_manager': Number of registered tools
+            - 'overall': True if all critical components are healthy
+
+        Example:
+            >>> status = orchestrator.health_check()
+            >>> if status['overall']:
+            ...     print("All systems operational")
+        """
+        health = {}
+
+        # Check Ollama client
+        try:
+            # Try to list models to verify connection
+            self._client.list_models()
+            health["ollama"] = True
+        except Exception as exc:
+            logger.warning("Ollama health check failed: %s", exc)
+            health["ollama"] = False
+
+        # Check STT
+        health["stt"] = self._stt is not None
+
+        # Check TTS
+        health["tts"] = self._tts is not None
+
+        # Check memory store
+        health["memory"] = self._memory_store is not None
+
+        # Check wake detector
+        health["wake_detector"] = self._wake_detector is not None
+
+        # Check tool manager
+        try:
+            tools = self._tool_manager.list_tools()
+            health["tool_manager"] = len(tools)
+        except Exception as exc:
+            logger.warning("Tool manager health check failed: %s", exc)
+            health["tool_manager"] = 0
+
+        # Overall health - critical components must be operational
+        health["overall"] = (
+            health["ollama"]
+            and health["stt"]
+            and health["tts"]
+        )
+
+        return health
 
 
 __all__ = ["Orchestrator"]

@@ -177,7 +177,7 @@ class WebSearchTool(FreyaTool):
     def description(self) -> str:
         return "Search the web using DuckDuckGo"
 
-    def execute(self, query: str, max_results: int = 5) -> ToolResult:
+    def execute(self, query: str, max_results: int = 5) -> ToolResult:  # type: ignore[override]
         """Execute web search.
 
         Args:

@@ -23,7 +23,7 @@ class SystemInfoTool(FreyaTool):
     def description(self) -> str:
         return "Get system information (OS, Python version, disk space, etc.)"
 
-    def execute(self, info_type: str = "all") -> ToolResult:
+    def execute(self, info_type: str = "all") -> ToolResult:  # type: ignore[override]
         """Get system information.
 
         Args:
@@ -103,7 +103,7 @@ class ExecuteCommandTool(FreyaTool):
     def description(self) -> str:
         return "Execute safe shell commands (limited whitelist for security)"
 
-    def execute(self, command: str, timeout: int = 5) -> ToolResult:
+    def execute(self, command: str, timeout: int = 5) -> ToolResult:  # type: ignore[override]
         """Execute a shell command.
 
         Args:
