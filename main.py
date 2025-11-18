@@ -10,7 +10,6 @@ import os
 import re
 import shutil
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import Callable
 
@@ -20,60 +19,11 @@ from freya.logger import configure_logging, get_logger
 from freya.memory import PersistentMemoryStore
 from freya.ollama_client import OllamaClient
 from freya.orchestrator import Orchestrator
+from freya.startup import StartupMode, parse_mode as _parse_mode, select_startup_mode as _select_startup_mode
 from freya.stt import SpeechToText, SpeechToTextError
 from freya.system_check import run_system_check
 from freya.tts import TextToSpeechError, create_tts
 from freya.wake import WakeWordDetector, WakeWordDetectorError
-
-
-class StartupMode(str, Enum):
-    """Available startup display modes for Freya."""
-
-    NORMAL = "normal"
-    DIAGNOSTIC = "diagnostic"
-
-
-def _parse_mode(value: str) -> StartupMode:
-    if value.lower() == StartupMode.DIAGNOSTIC.value:
-        return StartupMode.DIAGNOSTIC
-    return StartupMode.NORMAL
-
-
-def _select_startup_mode(app_config: AppConfig) -> StartupMode:
-    """Select startup mode based on configuration.
-
-    This function respects app_config.startup_mode and app_config.prompt_for_mode.
-    If prompt_for_mode is enabled the user is prompted (unless non-interactive),
-    otherwise the configured default is returned.
-    """
-    default_mode = _parse_mode(app_config.startup_mode)
-    if not app_config.prompt_for_mode:
-        return default_mode
-
-    # If stdin is not a TTY (non-interactive), fall back to default without prompting
-    try:
-        if not os.isatty(0):  # pragma: no cover - environment specific
-            return default_mode
-    except Exception:
-        # If the platform doesn't support isatty, continue to attempt prompt
-        pass
-
-    prompt = (
-        "Select startup mode - [N]ormal or [D]iagnostic "
-        f"(default: {default_mode.value.title()}): "
-    )
-    try:
-        choice = input(prompt).strip().lower()
-    except EOFError:
-        choice = ""
-
-    if not choice:
-        return default_mode
-    if choice in {"n", "normal"}:
-        return StartupMode.NORMAL
-    if choice in {"d", "diagnostic"}:
-        return StartupMode.DIAGNOSTIC
-    return default_mode
 
 
 _ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
