@@ -13,18 +13,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from freya.config import AppConfig, load_settings
+from freya.config import load_settings
 from freya.context import ConversationContext
 from freya.logger import configure_logging, get_logger
 from freya.memory import PersistentMemoryStore
 from freya.ollama_client import OllamaClient
 from freya.orchestrator import Orchestrator
-from freya.startup import StartupMode, parse_mode as _parse_mode, select_startup_mode as _select_startup_mode
+from freya.startup import StartupMode
+from freya.startup import select_startup_mode as _select_startup_mode
 from freya.stt import SpeechToText, SpeechToTextError
 from freya.system_check import run_system_check
 from freya.tts import TextToSpeechError, create_tts
 from freya.wake import WakeWordDetector, WakeWordDetectorError
-
 
 _ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
 
