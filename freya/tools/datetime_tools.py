@@ -19,7 +19,7 @@ class GetCurrentTime(FreyaTool):
     def description(self) -> str:
         return "Get the current time (optionally in a specific timezone)"
 
-    def execute(self, timezone: str = "UTC", format: str = "12h") -> ToolResult:
+    def execute(self, timezone: str = "UTC", format: str = "12h") -> ToolResult:  # type: ignore[override]
         """Get current time.
 
         Args:
@@ -61,7 +61,7 @@ class GetCurrentDate(FreyaTool):
     def description(self) -> str:
         return "Get the current date in various formats"
 
-    def execute(self, format: str = "long") -> ToolResult:
+    def execute(self, format: str = "long") -> ToolResult:  # type: ignore[override]
         """Get current date.
 
         Args:
@@ -107,7 +107,7 @@ class CalculateTimeUntil(FreyaTool):
     def description(self) -> str:
         return "Calculate how much time until a specific date or time"
 
-    def execute(self, target_date: str) -> ToolResult:
+    def execute(self, target_date: str) -> ToolResult:  # type: ignore[override]
         """Calculate time until target.
 
         Args:

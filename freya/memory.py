@@ -61,7 +61,13 @@ class PersistentMemoryStore:
     _DEFAULT_SEARCH_WINDOW = 200
     _DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"  # Fast, lightweight, 384-dim embeddings
 
-    def __init__(self, db_path: str, search_window: int | None = None, use_embeddings: bool = True) -> None:
+    def __init__(
+        self,
+        db_path: str,
+        search_window: int | None = None,
+        use_embeddings: bool = True,
+        embedding_model: str | None = None,
+    ) -> None:
         path = Path(db_path).expanduser()
         if path.parent and not path.parent.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -72,12 +78,13 @@ class PersistentMemoryStore:
         # Initialize embedding model for semantic search
         self._use_embeddings = use_embeddings and SentenceTransformer is not None
         self._embedding_model: Optional[SentenceTransformer] = None
+        self._embedding_model_name = embedding_model or self._DEFAULT_EMBEDDING_MODEL
 
         if self._use_embeddings:
             try:
-                logger.info("Loading embedding model: %s", self._DEFAULT_EMBEDDING_MODEL)
-                self._embedding_model = SentenceTransformer(self._DEFAULT_EMBEDDING_MODEL)
-                logger.debug("Embedding model loaded successfully (384 dimensions)")
+                logger.info("Loading embedding model: %s", self._embedding_model_name)
+                self._embedding_model = SentenceTransformer(self._embedding_model_name)
+                logger.debug("Embedding model loaded successfully")
             except Exception as exc:  # pragma: no cover - model loading
                 logger.warning("Failed to load embedding model: %s. Falling back to lexical search.", exc)
                 self._use_embeddings = False
@@ -100,6 +107,29 @@ class PersistentMemoryStore:
 
     def __exit__(self, exc_type, exc, tb) -> None:  # pragma: no cover - convenience
         self.close()
+
+    def _execute_with_lock(self, query: str, params=()) -> sqlite3.Cursor:
+        """Execute query with proper thread safety and error handling.
+
+        Args:
+            query: SQL query to execute
+            params: Query parameters
+
+        Returns:
+            Cursor from the executed query
+
+        Raises:
+            sqlite3.DatabaseError: If database operation fails after rollback
+        """
+        with self._lock:
+            try:
+                cursor = self._conn.execute(query, params)
+                self._conn.commit()
+                return cursor
+            except sqlite3.DatabaseError as exc:
+                logger.error("Database error, rolling back: %s", exc)
+                self._conn.rollback()
+                raise
 
     def _generate_embedding(self, text: str) -> Optional[List[float]]:
         """Generate a semantic embedding vector for the given text."""
@@ -153,18 +183,16 @@ class PersistentMemoryStore:
         embedding_json = json.dumps(list(embedding)) if embedding is not None else None
         now = datetime.now(timezone.utc).isoformat()
 
-        with self._lock:
-            cursor = self._conn.execute(
-                """
-                INSERT INTO memories (role, content, metadata, importance, embedding, created_at, last_accessed)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (role, text, metadata_json, int(max(1, importance)), embedding_json, now, now),
-            )
-            self._conn.commit()
-            memory_id = int(cursor.lastrowid)
-            logger.debug("Stored memory %s (%s) [embedding: %s]", memory_id, role, embedding is not None)
-            return memory_id
+        cursor = self._execute_with_lock(
+            """
+            INSERT INTO memories (role, content, metadata, importance, embedding, created_at, last_accessed)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (role, text, metadata_json, int(max(1, importance)), embedding_json, now, now),
+        )
+        memory_id = int(cursor.lastrowid)
+        logger.debug("Stored memory %s (%s) [embedding: %s]", memory_id, role, embedding is not None)
+        return memory_id
 
     def find_similar_memories(
         self,

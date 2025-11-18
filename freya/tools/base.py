@@ -62,7 +62,7 @@ class FreyaTool(ABC):
         logger.debug("Tool '%s' disabled", self.name)
 
     @abstractmethod
-    def execute(self, **kwargs) -> ToolResult:
+    def execute(self, **kwargs: Any) -> ToolResult:
         """Execute the tool with given parameters.
 
         Args:

@@ -5,7 +5,7 @@ from __future__ import annotations
 try:
     from duckduckgo_search import DDGS
 except ImportError:
-    DDGS = None
+    DDGS = None  # type: ignore[assignment,misc]
 
 from ..logger import get_logger
 

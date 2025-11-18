@@ -1,3 +1,13 @@
+# DEPRECATED: This file is kept for backwards compatibility only.
+#
+# For new installations, use pyproject.toml instead:
+#   pip install -e .
+#
+# For development:
+#   pip install -e ".[dev]"
+#
+# This file may be removed in a future version.
+
 requests>=2.31.0
 PyYAML>=6.0.1
 numpy>=1.24.0

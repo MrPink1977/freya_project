@@ -2,7 +2,7 @@ import builtins
 import os
 from types import SimpleNamespace
 
-import freya.main as main
+from freya.startup import StartupMode, parse_mode, select_startup_mode
 
 
 def make_config(startup_mode="normal", prompt_for_mode=True):
@@ -10,16 +10,16 @@ def make_config(startup_mode="normal", prompt_for_mode=True):
 
 
 def test_parse_mode():
-    assert main._parse_mode("diagnostic") == main.StartupMode.DIAGNOSTIC
-    assert main._parse_mode("normal") == main.StartupMode.NORMAL
-    assert main._parse_mode("unknown") == main.StartupMode.NORMAL
+    assert parse_mode("diagnostic") == StartupMode.DIAGNOSTIC
+    assert parse_mode("normal") == StartupMode.NORMAL
+    assert parse_mode("unknown") == StartupMode.NORMAL
 
 
 def test_select_startup_mode_non_interactive(monkeypatch):
     cfg = make_config(startup_mode="diagnostic", prompt_for_mode=True)
     # simulate non-interactive stdin
     monkeypatch.setattr(os, "isatty", lambda fd: False)
-    assert main._select_startup_mode(cfg) == main.StartupMode.DIAGNOSTIC
+    assert select_startup_mode(cfg) == StartupMode.DIAGNOSTIC
 
 
 def test_select_startup_mode_prompt_default(monkeypatch):
@@ -27,11 +27,11 @@ def test_select_startup_mode_prompt_default(monkeypatch):
     # simulate interactive and an empty response
     monkeypatch.setattr(os, "isatty", lambda fd: True)
     monkeypatch.setattr(builtins, "input", lambda prompt='': "")
-    assert main._select_startup_mode(cfg) == main.StartupMode.NORMAL
+    assert select_startup_mode(cfg) == StartupMode.NORMAL
 
 
 def test_select_startup_mode_prompt_choice(monkeypatch):
     cfg = make_config(startup_mode="normal", prompt_for_mode=True)
     monkeypatch.setattr(os, "isatty", lambda fd: True)
     monkeypatch.setattr(builtins, "input", lambda prompt='': "d")
-    assert main._select_startup_mode(cfg) == main.StartupMode.DIAGNOSTIC
+    assert select_startup_mode(cfg) == StartupMode.DIAGNOSTIC
