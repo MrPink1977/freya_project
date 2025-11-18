@@ -44,18 +44,15 @@ class SystemInfoTool(FreyaTool):
                 info_parts.append(os_info)
 
             if info_type in ("all", "python"):
-                py_info = (
-                    f"Python: {sys.version.split()[0]}\n"
-                    f"Executable: {sys.executable}"
-                )
+                py_info = f"Python: {sys.version.split()[0]}\n" f"Executable: {sys.executable}"
                 info_parts.append(py_info)
 
             if info_type in ("all", "disk"):
                 try:
                     usage = shutil.disk_usage(os.path.expanduser("~"))
-                    total_gb = usage.total / (1024 ** 3)
-                    used_gb = usage.used / (1024 ** 3)
-                    free_gb = usage.free / (1024 ** 3)
+                    total_gb = usage.total / (1024**3)
+                    used_gb = usage.used / (1024**3)
+                    free_gb = usage.free / (1024**3)
                     percent = (usage.used / usage.total) * 100
 
                     disk_info = (
@@ -70,7 +67,7 @@ class SystemInfoTool(FreyaTool):
 
             if info_type in ("all", "uptime") and platform.system() != "Windows":
                 try:
-                    with open('/proc/uptime', 'r') as f:
+                    with open("/proc/uptime", "r") as f:
                         uptime_seconds = float(f.readline().split()[0])
                         uptime_str = str(timedelta(seconds=int(uptime_seconds)))
                         info_parts.append(f"System Uptime: {uptime_str}")
@@ -90,9 +87,23 @@ class ExecuteCommandTool(FreyaTool):
 
     # Whitelist of allowed commands for safety
     ALLOWED_COMMANDS = {
-        'ls', 'dir', 'pwd', 'date', 'whoami', 'hostname',
-        'uptime', 'df', 'du', 'which', 'echo', 'cat',
-        'head', 'tail', 'wc', 'grep', 'find'
+        "ls",
+        "dir",
+        "pwd",
+        "date",
+        "whoami",
+        "hostname",
+        "uptime",
+        "df",
+        "du",
+        "which",
+        "echo",
+        "cat",
+        "head",
+        "tail",
+        "wc",
+        "grep",
+        "find",
     }
 
     @property
@@ -126,17 +137,11 @@ class ExecuteCommandTool(FreyaTool):
                 return ToolResult(
                     success=False,
                     output="",
-                    error=f"Command '{cmd_name}' not allowed. Allowed: {', '.join(sorted(self.ALLOWED_COMMANDS))}"
+                    error=f"Command '{cmd_name}' not allowed. Allowed: {', '.join(sorted(self.ALLOWED_COMMANDS))}",
                 )
 
             # Execute command with timeout
-            result = subprocess.run(
-                parts,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                check=False
-            )
+            result = subprocess.run(parts, capture_output=True, text=True, timeout=timeout, check=False)
 
             output = result.stdout.strip() if result.stdout else result.stderr.strip()
 
@@ -147,7 +152,7 @@ class ExecuteCommandTool(FreyaTool):
                 success=result.returncode == 0,
                 output=output,
                 error=result.stderr.strip() if result.returncode != 0 else None,
-                metadata={"return_code": result.returncode, "command": command}
+                metadata={"return_code": result.returncode, "command": command},
             )
 
         except subprocess.TimeoutExpired:

@@ -119,17 +119,11 @@ class ToolManager:
         if tool is None:
             available = ", ".join(sorted(self._tools.keys()))
             return ToolResult(
-                success=False,
-                output="",
-                error=f"Tool '{tool_name}' not found. Available tools: {available}"
+                success=False, output="", error=f"Tool '{tool_name}' not found. Available tools: {available}"
             )
 
         if not tool.enabled:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Tool '{tool_name}' is disabled"
-            )
+            return ToolResult(success=False, output="", error=f"Tool '{tool_name}' is disabled")
 
         try:
             logger.info("Executing tool '%s' with args: %s", tool_name, kwargs)
@@ -138,18 +132,10 @@ class ToolManager:
             return result
 
         except TypeError as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Invalid arguments for tool '{tool_name}': {e}"
-            )
+            return ToolResult(success=False, output="", error=f"Invalid arguments for tool '{tool_name}': {e}")
         except Exception as e:
             logger.exception("Tool '%s' raised exception", tool_name)
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Tool execution failed: {e}"
-            )
+            return ToolResult(success=False, output="", error=f"Tool execution failed: {e}")
 
     def get_tools_description(self) -> str:
         """Get a formatted description of all available tools.

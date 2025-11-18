@@ -31,6 +31,7 @@ _ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
 
 def _build_output(mode: StartupMode) -> Callable[[str], None]:
     if mode is StartupMode.NORMAL:
+
         def _normal_output(message: str) -> None:
             normalized = _ANSI_PATTERN.sub("", message)
             if normalized.startswith("You said:") or normalized.startswith("Freya:"):
@@ -59,7 +60,7 @@ def backup_memory(db_path: str, logger: logging.Logger) -> None:
 
     # Check if file is accessible (prevents corruption from locked files)
     try:
-        with open(db_file, 'rb'):
+        with open(db_file, "rb"):
             pass
     except (IOError, PermissionError) as exc:
         logger.warning("Cannot access database file for backup: %s", exc)
@@ -167,17 +168,13 @@ def main() -> None:
         stt = SpeechToText(settings.stt)
     except SpeechToTextError as exc:
         logger.error("Failed to initialize speech-to-text: %s", exc)
-        raise SystemExit(
-            "Speech input is unavailable. Install the required voice dependencies (see README)."
-        ) from exc
+        raise SystemExit("Speech input is unavailable. Install the required voice dependencies (see README).") from exc
 
     try:
         tts = create_tts(settings.tts)
     except TextToSpeechError as exc:
         logger.error("Failed to initialize text-to-speech: %s", exc)
-        raise SystemExit(
-            "Speech output is unavailable. Install the required voice dependencies (see README)."
-        ) from exc
+        raise SystemExit("Speech output is unavailable. Install the required voice dependencies (see README).") from exc
 
     wake_detector: WakeWordDetector | None = None
     try:

@@ -63,19 +63,14 @@ class ChannelConfig:
             ]
             if missing:
                 raise ValueError(
-                    f"Reolink channel '{self.channel_id}' missing required field(s): "
-                    + ", ".join(missing)
+                    f"Reolink channel '{self.channel_id}' missing required field(s): " + ", ".join(missing)
                 )
             if self.rtsp_port <= 0:
-                raise ValueError(
-                    f"Reolink channel '{self.channel_id}' must have a positive rtsp_port"
-                )
+                raise ValueError(f"Reolink channel '{self.channel_id}' must have a positive rtsp_port")
 
         if self.channel_type == ChannelType.SYSTEM and self.device_index is not None:
             if not isinstance(self.device_index, int):
-                raise ValueError(
-                    f"System channel '{self.channel_id}' device_index must be an integer or None"
-                )
+                raise ValueError(f"System channel '{self.channel_id}' device_index must be an integer or None")
 
 
 __all__ = ["ChannelConfig", "ChannelType"]

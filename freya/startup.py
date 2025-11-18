@@ -60,10 +60,7 @@ def select_startup_mode(app_config: AppConfig) -> StartupMode:
         # If the platform doesn't support isatty, continue to attempt prompt
         pass
 
-    prompt = (
-        "Select startup mode - [N]ormal or [D]iagnostic "
-        f"(default: {default_mode.value.title()}): "
-    )
+    prompt = "Select startup mode - [N]ormal or [D]iagnostic " f"(default: {default_mode.value.title()}): "
     try:
         choice = input(prompt).strip().lower()
     except EOFError:

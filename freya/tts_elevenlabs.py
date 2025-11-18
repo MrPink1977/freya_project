@@ -70,9 +70,7 @@ class ElevenLabsTTS:
                 "ElevenLabs dependency missing: elevenlabs (pip install elevenlabs)"
             ) from _ELEVENLABS_ERROR
         if _PYDUB_ERROR is not None:
-            raise TextToSpeechError(
-                "Audio dependency missing: pydub (pip install pydub)"
-            ) from _PYDUB_ERROR
+            raise TextToSpeechError("Audio dependency missing: pydub (pip install pydub)") from _PYDUB_ERROR
         if _PYAUDIO_ERROR is not None:
             raise TextToSpeechError(
                 "Audio playback dependency missing: pyaudio (pip install pyaudio)"
@@ -183,7 +181,7 @@ class ElevenLabsTTS:
                         logger.debug("Stop signal received, halting playback")
                         break
 
-                    chunk = raw_data[i:i + chunk_size]
+                    chunk = raw_data[i : i + chunk_size]
                     stream.write(chunk)
 
             finally:

@@ -38,16 +38,18 @@ def _validate_credential_security(field_name: str, value: object) -> None:
         return
 
     is_env_var = (
-        value.startswith("${") and value.endswith("}") or  # ${VAR} syntax
-        value.startswith("$") and not value.startswith("${") or  # $VAR syntax
-        value in ("your_password_here", "your_username_here", "PLACEHOLDER")  # Placeholders
+        value.startswith("${")
+        and value.endswith("}")  # ${VAR} syntax
+        or value.startswith("$")
+        and not value.startswith("${")  # $VAR syntax
+        or value in ("your_password_here", "your_username_here", "PLACEHOLDER")  # Placeholders
     )
 
     if not is_env_var:
         logger.warning(
             "Security: %s appears to contain a literal credential instead of an environment variable. "
             "Consider using ${ENV_VAR} syntax and storing credentials in a .env file.",
-            field_name
+            field_name,
         )
 
 
@@ -125,9 +127,7 @@ def load_channel_configs(config_path: str | Path) -> List[ChannelConfig]:
             logger.error("Error loading config for channel %s: %s", channel_id, exc)
             continue
         configs.append(config)
-        logger.info(
-            "Loaded config for channel %s (%s)", channel_id, config.channel_type.value
-        )
+        logger.info("Loaded config for channel %s (%s)", channel_id, config.channel_type.value)
 
     return configs
 

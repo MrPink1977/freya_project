@@ -23,6 +23,7 @@ try:
     from freya.context import ConversationContext
     from freya.ollama_client import OllamaClient
     from freya.tools import ToolManager
+
     print("✓ All core modules imported successfully")
 except ImportError as e:
     print(f"✗ Import failed: {e}")
@@ -49,16 +50,13 @@ test_cases = [
     ("get_current_time", {"timezone": "UTC", "format": "24h"}, "Time tools"),
     ("get_current_date", {"format": "long"}, "Date tools"),
     ("calculate_time_until", {"target_date": "2025-12-25"}, "Time calculation"),
-
     # Calculator
     ("calculator", {"expression": "2 + 2"}, "Basic math"),
     ("calculator", {"expression": "sqrt(16) + 10"}, "Math functions"),
     ("calculator", {"expression": "sin(pi/2)"}, "Trigonometry"),
-
     # File operations
     ("list_files", {"path": ".", "pattern": "*.py"}, "List Python files"),
     ("list_files", {"path": "freya/tools", "pattern": "*.py"}, "List tool files"),
-
     # System
     ("system_info", {"info_type": "os"}, "OS information"),
     ("system_info", {"info_type": "python"}, "Python information"),
@@ -106,7 +104,7 @@ try:
     # Test basic chat
     messages = [
         {"role": "system", "content": "You are a helpful assistant. Respond briefly."},
-        {"role": "user", "content": "Say 'Hello from Freya test suite!' and nothing else."}
+        {"role": "user", "content": "Say 'Hello from Freya test suite!' and nothing else."},
     ]
 
     print(f"Connecting to Ollama at {settings.ollama.host}...")
@@ -161,10 +159,7 @@ except Exception as e:
 print("\nTest 7: Context Management")
 print("-" * 80)
 try:
-    context = ConversationContext(
-        system_prompt="You are Freya, a helpful assistant.",
-        max_history=10
-    )
+    context = ConversationContext(system_prompt="You are Freya, a helpful assistant.", max_history=10)
 
     context.add_user_message("Hello!")
     context.add_assistant_message("Hi! How can I help you?")
