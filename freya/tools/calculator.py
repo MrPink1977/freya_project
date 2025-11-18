@@ -61,8 +61,9 @@ class CalculatorTool(FreyaTool):
             # Replace ^ with ** for exponentiation
             expr = expr.replace("^", "**")
 
-            # Security check - only allow safe characters
-            if not re.match(r"^[0-9+\-*/().,\s\w]+$", expr):
+            # Security check - only allow safe characters (digits, operators, parens, spaces, letters)
+            # \w already includes a-zA-Z0-9_, so we don't need to also include 0-9 explicitly
+            if not re.match(r"^[+\-*/().,\s\w]+$", expr):
                 return ToolResult(success=False, output="", error="Expression contains invalid characters")
 
             # Evaluate with restricted globals

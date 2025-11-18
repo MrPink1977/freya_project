@@ -217,7 +217,9 @@ def test_env_var_expansion():
         settings = load_settings(path)
         # The config loader uses os.getenv, but doesn't expand ${VAR} syntax
         # This test documents current behavior
-        assert "${TEST_OLLAMA_HOST}" in settings.ollama.host or "test.example.com" in settings.ollama.host
+        # Check that either the literal env var string or the expanded value is present
+        host_value = settings.ollama.host
+        assert "${TEST_OLLAMA_HOST}" == host_value or host_value == "http://test.example.com:11434"
     finally:
         path.unlink()
         del os.environ["TEST_OLLAMA_HOST"]
