@@ -86,8 +86,9 @@ tts:
     - "Goodbye!"
 
   # ElevenLabs settings (for cloud TTS)
+  # API key should be set in .env file as ELEVENLABS_API_KEY
   elevenlabs:
-    api_key: "sk_37a1b288a56f5b8dcad5c968acdb393236e1666a52755de2"
+    api_key: ""  # Leave empty - set ELEVENLABS_API_KEY in .env file
     voice_id: "AXdMgz6evoL7OPd7eU12"  # User's custom voice
     # Other popular voices:
     # "21m00Tcm4TlvDq8ikWAM" - Rachel (calm, clear female)
