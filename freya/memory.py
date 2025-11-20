@@ -363,20 +363,23 @@ class ChromaMemoryStore:
         *,
         category: Optional[str] = None,
         limit: int = 3,
+        min_relevance_score: float = 0.5,
     ) -> List[Fact]:
         """
-        Query facts using semantic search.
+        Query facts using semantic search with relevance filtering.
 
         Args:
             query: Search query
             category: Optional category filter
             limit: Maximum results
+            min_relevance_score: Minimum relevance score (0.0-1.0) to include results
 
         Returns:
-            List of matching facts
+            List of matching facts (empty list if no relevant results found)
         """
         normalized = (query or "").strip()
         if not normalized:
+            logger.debug("Empty query provided to query_facts, returning empty list")
             return []
 
         where = {"category": category} if category else None
@@ -396,11 +399,35 @@ class ChromaMemoryStore:
                 error=str(exc),
             )
 
-        if not results["ids"] or not results["ids"][0]:
+        # Explicit check for empty results
+        if not results or not results.get("ids") or not results["ids"][0]:
+            logger.debug(
+                "No facts found matching query '%s' (category: %s)",
+                query, category or "any"
+            )
             return []
 
+        # Filter by relevance score (distances)
         facts = []
-        for fact_id, meta in zip(results["ids"][0], results["metadatas"][0]):
+        distances = results.get("distances", [[]])[0] if "distances" in results else []
+        
+        for idx, (fact_id, meta) in enumerate(zip(results["ids"][0], results["metadatas"][0])):
+            # Calculate relevance score (lower distance = higher relevance)
+            # ChromaDB uses cosine distance, so 0 = perfect match, 2 = opposite
+            relevance = 1.0
+            if distances and idx < len(distances):
+                distance = distances[idx]
+                # Convert distance to similarity score (0-1 range)
+                relevance = max(0.0, 1.0 - (distance / 2.0))
+            
+            # Skip results below relevance threshold
+            if relevance < min_relevance_score:
+                logger.debug(
+                    "Filtering out fact '%s' with relevance %.2f (below threshold %.2f)",
+                    fact_id, relevance, min_relevance_score
+                )
+                continue
+            
             facts.append(
                 Fact(
                     id=fact_id,
@@ -411,6 +438,13 @@ class ChromaMemoryStore:
                     created_at=self._parse_timestamp(meta.get("created_at")),
                     updated_at=self._parse_timestamp(meta.get("updated_at")),
                 )
+            )
+
+        if not facts:
+            logger.debug(
+                "No facts with sufficient relevance found for query '%s' "
+                "(min_relevance: %.2f)",
+                query, min_relevance_score
             )
 
         return facts

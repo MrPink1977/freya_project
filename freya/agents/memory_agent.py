@@ -251,7 +251,7 @@ class MemoryAgent(BaseAgent):
             await self.publish_error(message, exc)
 
     async def _handle_fact_query(self, message: Message) -> None:
-        """Handle fact query request."""
+        """Handle fact query request with explicit empty result handling."""
         # Validate payload
         try:
             payload = validate_message_payload(message.payload, FactQueryPayload, self.agent_id)
@@ -274,7 +274,25 @@ class MemoryAgent(BaseAgent):
                 query=query,
                 category=category,
                 limit=limit,
+                min_relevance_score=0.5,  # Filter low-relevance results
             )
+
+            # Explicit empty result handling
+            if not facts:
+                self.logger.info(
+                    f"No relevant memories found for query: '{query}' (category: {category or 'any'})"
+                )
+                await self.publish(
+                    topic="memory.fact.results",
+                    payload={
+                        "results": [],
+                        "query": query,
+                        "count": 0,
+                        "message": f"No memories found matching '{query}'",
+                    },
+                    correlation_id=message.correlation_id,
+                )
+                return
 
             results = [
                 {

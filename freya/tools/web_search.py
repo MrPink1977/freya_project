@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 import time
 from typing import Optional
 
@@ -12,14 +13,31 @@ try:
 except ImportError:
     DDGS = None
 
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+    before_sleep_log,
+)
+
 from ..logger import get_logger
 from ..utils.rate_limiter import TokenBucketRateLimiter, RateLimitError
+from ..utils.circuit_breaker import CircuitBreaker
 
 logger = get_logger("web_search")
 
 
 # Global rate limiter: 10 requests per minute with burst of 3
 _rate_limiter = TokenBucketRateLimiter(rate=10, burst=3, time_window=60.0)
+
+# Global circuit breaker for web search
+_circuit_breaker = CircuitBreaker(
+    failure_threshold=0.5,
+    recovery_timeout=60.0,
+    window_size=10,
+    name="web_search"
+)
 
 # Global cache: stores (result, timestamp) tuples
 _search_cache: dict[str, tuple[str, float]] = {}
@@ -147,36 +165,47 @@ async def search_web_async(
         logger.warning("Rate limit exceeded for query: %s", query)
         raise
 
-    try:
-        logger.info("Searching web for: %s", query)
-        ddgs = DDGS()
-        results = ddgs.text(query, max_results=max_results)
+    # Execute search with circuit breaker protection
+    @retry(
+        retry=retry_if_exception_type((ConnectionError, TimeoutError, WebSearchError)),
+        stop=stop_after_attempt(2),
+        wait=wait_exponential(multiplier=2, min=2, max=4),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
+    async def _perform_search():
+        try:
+            logger.info("Searching web for: %s", query)
+            ddgs = DDGS()
+            results = ddgs.text(query, max_results=max_results)
 
-        if not results:
-            logger.warning("No results found for: %s", query)
-            output = f"No search results found for '{query}'."
-        else:
-            # Format results for Freya
-            formatted = []
-            for i, result in enumerate(results, 1):
-                title = result.get("title", "No title")
-                body = result.get("body", "No description")
-                href = result.get("href", "")
+            if not results:
+                logger.warning("No results found for: %s", query)
+                output = f"No search results found for '{query}'."
+            else:
+                # Format results for Freya
+                formatted = []
+                for i, result in enumerate(results, 1):
+                    title = result.get("title", "No title")
+                    body = result.get("body", "No description")
+                    href = result.get("href", "")
 
-                formatted.append(f"{i}. {title}\n" f"   {body}\n" f"   {href}")
+                    formatted.append(f"{i}. {title}\n" f"   {body}\n" f"   {href}")
 
-            output = "\n\n".join(formatted)
-            logger.debug("Found %d results for '%s'", len(results), query)
+                output = "\n\n".join(formatted)
+                logger.debug("Found %d results for '%s'", len(results), query)
 
-        # Cache the result
-        if use_cache:
-            _cache_result(cache_key, output)
+            # Cache the result
+            if use_cache:
+                _cache_result(cache_key, output)
 
-        return output
+            return output
 
-    except Exception as exc:
-        logger.exception("Web search failed: %s", exc)
-        raise WebSearchError(f"Search failed: {exc}") from exc
+        except Exception as exc:
+            logger.exception("Web search failed: %s", exc)
+            raise WebSearchError(f"Search failed: {exc}") from exc
+    
+    return await _circuit_breaker.call(_perform_search)
 
 
 def search_web(query: str, max_results: int = 5, use_cache: bool = True) -> str:
