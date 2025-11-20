@@ -9,7 +9,13 @@ from freya.tools.file_tools import (
     ReadFileTool,
     WriteFileTool,
     validate_path,
+    validate_file_size,
+    validate_file_type,
     ALLOWED_DIRECTORIES,
+    ALLOWED_MIME_TYPES,
+    ALLOWED_EXTENSIONS,
+    MAX_READ_SIZE,
+    MAX_WRITE_SIZE,
 )
 
 
@@ -283,9 +289,14 @@ class TestReadFileTool:
         
         result = read_file_tool.execute(path=str(binary_file))
         
-        # Should either fail or handle gracefully
-        if not result.success:
-            assert "binary" in result.error.lower() or "decode" in result.error.lower()
+        # Should reject due to unknown file type
+        assert result.success is False
+        assert (
+            "binary" in result.error.lower()
+            or "unknown" in result.error.lower()
+            or "not allowed" in result.error.lower()
+            or "decode" in result.error.lower()
+        )
 
     def test_metadata_includes_file_info(self, read_file_tool, safe_test_dir):
         """Metadata includes file information."""
@@ -434,3 +445,244 @@ class TestFileToolsResult:
         assert result.error is not None
         assert isinstance(result.error, str)
         assert len(result.error) > 0
+
+
+# ============================================================================
+# FILE SIZE LIMIT TESTS
+# ============================================================================
+
+
+class TestFileSizeLimits:
+    """Test file size validation and limits."""
+
+    def test_validate_file_size_within_limit(self, safe_test_dir):
+        """validate_file_size returns None for files within limit."""
+        test_file = safe_test_dir / "small.txt"
+        test_file.write_text("small content")
+        
+        error = validate_file_size(test_file, MAX_READ_SIZE, "read")
+        assert error is None
+
+    def test_validate_file_size_exceeds_limit(self, safe_test_dir):
+        """validate_file_size returns error for oversized files."""
+        test_file = safe_test_dir / "large.txt"
+        # Create file larger than 1 MB limit
+        large_content = "x" * (MAX_READ_SIZE + 1000)
+        test_file.write_text(large_content)
+        
+        error = validate_file_size(test_file, MAX_READ_SIZE, "read")
+        assert error is not None
+        assert "too large" in error.lower()
+        assert "MB" in error
+
+    def test_read_file_rejects_oversized(self, read_file_tool, safe_test_dir):
+        """ReadFileTool rejects files larger than MAX_READ_SIZE."""
+        test_file = safe_test_dir / "huge.txt"
+        # Create 1.5 MB file (exceeds 1 MB limit)
+        large_content = "a" * (MAX_READ_SIZE + 500000)
+        test_file.write_text(large_content)
+        
+        result = read_file_tool.execute(path=str(test_file))
+        assert result.success is False
+        assert "too large" in result.error.lower()
+        assert "read" in result.error.lower()
+
+    def test_read_file_accepts_max_size(self, read_file_tool, safe_test_dir):
+        """ReadFileTool accepts files at exactly MAX_READ_SIZE."""
+        test_file = safe_test_dir / "exactly_max.txt"
+        # Create file exactly at limit
+        content = "b" * MAX_READ_SIZE
+        test_file.write_text(content)
+        
+        result = read_file_tool.execute(path=str(test_file))
+        assert result.success is True
+
+    def test_write_file_rejects_oversized_content(self, write_file_tool, safe_test_dir):
+        """WriteFileTool rejects content larger than MAX_WRITE_SIZE."""
+        test_file = safe_test_dir / "big_write.txt"
+        # Try to write 11 MB (exceeds 10 MB limit)
+        large_content = "c" * (MAX_WRITE_SIZE + 1000000)
+        
+        result = write_file_tool.execute(path=str(test_file), content=large_content)
+        assert result.success is False
+        assert "too large" in result.error.lower()
+        assert "write" in result.error.lower()
+
+    def test_write_file_accepts_max_size(self, write_file_tool, safe_test_dir):
+        """WriteFileTool accepts content at exactly MAX_WRITE_SIZE."""
+        test_file = safe_test_dir / "exactly_max_write.txt"
+        # Write exactly at limit (10 MB)
+        content = "d" * MAX_WRITE_SIZE
+        
+        result = write_file_tool.execute(path=str(test_file), content=content)
+        assert result.success is True
+
+    def test_append_within_limit(self, write_file_tool, safe_test_dir):
+        """WriteFileTool allows append when final size within limit."""
+        test_file = safe_test_dir / "append_ok.txt"
+        # Create initial file with 1 MB
+        initial_content = "e" * (1024 * 1024)
+        test_file.write_text(initial_content)
+        
+        # Append 1 MB more (total 2 MB, well within 10 MB limit)
+        append_content = "f" * (1024 * 1024)
+        result = write_file_tool.execute(path=str(test_file), content=append_content, append=True)
+        assert result.success is True
+
+    def test_append_exceeds_limit(self, write_file_tool, safe_test_dir):
+        """WriteFileTool rejects append when final size exceeds limit."""
+        test_file = safe_test_dir / "append_too_big.txt"
+        # Create file with 9 MB
+        initial_content = "g" * (9 * 1024 * 1024)
+        test_file.write_text(initial_content)
+        
+        # Try to append 2 MB more (total 11 MB, exceeds 10 MB limit)
+        append_content = "h" * (2 * 1024 * 1024)
+        result = write_file_tool.execute(path=str(test_file), content=append_content, append=True)
+        assert result.success is False
+        assert "append" in result.error.lower()
+        assert "exceed" in result.error.lower()
+
+    def test_size_in_metadata(self, read_file_tool, safe_test_dir):
+        """File size included in read result metadata."""
+        test_file = safe_test_dir / "with_size.txt"
+        content = "test content with size"
+        test_file.write_text(content)
+        
+        result = read_file_tool.execute(path=str(test_file))
+        assert result.success is True
+        assert "size" in result.metadata
+        assert result.metadata["size"] == len(content)
+
+
+# ============================================================================
+# MIME TYPE VALIDATION TESTS
+# ============================================================================
+
+
+class TestMimeTypeValidation:
+    """Test MIME type validation for file reading."""
+
+    def test_validate_text_file_by_mime(self, safe_test_dir):
+        """validate_file_type accepts text files by MIME type."""
+        test_file = safe_test_dir / "test.txt"
+        test_file.write_text("plain text content")
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is None
+        assert mime_type in ALLOWED_MIME_TYPES or "text" in mime_type.lower()
+
+    def test_validate_json_file(self, safe_test_dir):
+        """validate_file_type accepts JSON files."""
+        test_file = safe_test_dir / "data.json"
+        test_file.write_text('{"key": "value"}')
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is None
+        assert "json" in (mime_type or "").lower()
+
+    def test_validate_python_file(self, safe_test_dir):
+        """validate_file_type accepts Python files."""
+        test_file = safe_test_dir / "script.py"
+        test_file.write_text("print('hello')")
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is None  # Should accept by extension
+
+    def test_validate_yaml_file(self, safe_test_dir):
+        """validate_file_type accepts YAML files."""
+        test_file = safe_test_dir / "config.yaml"
+        test_file.write_text("key: value")
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is None
+
+    def test_rejects_png_by_magic_bytes(self, safe_test_dir):
+        """validate_file_type rejects PNG images by magic bytes."""
+        test_file = safe_test_dir / "image.png"
+        # Write PNG magic bytes
+        test_file.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is not None
+        assert "binary" in error.lower()
+        assert "PNG" in error
+
+    def test_rejects_jpeg_by_magic_bytes(self, safe_test_dir):
+        """validate_file_type rejects JPEG images by magic bytes."""
+        test_file = safe_test_dir / "photo.jpg"
+        test_file.write_bytes(b"\xFF\xD8\xFF\xE0" + b"\x00" * 100)
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is not None
+        assert "binary" in error.lower()
+        assert "JPEG" in error
+
+    def test_rejects_pdf_by_magic_bytes(self, safe_test_dir):
+        """validate_file_type rejects PDF documents by magic bytes."""
+        test_file = safe_test_dir / "document.pdf"
+        test_file.write_bytes(b"%PDF-1.4" + b"\x00" * 100)
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is not None
+        assert "binary" in error.lower()
+        assert "PDF" in error
+
+    def test_rejects_zip_by_magic_bytes(self, safe_test_dir):
+        """validate_file_type rejects ZIP archives by magic bytes."""
+        test_file = safe_test_dir / "archive.zip"
+        test_file.write_bytes(b"PK\x03\x04" + b"\x00" * 100)
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is not None
+        assert "binary" in error.lower()
+        assert "ZIP" in error
+
+    def test_rejects_exe_by_magic_bytes(self, safe_test_dir):
+        """validate_file_type rejects executables by magic bytes."""
+        test_file = safe_test_dir / "program.exe"
+        test_file.write_bytes(b"MZ" + b"\x00" * 100)
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is not None
+        assert "binary" in error.lower()
+        assert "executable" in error.lower()
+
+    def test_rejects_unknown_extension(self, safe_test_dir):
+        """validate_file_type rejects files with unknown extensions."""
+        test_file = safe_test_dir / "unknown.xyz"
+        test_file.write_text("unknown content")
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is not None
+        assert "unknown" in error.lower() or "not allowed" in error.lower()
+
+    def test_read_tool_blocks_binary_files(self, read_file_tool, safe_test_dir):
+        """ReadFileTool rejects binary files."""
+        test_file = safe_test_dir / "binary.bin"
+        test_file.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 50)
+        
+        result = read_file_tool.execute(path=str(test_file))
+        assert result.success is False
+        assert "binary" in result.error.lower()
+
+    def test_read_tool_includes_mime_in_metadata(self, read_file_tool, safe_test_dir):
+        """ReadFileTool includes MIME type in metadata."""
+        test_file = safe_test_dir / "data.json"
+        test_file.write_text('{"test": true}')
+        
+        result = read_file_tool.execute(path=str(test_file))
+        assert result.success is True
+        assert "mime_type" in result.metadata
+        assert result.metadata["mime_type"] is not None
+
+    def test_extension_fallback_works(self, safe_test_dir):
+        """Extension fallback works when MIME detection fails."""
+        # Create file with allowed extension but no standard MIME type
+        test_file = safe_test_dir / "config.cfg"
+        test_file.write_text("setting=value")
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is None  # Should accept by extension
+        assert "extension" in (mime_type or "").lower() or mime_type is not None
+

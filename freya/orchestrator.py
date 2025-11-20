@@ -51,6 +51,7 @@ from .stt import SpeechToText, SpeechToTextError
 from .tools import ToolManager
 from .tools.web_search import WebSearchError, search_web
 from .tts import TextToSpeech, TextToSpeechError
+from .utils.fact_patterns import get_query_phrases
 from .wake import WakeWordDetector, WakeWordDetectorError
 from .wake_word_matcher import WakeWordMatcher
 
@@ -1140,43 +1141,26 @@ class Orchestrator:
         lowered = query.lower()
 
         # Check for name queries
-        if any(
-            phrase in lowered
-            for phrase in ["my name", "what's my name", "who am i", "do you know my name"]
-        ):
+        if any(phrase in lowered for phrase in get_query_phrases("name")):
             fact = self._memory_store.get_fact("name", "name")
             if fact:
                 return f"FACT: Your name is {fact.value}."
 
         # Check for birthday queries
-        if any(
-            phrase in lowered
-            for phrase in ["my birthday", "when was i born", "when am i born", "my birth"]
-        ):
+        if any(phrase in lowered for phrase in get_query_phrases("birthday")):
             fact = self._memory_store.get_fact("birthday", "birthday")
             if fact:
                 return f"FACT: Your birthday is {fact.value}."
 
         # Check for likes queries
-        if any(
-            phrase in lowered
-            for phrase in ["what do i like", "things i like", "my favorite", "do i like"]
-        ):
+        if any(phrase in lowered for phrase in get_query_phrases("likes")):
             facts = self._memory_store.get_fact("likes")
             if isinstance(facts, list) and facts:
                 likes_list = [f.value for f in facts[:3]]  # Top 3
                 return f"FACT: You like: {', '.join(likes_list)}."
 
         # Check for dislikes queries
-        if any(
-            phrase in lowered
-            for phrase in [
-                "what do i dislike",
-                "what don't i like",
-                "things i hate",
-                "do i dislike",
-            ]
-        ):
+        if any(phrase in lowered for phrase in get_query_phrases("dislikes")):
             facts = self._memory_store.get_fact("dislikes")
             if isinstance(facts, list) and facts:
                 dislikes_list = [f.value for f in facts[:3]]
