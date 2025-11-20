@@ -9,6 +9,11 @@ from typing import Optional
 from .base import FreyaTool, ToolResult
 
 
+# File size limits (in bytes)
+MAX_READ_SIZE = 1024 * 1024  # 1 MB - max file size to read
+MAX_WRITE_SIZE = 10 * 1024 * 1024  # 10 MB - max content size to write
+
+
 # Define allowed base directories for file operations
 ALLOWED_DIRECTORIES = [
     Path.home() / "Documents",
@@ -52,6 +57,32 @@ def validate_path(file_path: str) -> tuple[Optional[Path], Optional[str]]:
 
     except Exception as e:
         return None, f"Invalid path: {e}"
+
+
+def validate_file_size(file_path: Path, max_size: int, operation: str) -> Optional[str]:
+    """
+    Validate file size is within limits.
+
+    Args:
+        file_path: Path to file to check
+        max_size: Maximum allowed size in bytes
+        operation: Operation name for error message ('read' or 'write')
+
+    Returns:
+        Error message if validation fails, None otherwise
+    """
+    try:
+        file_size = file_path.stat().st_size
+        if file_size > max_size:
+            size_mb = file_size / (1024 * 1024)
+            limit_mb = max_size / (1024 * 1024)
+            return (
+                f"File too large to {operation}: {size_mb:.2f} MB exceeds "
+                f"{limit_mb:.2f} MB limit"
+            )
+        return None
+    except Exception as e:
+        return f"Failed to check file size: {e}"
 
 
 class ListFilesTool(FreyaTool):
@@ -188,6 +219,11 @@ class ReadFileTool(FreyaTool):
             if not file_path.is_file():
                 return ToolResult(success=False, output="", error=f"Not a file: {path}")
 
+            # Validate file size
+            size_error = validate_file_size(file_path, MAX_READ_SIZE, "read")
+            if size_error:
+                return ToolResult(success=False, output="", error=size_error)
+
             # Read file
             with open(file_path, "r", encoding="utf-8") as f:
                 lines = []
@@ -240,10 +276,38 @@ class WriteFileTool(FreyaTool):
             ToolResult with success status
         """
         try:
+            # Validate content size
+            content_size = len(content.encode("utf-8"))
+            content_size_mb = content_size / (1024 * 1024)
+            limit_mb = MAX_WRITE_SIZE / (1024 * 1024)
+            
+            if content_size > MAX_WRITE_SIZE:
+                return ToolResult(
+                    success=False,
+                    output="",
+                    error=f"Content too large to write: {content_size_mb:.2f} MB exceeds {limit_mb:.2f} MB limit",
+                )
+
             # Validate path security
             file_path, error = validate_path(path)
             if error:
                 return ToolResult(success=False, output="", error=error)
+
+            # For append mode, check final size won't exceed limit
+            if append and file_path.exists():
+                current_size = file_path.stat().st_size
+                final_size = current_size + content_size
+                if final_size > MAX_WRITE_SIZE:
+                    current_mb = current_size / (1024 * 1024)
+                    final_mb = final_size / (1024 * 1024)
+                    return ToolResult(
+                        success=False,
+                        output="",
+                        error=(
+                            f"Append would exceed size limit: current {current_mb:.2f} MB + "
+                            f"new {content_size_mb:.2f} MB = {final_mb:.2f} MB > {limit_mb:.2f} MB limit"
+                        ),
+                    )
 
             # Create parent directories if needed
             file_path.parent.mkdir(parents=True, exist_ok=True)

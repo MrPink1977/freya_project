@@ -9,7 +9,10 @@ from freya.tools.file_tools import (
     ReadFileTool,
     WriteFileTool,
     validate_path,
+    validate_file_size,
     ALLOWED_DIRECTORIES,
+    MAX_READ_SIZE,
+    MAX_WRITE_SIZE,
 )
 
 
@@ -434,3 +437,112 @@ class TestFileToolsResult:
         assert result.error is not None
         assert isinstance(result.error, str)
         assert len(result.error) > 0
+
+
+# ============================================================================
+# FILE SIZE LIMIT TESTS
+# ============================================================================
+
+
+class TestFileSizeLimits:
+    """Test file size validation and limits."""
+
+    def test_validate_file_size_within_limit(self, safe_test_dir):
+        """validate_file_size returns None for files within limit."""
+        test_file = safe_test_dir / "small.txt"
+        test_file.write_text("small content")
+        
+        error = validate_file_size(test_file, MAX_READ_SIZE, "read")
+        assert error is None
+
+    def test_validate_file_size_exceeds_limit(self, safe_test_dir):
+        """validate_file_size returns error for oversized files."""
+        test_file = safe_test_dir / "large.txt"
+        # Create file larger than 1 MB limit
+        large_content = "x" * (MAX_READ_SIZE + 1000)
+        test_file.write_text(large_content)
+        
+        error = validate_file_size(test_file, MAX_READ_SIZE, "read")
+        assert error is not None
+        assert "too large" in error.lower()
+        assert "MB" in error
+
+    def test_read_file_rejects_oversized(self, read_file_tool, safe_test_dir):
+        """ReadFileTool rejects files larger than MAX_READ_SIZE."""
+        test_file = safe_test_dir / "huge.txt"
+        # Create 1.5 MB file (exceeds 1 MB limit)
+        large_content = "a" * (MAX_READ_SIZE + 500000)
+        test_file.write_text(large_content)
+        
+        result = read_file_tool.execute(path=str(test_file))
+        assert result.success is False
+        assert "too large" in result.error.lower()
+        assert "read" in result.error.lower()
+
+    def test_read_file_accepts_max_size(self, read_file_tool, safe_test_dir):
+        """ReadFileTool accepts files at exactly MAX_READ_SIZE."""
+        test_file = safe_test_dir / "exactly_max.txt"
+        # Create file exactly at limit
+        content = "b" * MAX_READ_SIZE
+        test_file.write_text(content)
+        
+        result = read_file_tool.execute(path=str(test_file))
+        assert result.success is True
+
+    def test_write_file_rejects_oversized_content(self, write_file_tool, safe_test_dir):
+        """WriteFileTool rejects content larger than MAX_WRITE_SIZE."""
+        test_file = safe_test_dir / "big_write.txt"
+        # Try to write 11 MB (exceeds 10 MB limit)
+        large_content = "c" * (MAX_WRITE_SIZE + 1000000)
+        
+        result = write_file_tool.execute(path=str(test_file), content=large_content)
+        assert result.success is False
+        assert "too large" in result.error.lower()
+        assert "write" in result.error.lower()
+
+    def test_write_file_accepts_max_size(self, write_file_tool, safe_test_dir):
+        """WriteFileTool accepts content at exactly MAX_WRITE_SIZE."""
+        test_file = safe_test_dir / "exactly_max_write.txt"
+        # Write exactly at limit (10 MB)
+        content = "d" * MAX_WRITE_SIZE
+        
+        result = write_file_tool.execute(path=str(test_file), content=content)
+        assert result.success is True
+
+    def test_append_within_limit(self, write_file_tool, safe_test_dir):
+        """WriteFileTool allows append when final size within limit."""
+        test_file = safe_test_dir / "append_ok.txt"
+        # Create initial file with 1 MB
+        initial_content = "e" * (1024 * 1024)
+        test_file.write_text(initial_content)
+        
+        # Append 1 MB more (total 2 MB, well within 10 MB limit)
+        append_content = "f" * (1024 * 1024)
+        result = write_file_tool.execute(path=str(test_file), content=append_content, append=True)
+        assert result.success is True
+
+    def test_append_exceeds_limit(self, write_file_tool, safe_test_dir):
+        """WriteFileTool rejects append when final size exceeds limit."""
+        test_file = safe_test_dir / "append_too_big.txt"
+        # Create file with 9 MB
+        initial_content = "g" * (9 * 1024 * 1024)
+        test_file.write_text(initial_content)
+        
+        # Try to append 2 MB more (total 11 MB, exceeds 10 MB limit)
+        append_content = "h" * (2 * 1024 * 1024)
+        result = write_file_tool.execute(path=str(test_file), content=append_content, append=True)
+        assert result.success is False
+        assert "append" in result.error.lower()
+        assert "exceed" in result.error.lower()
+
+    def test_size_in_metadata(self, read_file_tool, safe_test_dir):
+        """File size included in read result metadata."""
+        test_file = safe_test_dir / "with_size.txt"
+        content = "test content with size"
+        test_file.write_text(content)
+        
+        result = read_file_tool.execute(path=str(test_file))
+        assert result.success is True
+        assert "size" in result.metadata
+        assert result.metadata["size"] == len(content)
+
