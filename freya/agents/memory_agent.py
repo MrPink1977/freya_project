@@ -16,6 +16,7 @@ from freya.logger import get_logger
 from freya.memory import ChromaMemoryStore
 from freya.schemas.messages import MemoryStorePayload, MemoryQueryPayload, FactStorePayload, FactQueryPayload
 from freya.schemas.validation import validate_message_payload
+from freya.utils.fact_patterns import get_extraction_patterns, is_question
 
 logger = get_logger("memory_agent")
 
@@ -62,23 +63,7 @@ class MemoryAgent(BaseAgent):
 
     def _initialize_fact_patterns(self) -> dict:
         """Initialize regex patterns for fact extraction."""
-        return {
-            "name_is": re.compile(r"my name(?:'s| is) (\w+(?:\s+\w+)?)", re.IGNORECASE),
-            "call_me": re.compile(r"(?:you can |just )?call me (\w+)", re.IGNORECASE),
-            "birthday_is": re.compile(
-                r"my birthday(?:'s| is) ([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)",
-                re.IGNORECASE,
-            ),
-            "born_on": re.compile(
-                r"(?:i was )?born (?:on |in )?([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?|\d{4}|[a-z]+ \d{4})",
-                re.IGNORECASE,
-            ),
-            "favorite": re.compile(r"my favorite (\w+) is ([^.,!?]+)", re.IGNORECASE),
-            "i_like": re.compile(r"i (?:really |absolutely )?like ([^.,!?]+)", re.IGNORECASE),
-            "i_love": re.compile(r"i (?:really |absolutely )?love ([^.,!?]+)", re.IGNORECASE),
-            "i_hate": re.compile(r"i (?:really |absolutely )?hate ([^.,!?]+)", re.IGNORECASE),
-            "i_dislike": re.compile(r"i (?:really |absolutely )?dislike ([^.,!?]+)", re.IGNORECASE),
-        }
+        return get_extraction_patterns()
 
     async def initialize(self) -> None:
         """Initialize memory agent."""
@@ -324,33 +309,11 @@ class MemoryAgent(BaseAgent):
         Args:
             user_text: User's message
         """
-        lowered = user_text.lower().strip()
-
         # Skip questions - they're asking, not telling
-        question_indicators = [
-            "do you",
-            "can you",
-            "what",
-            "when",
-            "where",
-            "who",
-            "why",
-            "how",
-            "is it",
-            "are you",
-            "will you",
-            "should",
-            "could",
-            "would",
-            "remember my",
-            "know my",
-            "recall",
-        ]
-        if any(
-            lowered.startswith(indicator) or f" {indicator}" in lowered
-            for indicator in question_indicators
-        ):
+        if is_question(user_text):
             return
+
+        lowered = user_text.lower().strip()
 
         # Extract name
         match = self._fact_patterns["name_is"].search(lowered)
