@@ -18,6 +18,7 @@ from freya.logger import get_logger
 from freya.ollama_client import OllamaClient, OllamaError, OllamaModelNotFoundError
 from freya.schemas.messages import DialogRequestPayload
 from freya.schemas.validation import validate_message_payload
+from freya.utils.confusion_detection import detect_confusion
 
 logger = get_logger("dialog_agent")
 
@@ -90,16 +91,6 @@ class DialogAgent(BaseAgent):
 
         # Escalation
         self._enable_escalation = enable_escalation
-        self._confusion_signals = [
-            "i don't know",
-            "i'm not sure",
-            "i don't have",
-            "i cannot",
-            "i'm unable",
-            "unclear",
-            "i apologize, but",
-            "sorry, i don't",
-        ]
 
         # Injected context (tool results, memories)
         self._injected_context: list[str] = []
@@ -367,8 +358,12 @@ class DialogAgent(BaseAgent):
 
     def _is_confused(self, response: str) -> bool:
         """Check if response indicates confusion or uncertainty."""
-        lowered = response.lower()
-        return any(signal in lowered for signal in self._confusion_signals)
+        is_confused, confidence, category = detect_confusion(response, threshold=0.7)
+        if is_confused:
+            self.logger.debug(
+                f"Confusion detected: confidence={confidence:.2f}, category={category}"
+            )
+        return is_confused
 
     def _clear_context(self) -> None:
         """Clear conversation context."""
