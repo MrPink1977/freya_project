@@ -1,15 +1,88 @@
 # Freya - Voice-Enabled AI Assistant
 
-Freya is a sophisticated voice-enabled AI assistant with computer vision capabilities. It combines speech recognition, natural language processing via Ollama, and camera integration to create an interactive, context-aware assistant.
+Freya is a sophisticated voice-enabled AI assistant with computer vision capabilities, built on a modern **agent-based architecture**. It combines speech recognition, natural language processing via Ollama, ChromaDB vector memory, and camera integration to create an interactive, context-aware JARVIS-style assistant.
+
+## Architecture
+
+Freya uses an **event-driven microservices architecture** with specialized agents communicating through a central MessageBus. This modular design enables:
+- **Scalability**: Add new capabilities without touching existing code
+- **Maintainability**: Each agent handles one concern (memory, dialog, tools, etc.)
+- **Testability**: Agents can be tested independently
+- **Performance**: Async/await throughout for responsive interactions
+
+### Agent System
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    MessageBus (Pub/Sub)                     │
+│             Event-driven communication backbone              │
+└─────────────────────────────────────────────────────────────┘
+           │                    │                    │
+           ▼                    ▼                    ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│  WakeWordAgent   │  │   DialogAgent    │  │  MemoryAgent     │
+│                  │  │                  │  │                  │
+│ • Background     │  │ • LLM streaming  │  │ • ChromaDB       │
+│   listening      │  │ • Smart model    │  │ • Vector search  │
+│ • Session        │  │   escalation     │  │ • Fact extraction│
+│   windows        │  │ • Context mgmt   │  │ • Semantic query │
+└──────────────────┘  └──────────────────┘  └──────────────────┘
+           │                    │                    │
+           ▼                    ▼                    ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│ToolExecutorAgent │  │  Coordinator     │  │  Future Agents   │
+│                  │  │                  │  │                  │
+│ • Pattern-based  │  │ • Agent lifecycle│  │ • VisionAgent    │
+│ • 9 tool types   │  │ • Event routing  │  │ • SpeechAgent    │
+│ • Time, calc,    │  │ • Mode switching │  │ • IoTAgent       │
+│   files, web     │  │ • TTS/STT bridge │  │ • AutomationAgent│
+└──────────────────┘  └──────────────────┘  └──────────────────┘
+```
+
+### Message Flow Example
+
+```
+User: "Hey Freya, what time is it?"
+  ↓
+┌─────────────────────────────────────────────────────────┐
+│ WakeWordAgent: Detects wake word                       │
+│   Publishes: wake.detected                             │
+└─────────────────────────────────────────────────────────┘
+  ↓
+┌─────────────────────────────────────────────────────────┐
+│ Coordinator: Receives wake.detected                     │
+│   1. Query MemoryAgent for relevant context            │
+│   2. Inject memories into DialogAgent                  │
+│   3. Publish dialog.request                            │
+└─────────────────────────────────────────────────────────┘
+  ↓
+┌─────────────────────────────────────────────────────────┐
+│ DialogAgent: Generates LLM response                     │
+│   1. Start with llama3.2:3b (fast)                     │
+│   2. Stream chunks → dialog.chunk                       │
+│   3. Publish dialog.complete                           │
+└─────────────────────────────────────────────────────────┘
+  ↓
+┌─────────────────────────────────────────────────────────┐
+│ Coordinator: Routes dialog.chunk to TTS                 │
+│   User hears: "The current time is 3:42 PM"            │
+└─────────────────────────────────────────────────────────┘
+  ↓
+┌─────────────────────────────────────────────────────────┐
+│ MemoryAgent: Stores conversation                       │
+│   Publishes: memory.stored                             │
+└─────────────────────────────────────────────────────────┘
+```
 
 ## Features
 
 ### Core Voice Assistant
-- **Speech-to-Text**: Uses Faster Whisper for accurate speech recognition
-- **Text-to-Speech**: Piper TTS for natural-sounding voice synthesis
-- **Wake Word Detection**: Hands-free activation with configurable wake words
-- **Conversation Memory**: Short-term context management with automatic summarization
-- **Persistent Storage**: Long-term memory using SQLite with semantic search
+- **Speech-to-Text**: Faster Whisper for accurate speech recognition
+- **Text-to-Speech**: Piper TTS with ElevenLabs support
+- **Wake Word Detection**: Background always-listening with session windows
+- **Smart Memory**: ChromaDB vector storage with semantic search (O(log n) HNSW indexing)
+- **Context Management**: Automatic transfer to long-term memory at 75% capacity
+- **Model Escalation**: Starts with fast llama3.2:3b, escalates to dolphin-mixtral on confusion
 
 ### Vision Capabilities
 - **Facial Recognition**: Identify known individuals using face_recognition library
@@ -18,13 +91,14 @@ Freya is a sophisticated voice-enabled AI assistant with computer vision capabil
 - **Multi-Channel Audio**: Coordinate audio from multiple sources (mic + cameras)
 
 ### AI Integration
-- **Ollama Backend**: Flexible LLM integration supporting various models
-- **Web Search Tool**: DuckDuckGo integration for real-time information
+- **Ollama Backend**: Flexible LLM integration with multiple models
+- **Multi-Model Strategy**: llama3.2:3b (fast), dolphin-mixtral:8x7b (reasoning), deepseek-coder-v2:16b-lite (code)
 - **Streaming Responses**: Real-time text-to-speech streaming during generation
+- **Tool Integration**: 9 built-in tools (time, date, calculator, files, system, web search, performance)
 
 ### Interaction Modes
 - **Voice Mode**: Hands-free conversation with wake word detection
-- **Push-to-Talk**: Press-and-hold for voice input
+- **Text Mode**: Terminal-based chat interface
 - **Hotkey Toggle**: Switch between modes on the fly
 
 ## Requirements
@@ -48,7 +122,11 @@ cd freya_project
 
 ### 2. Install Dependencies
 ```bash
-# Basic installation
+# Create virtual environment
+python -m venv freya_env
+source freya_env/bin/activate  # On Windows: freya_env\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 
 # Or install as a package with dev tools
@@ -62,8 +140,13 @@ pip install -e ".[face-recognition]"
 Download and install Ollama from [ollama.ai](https://ollama.ai)
 
 ```bash
-# Pull a model (e.g., llama2)
-ollama pull llama2
+# Pull recommended models
+ollama pull llama3.2:3b              # Fast model (2GB VRAM)
+ollama pull dolphin-mixtral:8x7b     # Reasoning model (26GB VRAM)
+ollama pull deepseek-coder-v2:16b-lite  # Code model (10GB VRAM)
+
+# Minimum: just the fast model
+ollama pull llama3.2:3b
 ```
 
 ### 4. Configure Freya
@@ -78,22 +161,52 @@ Key configuration sections:
 - **Ollama**: Model selection and host configuration
 - **Audio**: Microphone and speaker device selection
 - **Wake Word**: Sensitivity and activation settings
-- **Memory**: Long-term storage paths and settings
+- **Memory**: ChromaDB storage path and retrieval settings
 - **Vision**: Camera credentials and facial recognition setup
+- **Agents**: Enable/disable specific agents, configure models
 
 ## Usage
 
 ### Basic Usage
 ```bash
-# Run with default configuration
-python main.py
+# Run with agent architecture (recommended)
+python main.py --use-agents
 
 # Run with custom config
-python main.py --config config/my_config.yaml
+python main.py --config config/my_config.yaml --use-agents
 
-# Run in diagnostic mode (shows detailed logs)
-python main.py --startup-mode diagnostic
+# Run in text mode (no voice)
+python main.py --mode text --use-agents
+
+# Run with legacy orchestrator (deprecated)
+python main.py
+
+# Diagnostic mode (detailed logs)
+python main.py --startup-mode diagnostic --use-agents
 ```
+
+### Agent Architecture vs Legacy
+
+**New Agent Architecture** (Recommended):
+```bash
+python main.py --use-agents
+```
+- Event-driven, modular design
+- Smart model escalation (llama3.2 → dolphin-mixtral)
+- ChromaDB vector memory with semantic search
+- 75% context auto-transfer to long-term memory
+- Parallel agent execution
+- Extensible via new agents
+
+**Legacy Orchestrator** (Deprecated):
+```bash
+python main.py
+```
+- Monolithic design
+- Single model, no escalation
+- SQLite memory (slower)
+- Fixed context window
+- Will be removed in future release
 
 ### Facial Recognition Setup
 1. Create a directory structure for known faces:
@@ -187,25 +300,114 @@ The project includes GitHub Actions workflows for:
 
 ```
 freya_project/
-├── freya/                  # Main package
-│   ├── orchestrator.py    # Core coordination logic
-│   ├── config.py          # Configuration management
-│   ├── memory.py          # Persistent memory system
-│   ├── ollama_client.py   # LLM integration
-│   ├── stt.py             # Speech-to-text
-│   ├── tts.py             # Text-to-speech
-│   ├── wake.py            # Wake word detection
-│   ├── facial_recognition.py  # Face recognition
-│   ├── rtsp_stream.py     # Camera streaming
-│   ├── onvif_client.py    # Camera control
-│   └── tools/             # Assistant tools (web search, etc.)
-├── tests/                 # Test suite
-├── config/                # Configuration files
-├── data/                  # Data directory (faces, memory DB)
-├── main.py                # Entry point
-├── requirements.txt       # Production dependencies
-└── pyproject.toml         # Package configuration
+├── freya/                      # Main package
+│   ├── agents/                 # Intelligent agents
+│   │   ├── base_agent.py       # Abstract agent class
+│   │   ├── dialog_agent.py     # LLM conversation (streaming, escalation)
+│   │   ├── memory_agent.py     # ChromaDB memory coordination
+│   │   ├── tool_executor_agent.py  # Tool detection/execution
+│   │   └── wake_word_agent.py  # Background wake detection
+│   │
+│   ├── core/                   # Foundation infrastructure
+│   │   └── message_bus.py      # Event-driven pub/sub system
+│   │
+│   ├── coordination/           # Agent orchestration
+│   │   └── orchestration_coordinator.py  # Lightweight coordinator
+│   │
+│   ├── tools/                  # Tool implementations
+│   │   ├── calculator.py       # Math operations
+│   │   ├── datetime_tools.py   # Time/date utilities
+│   │   ├── file_tools.py       # File operations
+│   │   ├── system_tools.py     # System information
+│   │   ├── web_search.py       # DuckDuckGo search
+│   │   └── web_scraper.py      # Web content extraction
+│   │
+│   ├── orchestrator.py         # Legacy orchestrator (deprecated)
+│   ├── config.py               # Configuration management
+│   ├── memory.py               # ChromaDB vector store
+│   ├── context.py              # Conversation context
+│   ├── ollama_client.py        # LLM integration
+│   ├── stt.py                  # Speech-to-text
+│   ├── tts.py                  # Text-to-speech (Piper)
+│   ├── tts_elevenlabs.py       # ElevenLabs TTS
+│   ├── wake.py                 # Wake word detection (Whisper)
+│   ├── wake_word_matcher.py    # Fuzzy wake word matching
+│   ├── facial_recognition.py   # Face recognition
+│   ├── rtsp_stream.py          # Camera streaming
+│   └── onvif_client.py         # Camera control
+│
+├── tests/                      # Test suite
+│   ├── test_agent_foundation.py
+│   ├── test_tool_executor_agent.py
+│   ├── test_chroma_memory.py
+│   ├── test_memory_agent.py
+│   ├── test_wake_word_agent.py
+│   ├── test_dialog_agent.py
+│   └── test_orchestration_coordinator.py
+│
+├── config/                     # Configuration files
+│   └── default.yaml            # Default configuration
+├── data/                       # Data directory
+│   ├── faces/                  # Known faces for recognition
+│   └── chroma_db/              # ChromaDB vector storage
+├── main.py                     # Entry point
+├── requirements.txt            # Production dependencies
+└── pyproject.toml              # Package configuration
 ```
+
+## Future Enhancements
+
+### Planned Agents (Roadmap)
+
+**Phase 2: Sensory Layer**
+- **SpeechAgent**: Unified STT/TTS agent replacing legacy components
+- **VisionAgent**: Camera processing, facial recognition, object detection (YOLO integration)
+
+**Phase 3: Intelligence Layer**
+- **ContextAnalyzerAgent**: Intent detection, entity extraction, emotion analysis
+- **LearningAgent**: Pattern learning, user preference adaptation, behavior prediction
+
+**Phase 4: Control Layer**
+- **IoTAgent**: Smart home integration (Home Assistant, Philips Hue, smart plugs)
+- **AutomationAgent**: Scheduled tasks, routines, reminders, time-based actions
+
+**Phase 5: Advanced Capabilities**
+- **ResearchAgent**: Multi-step web research, fact-checking, source synthesis
+- **CodeAgent**: Code generation, debugging, sandbox execution (uses deepseek-coder)
+- **PersonalityAgent**: Emotional intelligence, mood-based responses, adaptive personality
+- **MultimodalAgent**: Vision + voice fusion, gesture recognition, spatial awareness
+
+### Technical Improvements
+
+**Performance**
+- GPU acceleration for vision tasks (CUDA/ROCm support)
+- Model quantization for lower VRAM usage
+- Parallel agent execution for faster responses
+- Edge deployment on Jetson/RPi for local-first privacy
+
+**Memory System**
+- Episodic memory: Event-based timeline ("user laughed at 3pm")
+- Working memory: Redis-like short-term cache
+- Memory consolidation: Automatic summarization and archival
+- Multi-user memory: Per-user context isolation
+
+**Multi-Modal Integration**
+- Vision-language models (LLaVA, BakLLaVA)
+- Screen reading and UI automation
+- Gesture control via camera
+- Emotion detection from voice tone
+
+**Scalability**
+- Distributed agents across multiple machines
+- Agent hot-reloading for zero-downtime updates
+- Message queue persistence (Redis, RabbitMQ)
+- Kubernetes deployment for cloud scaling
+
+**Developer Experience**
+- Web UI for agent monitoring
+- Real-time agent performance metrics
+- Visual agent graph editor
+- Plugin system for custom agents
 
 ## Troubleshooting
 
@@ -240,11 +442,27 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Acknowledgments
 
 - [Ollama](https://ollama.ai) for local LLM inference
+- [ChromaDB](https://www.trychroma.com/) for vector database
 - [Faster Whisper](https://github.com/guillaumekln/faster-whisper) for speech recognition
 - [Piper TTS](https://github.com/rhasspy/piper) for text-to-speech
 - [OpenCV](https://opencv.org/) for computer vision
 - [face_recognition](https://github.com/ageitgey/face_recognition) library
 
+## Development Status
+
+**Current Version**: Agent Architecture (v2.0)
+- ✅ MessageBus event system
+- ✅ ToolExecutorAgent (9 tools)
+- ✅ MemoryAgent (ChromaDB)
+- ✅ WakeWordAgent (background detection)
+- ✅ DialogAgent (streaming LLM with escalation)
+- ✅ OrchestrationCoordinator
+- ⬜ SpeechAgent (planned)
+- ⬜ VisionAgent (planned)
+- ⬜ ContextAnalyzerAgent (planned)
+
+**Branch**: `feature/agent-architecture` (merging to `main` soon)
+
 ---
 
-**Note**: Freya is in active development. Features and APIs may change. For the latest updates, see the [GitHub repository](https://github.com/MrPink1977/freya_project).
+**Note**: Freya is in active development. The agent architecture is production-ready but undergoing final testing before merge. For the latest updates, see the [GitHub repository](https://github.com/MrPink1977/freya_project).

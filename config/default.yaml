@@ -67,7 +67,7 @@ app:
   mode_toggle_hotkey: "ctrl+t"
 stt:
   model: "base"
-  device: "auto"  # Use "cuda" or "cpu" to override automatic selection
+  device: "cuda"  # Force GPU acceleration for faster-whisper
   sample_rate: 16000
   silence_threshold: 0.02
   silence_duration: 1.2  # Increased from 0.7 to prevent cutting off too early
@@ -101,7 +101,7 @@ tts:
     use_speaker_boost: true  # Enhance clarity
 wake_detector:
   model: "tiny"
-  device: "cpu"
+  device: "cuda"  # Use GPU for wake word detection
   sample_rate: 16000
   chunk_seconds: 2.0
 memory:

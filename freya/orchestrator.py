@@ -42,6 +42,7 @@ from .tools import ToolManager
 from .tools.web_search import WebSearchError, search_web
 from .tts import TextToSpeech, TextToSpeechError
 from .wake import WakeWordDetector, WakeWordDetectorError
+from .wake_word_matcher import WakeWordMatcher
 
 logger = get_logger("orchestrator")
 
@@ -162,30 +163,15 @@ class Orchestrator:
         self._stop_speech_hotkey_handle: Optional[int] = None
         self._hotkey_available = keyboard is not None and bool(self._mode_toggle_hotkey)
         self._wake_detector = wake_detector
-        normalized = wake_word.strip()
-        if not normalized:
-            raise ValueError("wake_word must be a non-empty string")
-        self._wake_word_display = normalized
-        sensitivity = max(0.0, min(1.0, wake_sensitivity))
-        self._wake_sensitivity = sensitivity if sensitivity > 0 else 0.75
+        
+        # Initialize wake word matcher (delegates variant generation and matching logic)
+        self._wake_matcher = WakeWordMatcher(
+            wake_word=wake_word,
+            sensitivity=wake_sensitivity,
+            token_offset_limit=2,
+        )
         self._session_window = max(0.0, session_window)
         self._session_active_until = 0.0
-        base = normalized.lower()
-        punctless = base.translate(str.maketrans("", "", string.punctuation))
-        variants = {base, punctless, " ".join(punctless.split())}
-        self._wake_word_variants = [
-            variant for variant in sorted(variants, key=len, reverse=True) if variant
-        ]
-        if not self._wake_word_variants:
-            raise ValueError("wake_word must contain alphanumeric characters")
-        self._wake_word_token_variants: List[Sequence[str]] = [
-            tuple(filter(None, variant.split())) for variant in self._wake_word_variants
-        ]
-        if not any(self._wake_word_token_variants):
-            raise ValueError("wake_word must contain at least one spoken token")
-        self._max_variant_tokens = max(len(tokens) for tokens in self._wake_word_token_variants)
-        self._token_offset_limit = 2
-        self._token_pattern = re.compile(r"[\w']+")
 
         # Initialize tool manager
         self._tool_manager = ToolManager()
@@ -193,7 +179,7 @@ class Orchestrator:
 
         self._voice_ready_prompt = (
             "Freya is ready. Say "
-            f"{self._wake_word_display} followed by your message. "
+            f"{self._wake_matcher.wake_word_display} followed by your message. "
             "Say exit or quit to stop the conversation."
         )
 
@@ -245,7 +231,7 @@ class Orchestrator:
         if mode is InteractionMode.VOICE:
             message = (
                 "Freya: Voice mode active. Say "
-                f"'{self._wake_word_display}' followed by your message. "
+                f"'{self._wake_matcher.wake_word_display}' followed by your message. "
                 "Say 'exit' or 'quit' to stop the conversation."
             )
         else:
@@ -328,7 +314,7 @@ class Orchestrator:
                         self._session_active_until = now + self._session_window
                 else:
                     self._output(
-                        f"[Wake word not detected] Please say '{self._wake_word_display}' before your message."
+                        f"[Wake word not detected] Please say '{self._wake_matcher.wake_word_display}' before your message."
                     )
                     continue
 
@@ -620,38 +606,17 @@ class Orchestrator:
         self._announce_mode(speak=False)
 
     def _detect_wake_word(self, message: str) -> tuple[bool, int]:
-        """Return whether the wake word was heard and the index after it."""
-        trimmed = message.lstrip()
-        leading = len(message) - len(trimmed)
-        if not trimmed:
-            return False, 0
-
-        tokens = []
-        for match in self._token_pattern.finditer(trimmed):
-            tokens.append(match)
-            if len(tokens) >= self._max_variant_tokens + self._token_offset_limit:
-                break
-
-        if not tokens:
-            return False, 0
-
-        for variant_tokens in self._wake_word_token_variants:
-            required = len(variant_tokens)
-            if required == 0 or len(tokens) < required:
-                continue
-            max_offset = min(len(tokens) - required, self._token_offset_limit)
-            for offset in range(max_offset + 1):
-                candidate = tokens[offset : offset + required]
-                normalized = [match.group().lower() for match in candidate]
-                scores = [
-                    SequenceMatcher(None, cand, variant_tokens[idx]).ratio()
-                    for idx, cand in enumerate(normalized)
-                ]
-                average = sum(scores) / required if required else 0.0
-                if average >= self._wake_sensitivity:
-                    cutoff = candidate[-1].end()
-                    return True, leading + cutoff
-
+        """Return whether the wake word was heard and the index after it.
+        
+        Delegates to WakeWordMatcher for detection logic.
+        Returns (detected, cutoff_index) where cutoff_index is the position
+        after the wake word in the original message.
+        """
+        detected, extracted_text = self._wake_matcher.find_wake_word(message)
+        if detected:
+            # Calculate cutoff index from extracted text
+            cutoff = len(message) - len(extracted_text)
+            return True, cutoff
         return False, 0
 
     def _wait_for_wake_word(self) -> tuple[bool, str]:
@@ -667,7 +632,7 @@ class Orchestrator:
             and time.monotonic() >= self._session_active_until
         ):
             if not announced:
-                self._output(f"Waiting for '{self._wake_word_display}'...")
+                self._output(f"Waiting for '{self._wake_matcher.wake_word_display}'...")
                 announced = True
             try:
                 transcript = detector.listen_once()
