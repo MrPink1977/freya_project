@@ -10,10 +10,12 @@ import re
 from typing import Optional
 
 from freya.agents.base_agent import AgentCapability, BaseAgent
-from freya.core.message_bus import Message, MessagePriority
-from freya.exceptions import MemoryQueryError, MemoryStorageError
+from freya.core.message_bus import Message, MessageBus, MessagePriority
+from freya.exceptions import AgentMessageError, MemoryQueryError, MemoryStorageError
 from freya.logger import get_logger
 from freya.memory import ChromaMemoryStore
+from freya.schemas.messages import MemoryStorePayload, MemoryQueryPayload, FactStorePayload, FactQueryPayload
+from freya.schemas.validation import validate_message_payload
 
 logger = get_logger("memory_agent")
 
@@ -121,13 +123,18 @@ class MemoryAgent(BaseAgent):
 
     async def _handle_store(self, message: Message) -> None:
         """Handle memory storage request."""
-        content = message.payload.get("content") or message.payload.get("text", "")
-        role = message.payload.get("role", "user")
-        importance = message.payload.get("importance", 1)
-
-        if not content or not content.strip():
-            self.logger.debug("Skipping empty content")
+        # Validate payload
+        try:
+            payload = validate_message_payload(message.payload, MemoryStorePayload, self.agent_id)
+        except AgentMessageError as exc:
+            self.logger.error("Invalid memory store request: %s", exc)
+            await self.publish_error(message, exc)
             return
+        
+        # Use validated data
+        content = payload.content
+        role = payload.role
+        importance = payload.importance
 
         try:
             # Store in ChromaDB
@@ -159,18 +166,23 @@ class MemoryAgent(BaseAgent):
 
     async def _handle_query(self, message: Message) -> None:
         """Handle memory query request."""
-        query = message.payload.get("query", "")
-        limit = message.payload.get("limit", 3)
-        min_score = message.payload.get("min_score", 0.2)
-        filter_metadata = message.payload.get("filter")
-
-        if not query:
+        # Validate payload
+        try:
+            payload = validate_message_payload(message.payload, MemoryQueryPayload, self.agent_id)
+        except AgentMessageError as exc:
+            self.logger.error("Invalid memory query request: %s", exc)
             await self.publish(
                 topic="memory.results",
-                payload={"results": [], "query": query},
+                payload={"results": [], "error": str(exc)},
                 correlation_id=message.correlation_id,
             )
             return
+        
+        # Use validated data
+        query = payload.query
+        limit = payload.limit
+        min_score = payload.min_score
+        filter_metadata = payload.filter
 
         try:
             # Search ChromaDB
@@ -211,10 +223,19 @@ class MemoryAgent(BaseAgent):
 
     async def _handle_fact_store(self, message: Message) -> None:
         """Handle fact storage request."""
-        category = message.payload.get("category", "")
-        key = message.payload.get("key", "")
-        value = message.payload.get("value", "")
-        confidence = message.payload.get("confidence", 1.0)
+        # Validate payload
+        try:
+            payload = validate_message_payload(message.payload, FactStorePayload, self.agent_id)
+        except AgentMessageError as exc:
+            self.logger.error("Invalid fact store request: %s", exc)
+            await self.publish_error(message, exc)
+            return
+        
+        # Use validated data
+        category = payload.category
+        key = payload.key
+        value = payload.value
+        confidence = payload.confidence
 
         if not key or not value:
             self.logger.debug("Skipping fact with empty key or value")
@@ -245,9 +266,22 @@ class MemoryAgent(BaseAgent):
 
     async def _handle_fact_query(self, message: Message) -> None:
         """Handle fact query request."""
-        query = message.payload.get("query", "")
-        category = message.payload.get("category")
-        limit = message.payload.get("limit", 3)
+        # Validate payload
+        try:
+            payload = validate_message_payload(message.payload, FactQueryPayload, self.agent_id)
+        except AgentMessageError as exc:
+            self.logger.error("Invalid fact query request: %s", exc)
+            await self.publish(
+                topic="memory.fact.results",
+                payload={"results": [], "error": str(exc)},
+                correlation_id=message.correlation_id,
+            )
+            return
+        
+        # Use validated data
+        query = payload.query
+        category = payload.category
+        limit = payload.limit
 
         try:
             facts = self.memory_store.query_facts(

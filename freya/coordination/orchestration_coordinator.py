@@ -344,7 +344,7 @@ class OrchestrationCoordinator:
         # Send to dialog agent with channel context
         await self.bus.publish(
             topic="dialog.request",
-            payload={"text": user_text, "stream": True, "channel_id": channel_id},
+            payload={"text": user_text, "stream": True},  # Removed channel_id (not in DialogRequestPayload schema)
             sender="coordinator",
             priority=MessagePriority.HIGH,
         )

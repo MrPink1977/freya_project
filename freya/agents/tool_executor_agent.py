@@ -11,6 +11,9 @@ from typing import Optional
 
 from freya.agents.base_agent import AgentCapability, BaseAgent
 from freya.core.message_bus import Message, MessageBus, MessagePriority
+from freya.exceptions import AgentMessageError
+from freya.schemas.messages import UserQueryPayload
+from freya.schemas.validation import validate_message_payload
 from freya.tools.manager import ToolManager
 
 
@@ -98,9 +101,20 @@ class ToolExecutorAgent(BaseAgent):
         if message.topic != "user.query":
             return
 
-        query = message.payload.get("text", "")
-        if not query:
+        # Validate payload
+        try:
+            payload = validate_message_payload(message.payload, UserQueryPayload, self.agent_id)
+        except AgentMessageError as exc:
+            self.logger.error("Invalid user query: %s", exc)
+            await self.publish(
+                topic="tool.not_found",
+                payload={"query": "", "error": str(exc)},
+                correlation_id=message.correlation_id,
+            )
             return
+        
+        # Use validated data
+        query = payload.text
 
         # Try to detect and execute tool
         tool_result = await self._detect_and_execute_tool(query)

@@ -13,8 +13,11 @@ from typing import Optional
 from freya.agents.base_agent import AgentCapability, BaseAgent
 from freya.context import ConversationContext
 from freya.core.message_bus import Message, MessageBus, MessagePriority
+from freya.exceptions import AgentMessageError
 from freya.logger import get_logger
 from freya.ollama_client import OllamaClient, OllamaError, OllamaModelNotFoundError
+from freya.schemas.messages import DialogRequestPayload
+from freya.schemas.validation import validate_message_payload
 
 logger = get_logger("dialog_agent")
 
@@ -142,13 +145,22 @@ class DialogAgent(BaseAgent):
 
     async def _handle_conversation_request(self, message: Message) -> None:
         """Handle conversation request with streaming and escalation."""
-        user_text = message.payload.get("text", "").strip()
-        override_model = message.payload.get("model")
-        stream = message.payload.get("stream", True)
-
-        if not user_text:
-            self.logger.debug("Skipping empty conversation request")
+        # Validate payload
+        try:
+            payload = validate_message_payload(message.payload, DialogRequestPayload, self.agent_id)
+        except AgentMessageError as exc:
+            self.logger.error("Invalid dialog request: %s", exc)
+            await self.publish(
+                topic="dialog.error",
+                payload={"error": str(exc), "correlation_id": message.correlation_id},
+                correlation_id=message.correlation_id,
+            )
             return
+        
+        # Use validated data
+        user_text = payload.text
+        override_model = payload.model
+        stream = payload.stream
 
         # Add user message to context
         self._context.add_user_message(user_text)
