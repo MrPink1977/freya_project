@@ -15,7 +15,7 @@ class TestOllamaClientRetry:
 
     def test_retry_on_connection_error(self):
         """Retry on connection errors."""
-        config = OllamaConfig(host="http://localhost:11434", model="test-model")
+        config = OllamaConfig(host="http://localhost:11434", model="test-model", options={})
         client = OllamaClient(config)
         
         with patch.object(client._session, 'post') as mock_post:
@@ -38,7 +38,7 @@ class TestOllamaClientRetry:
 
     def test_no_retry_on_model_not_found(self):
         """Don't retry when model is not found."""
-        config = OllamaConfig(host="http://localhost:11434", model="nonexistent")
+        config = OllamaConfig(host="http://localhost:11434", model="nonexistent", options={})
         client = OllamaClient(config)
         
         with patch.object(client._session, 'post') as mock_post:
@@ -60,7 +60,7 @@ class TestOllamaClientRetry:
 
     def test_no_retry_on_4xx_errors(self):
         """Don't retry on 4xx client errors (except 429)."""
-        config = OllamaConfig(host="http://localhost:11434", model="test-model")
+        config = OllamaConfig(host="http://localhost:11434", model="test-model", options={})
         client = OllamaClient(config)
         
         with patch.object(client._session, 'post') as mock_post:
@@ -77,7 +77,7 @@ class TestOllamaClientRetry:
 
     def test_retry_exhausted_raises_exception(self):
         """Raise exception after max retries exhausted."""
-        config = OllamaConfig(host="http://localhost:11434", model="test-model")
+        config = OllamaConfig(host="http://localhost:11434", model="test-model", options={})
         client = OllamaClient(config)
         
         with patch.object(client._session, 'post') as mock_post:
@@ -91,7 +91,7 @@ class TestOllamaClientRetry:
 
     def test_successful_first_attempt_no_retry(self):
         """Successful first attempt doesn't trigger retry."""
-        config = OllamaConfig(host="http://localhost:11434", model="test-model")
+        config = OllamaConfig(host="http://localhost:11434", model="test-model", options={})
         client = OllamaClient(config)
         
         with patch.object(client._session, 'post') as mock_post:
