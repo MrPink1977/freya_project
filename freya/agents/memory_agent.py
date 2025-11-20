@@ -10,7 +10,8 @@ import re
 from typing import Optional
 
 from freya.agents.base_agent import AgentCapability, BaseAgent
-from freya.core.message_bus import Message, MessageBus
+from freya.core.message_bus import Message, MessagePriority
+from freya.exceptions import MemoryQueryError, MemoryStorageError
 from freya.logger import get_logger
 from freya.memory import ChromaMemoryStore
 
@@ -149,8 +150,11 @@ class MemoryAgent(BaseAgent):
 
             self.logger.debug(f"Stored memory {memory_id}")
 
+        except MemoryStorageError as exc:
+            self.logger.error(f"Failed to store memory: {exc}")
+            await self.publish_error(message, exc)
         except Exception as exc:
-            self.logger.exception(f"Failed to store memory: {exc}")
+            self.logger.exception(f"Unexpected error storing memory: {exc}")
             await self.publish_error(message, exc)
 
     async def _handle_query(self, message: Message) -> None:
@@ -198,8 +202,11 @@ class MemoryAgent(BaseAgent):
 
             self.logger.debug(f"Retrieved {len(results)} memories for query: {query[:50]}")
 
+        except MemoryQueryError as exc:
+            self.logger.error(f"Failed to query memories: {exc}")
+            await self.publish_error(message, exc)
         except Exception as exc:
-            self.logger.exception(f"Failed to query memories: {exc}")
+            self.logger.exception(f"Unexpected error querying memories: {exc}")
             await self.publish_error(message, exc)
 
     async def _handle_fact_store(self, message: Message) -> None:
@@ -229,8 +236,11 @@ class MemoryAgent(BaseAgent):
 
             self.logger.debug(f"Stored fact: {category}/{key} = {value}")
 
+        except MemoryStorageError as exc:
+            self.logger.error(f"Failed to store fact: {exc}")
+            await self.publish_error(message, exc)
         except Exception as exc:
-            self.logger.exception(f"Failed to store fact: {exc}")
+            self.logger.exception(f"Unexpected error storing fact: {exc}")
             await self.publish_error(message, exc)
 
     async def _handle_fact_query(self, message: Message) -> None:
@@ -265,8 +275,11 @@ class MemoryAgent(BaseAgent):
 
             self.logger.debug(f"Retrieved {len(results)} facts for query: {query[:50]}")
 
+        except MemoryQueryError as exc:
+            self.logger.error(f"Failed to query facts: {exc}")
+            await self.publish_error(message, exc)
         except Exception as exc:
-            self.logger.exception(f"Failed to query facts: {exc}")
+            self.logger.exception(f"Unexpected error querying facts: {exc}")
             await self.publish_error(message, exc)
 
     async def _extract_and_store_facts(self, user_text: str) -> None:

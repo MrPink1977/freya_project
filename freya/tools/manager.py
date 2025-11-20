@@ -4,6 +4,13 @@ from __future__ import annotations
 
 from typing import Dict, List, Type
 
+from ..exceptions import (
+    ToolExecutionError,
+    ToolInputError,
+    ToolNetworkError,
+    ToolNotFoundError,
+    ToolPermissionError,
+)
 from ..logger import get_logger
 from .base import FreyaTool, ToolResult
 
@@ -134,12 +141,48 @@ class ToolManager:
             return result
 
         except TypeError as e:
-            return ToolResult(
-                success=False, output="", error=f"Invalid arguments for tool '{tool_name}': {e}"
+            # Invalid arguments provided to tool
+            logger.warning("Tool '%s' received invalid arguments: %s", tool_name, e)
+            raise ToolInputError(
+                f"Invalid arguments for tool '{tool_name}': {e}",
+                tool=tool_name,
+                arguments=kwargs,
             )
+        except (PermissionError, OSError) as e:
+            # Permission denied or file system errors (file tools)
+            logger.error("Tool '%s' permission/access error: %s", tool_name, e)
+            raise ToolPermissionError(
+                f"Permission denied for tool '{tool_name}': {e}",
+                tool=tool_name,
+                error=str(e),
+            )
+        except (ConnectionError, TimeoutError) as e:
+            # Network-related errors (web search, web scraper)
+            logger.error("Tool '%s' network error: %s", tool_name, e)
+            raise ToolNetworkError(
+                f"Network error in tool '{tool_name}': {e}",
+                tool=tool_name,
+                error=str(e),
+            )
+        except ValueError as e:
+            # Invalid input data (calculator, datetime tools)
+            logger.warning("Tool '%s' input validation error: %s", tool_name, e)
+            raise ToolInputError(
+                f"Invalid input for tool '{tool_name}': {e}",
+                tool=tool_name,
+                error=str(e),
+            )
+        except ToolExecutionError:
+            # Already a specific tool error, just re-raise
+            raise
         except Exception as e:
-            logger.exception("Tool '%s' raised exception", tool_name)
-            return ToolResult(success=False, output="", error=f"Tool execution failed: {e}")
+            # Unexpected error - log with full traceback
+            logger.exception("Tool '%s' raised unexpected exception", tool_name)
+            raise ToolExecutionError(
+                f"Tool '{tool_name}' execution failed: {e}",
+                tool=tool_name,
+                error=str(e),
+            )
 
     def get_tools_description(self) -> str:
         """Get a formatted description of all available tools.

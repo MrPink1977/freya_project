@@ -14,6 +14,11 @@ from enum import Enum
 from typing import Any, Dict, Optional
 
 from freya.core.message_bus import Message, MessageBus, MessagePriority
+from freya.exceptions import (
+    AgentCleanupError,
+    AgentInitializationError,
+    AgentMessageError,
+)
 from freya.logger import get_logger
 
 
@@ -113,7 +118,11 @@ class BaseAgent(ABC):
         except Exception as exc:
             self.state = AgentState.ERROR
             self.logger.exception(f"Failed to start agent {self.agent_id}: {exc}")
-            raise
+            raise AgentInitializationError(
+                f"Agent {self.agent_id} failed to initialize: {exc}",
+                agent_id=self.agent_id,
+                error=str(exc),
+            )
 
     async def stop(self) -> None:
         """
@@ -137,7 +146,11 @@ class BaseAgent(ABC):
         try:
             await self.cleanup()
         except Exception as exc:
-            self.logger.exception(f"Error during cleanup: {exc}")
+            # Log but don't raise - we're shutting down anyway
+            self.logger.error(
+                f"Agent {self.agent_id} cleanup failed: {exc}",
+                exc_info=True,
+            )
 
         self.logger.info(f"Agent {self.agent_id} stopped")
 
@@ -175,7 +188,13 @@ class BaseAgent(ABC):
             self.logger.exception(f"Error processing message on topic {message.topic}: {exc}")
             self.state = AgentState.ERROR
             # Publish error event
-            await self.publish_error(message, exc)
+            error = AgentMessageError(
+                f"Agent {self.agent_id} failed to process message on {message.topic}: {exc}",
+                agent_id=self.agent_id,
+                topic=message.topic,
+                error=str(exc),
+            )
+            await self.publish_error(message, error)
 
     @abstractmethod
     async def process_message(self, message: Message) -> None:

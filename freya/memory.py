@@ -19,6 +19,7 @@ try:
 except ImportError:  # pragma: no cover
     chromadb = None  # type: ignore
 
+from .exceptions import MemoryConnectionError, MemoryQueryError, MemoryStorageError
 from .logger import get_logger
 
 logger = get_logger("memory")
@@ -86,13 +87,21 @@ class ChromaMemoryStore:
         self._db_path.mkdir(parents=True, exist_ok=True)
 
         # Initialize ChromaDB client (persistent, local)
-        self._client = chromadb.PersistentClient(
-            path=str(self._db_path),
-            settings=Settings(
-                anonymized_telemetry=False,  # Privacy
-                allow_reset=True,
-            ),
-        )
+        try:
+            self._client = chromadb.PersistentClient(
+                path=str(self._db_path),
+                settings=Settings(
+                    anonymized_telemetry=False,  # Privacy
+                    allow_reset=True,
+                ),
+            )
+        except Exception as exc:
+            logger.error("Failed to initialize ChromaDB client at %s: %s", self._db_path, exc)
+            raise MemoryConnectionError(
+                f"Failed to connect to ChromaDB at {self._db_path}: {exc}",
+                db_path=str(self._db_path),
+                error=str(exc),
+            )
 
         self._embedding_model = embedding_model or self._DEFAULT_EMBEDDING_MODEL
 
@@ -156,11 +165,19 @@ class ChromaMemoryStore:
         }
 
         # Add to ChromaDB (auto-generates embedding)
-        self._memories.add(
-            ids=[memory_id],
-            documents=[text],
-            metadatas=[meta],
-        )
+        try:
+            self._memories.add(
+                ids=[memory_id],
+                documents=[text],
+                metadatas=[meta],
+            )
+        except Exception as exc:
+            logger.error("Failed to store memory %s: %s", memory_id, exc)
+            raise MemoryStorageError(
+                f"Failed to store memory {memory_id}: {exc}",
+                memory_id=memory_id,
+                error=str(exc),
+            )
 
         logger.debug(f"Stored memory {memory_id} ({role})")
         return memory_id
@@ -193,11 +210,19 @@ class ChromaMemoryStore:
         min_score = max(0.0, min(1.0, min_score))
 
         # Query ChromaDB
-        results = self._memories.query(
-            query_texts=[normalized],
-            n_results=limit,
-            where=filter_metadata,  # Optional metadata filtering
-        )
+        try:
+            results = self._memories.query(
+                query_texts=[normalized],
+                n_results=limit,
+                where=filter_metadata,  # Optional metadata filtering
+            )
+        except Exception as exc:
+            logger.error("Failed to query memories for '%s': %s", query, exc)
+            raise MemoryQueryError(
+                f"Failed to query memories: {exc}",
+                query=query,
+                error=str(exc),
+            )
 
         if not results["ids"] or not results["ids"][0]:
             return []
@@ -299,11 +324,20 @@ class ChromaMemoryStore:
             "updated_at": now.isoformat(),
         }
 
-        self._facts.add(
-            ids=[fact_id],
-            documents=[fact_text],
-            metadatas=[meta],
-        )
+        try:
+            self._facts.add(
+                ids=[fact_id],
+                documents=[fact_text],
+                metadatas=[meta],
+            )
+        except Exception as exc:
+            logger.error("Failed to store fact %s/%s: %s", category, key, exc)
+            raise MemoryStorageError(
+                f"Failed to store fact {category}/{key}: {exc}",
+                category=category,
+                key=key,
+                error=str(exc),
+            )
 
         logger.debug(f"Stored fact: {category}/{key} = {value}")
         return fact_id
@@ -332,11 +366,20 @@ class ChromaMemoryStore:
 
         where = {"category": category} if category else None
 
-        results = self._facts.query(
-            query_texts=[normalized],
-            n_results=limit,
-            where=where,
-        )
+        try:
+            results = self._facts.query(
+                query_texts=[normalized],
+                n_results=limit,
+                where=where,
+            )
+        except Exception as exc:
+            logger.error("Failed to query facts for '%s': %s", query, exc)
+            raise MemoryQueryError(
+                f"Failed to query facts: {exc}",
+                query=query,
+                category=category,
+                error=str(exc),
+            )
 
         if not results["ids"] or not results["ids"][0]:
             return []
@@ -369,7 +412,15 @@ class ChromaMemoryStore:
         """
         where = {"category": category} if category else None
 
-        results = self._facts.get(where=where)
+        try:
+            results = self._facts.get(where=where)
+        except Exception as exc:
+            logger.error("Failed to get all facts (category=%s): %s", category, exc)
+            raise MemoryQueryError(
+                f"Failed to retrieve all facts: {exc}",
+                category=category,
+                error=str(exc),
+            )
 
         if not results["ids"]:
             return []

@@ -30,6 +30,16 @@ from requests import RequestException
 
 from .config import LongTermMemoryConfig
 from .context import ConversationContext
+from .exceptions import (
+    HotkeyRegistrationError,
+    HotkeyUnregistrationError,
+    MemoryQueryError,
+    MemoryStorageError,
+    ToolExecutionError,
+    ToolInputError,
+    ToolPermissionError,
+    WebSearchError,
+)
 from .logger import get_logger
 from .memory import MemoryRecord, PersistentMemoryStore
 from .ollama_client import (
@@ -354,8 +364,10 @@ class Orchestrator:
         # Extract and store any facts from user input
         try:
             self._extract_and_store_facts(content)
-        except Exception as exc:  # pragma: no cover - defensive logging
-            logger.exception("Failed to extract facts: %s", exc)
+        except MemoryStorageError as exc:
+            logger.exception("Failed to store extracted facts: %s", exc)
+        except Exception as exc:  # pragma: no cover - unexpected errors during extraction
+            logger.exception("Unexpected error during fact extraction: %s", exc)
 
         try:
             payload = self._prepare_messages(content)
@@ -713,8 +725,11 @@ class Orchestrator:
                 result = self._tool_manager.execute_tool("get_current_time", timezone="UTC")
                 if result.success:
                     return f"TOOL RESULT (get_current_time): {result.output}\n\nUse this information to answer the user naturally."
-            except Exception as exc:
-                logger.warning("Time tool failed: %s", exc)
+            except (ToolExecutionError, ToolInputError, ToolPermissionError) as exc:
+                logger.warning("Time tool execution failed: %s", exc)
+                self._output(f"[Error: {exc.message}]")
+            except Exception as exc:  # pragma: no cover - unexpected errors
+                logger.exception("Unexpected error during time tool execution: %s", exc)
 
         if any(
             pattern in lowered
@@ -726,8 +741,11 @@ class Orchestrator:
                 result = self._tool_manager.execute_tool("get_current_date", format="long")
                 if result.success:
                     return f"TOOL RESULT (get_current_date): {result.output}\n\nUse this information to answer the user naturally."
-            except Exception as exc:
-                logger.warning("Date tool failed: %s", exc)
+            except (ToolExecutionError, ToolInputError, ToolPermissionError) as exc:
+                logger.warning("Date tool execution failed: %s", exc)
+                self._output(f"[Error: {exc.message}]")
+            except Exception as exc:  # pragma: no cover - unexpected errors
+                logger.exception("Unexpected error during date tool execution: %s", exc)
 
         # Calculator detection
         calc_patterns = [
@@ -746,8 +764,11 @@ class Orchestrator:
                     result = self._tool_manager.execute_tool("calculator", expression=expression)
                     if result.success:
                         return f"TOOL RESULT (calculator): {result.output}\n\nProvide this answer to the user."
-                except Exception as exc:
-                    logger.warning("Calculator tool failed: %s", exc)
+                except (ToolExecutionError, ToolInputError) as exc:
+                    logger.warning("Calculator tool execution failed: %s", exc)
+                    self._output(f"[Error: {exc.message}]")
+                except Exception as exc:  # pragma: no cover - unexpected errors
+                    logger.exception("Unexpected error during calculator execution: %s", exc)
 
         # File operations
         if "list files" in lowered or "show files" in lowered:
@@ -759,8 +780,11 @@ class Orchestrator:
                 )
                 if result.success:
                     return f"TOOL RESULT (list_files): {result.output}\n\nShow these files to the user."
-            except Exception as exc:
-                logger.warning("List files tool failed: %s", exc)
+            except (ToolExecutionError, ToolInputError, ToolPermissionError) as exc:
+                logger.warning("List files tool execution failed: %s", exc)
+                self._output(f"[Error: {exc.message}]")
+            except Exception as exc:  # pragma: no cover - unexpected errors
+                logger.exception("Unexpected error during list files execution: %s", exc)
 
         # System info
         if "system info" in lowered or "system information" in lowered:
@@ -770,8 +794,11 @@ class Orchestrator:
                 result = self._tool_manager.execute_tool("system_info", info_type="all")
                 if result.success:
                     return f"TOOL RESULT (system_info): {result.output}\n\nShare this information with the user."
-            except Exception as exc:
-                logger.warning("System info tool failed: %s", exc)
+            except (ToolExecutionError, ToolInputError, ToolPermissionError) as exc:
+                logger.warning("System info tool execution failed: %s", exc)
+                self._output(f"[Error: {exc.message}]")
+            except Exception as exc:  # pragma: no cover - unexpected errors
+                logger.exception("Unexpected error during system info execution: %s", exc)
 
         # Performance monitoring
         perf_patterns = [
@@ -792,8 +819,11 @@ class Orchestrator:
                 result = self._tool_manager.execute_tool("performance_monitor", metric="all")
                 if result.success:
                     return f"TOOL RESULT (performance_monitor): {result.output}\n\nShare this performance data with the user."
-            except Exception as exc:
-                logger.warning("Performance monitor tool failed: %s", exc)
+            except (ToolExecutionError, ToolInputError, ToolPermissionError) as exc:
+                logger.warning("Performance monitor tool execution failed: %s", exc)
+                self._output(f"[Error: {exc.message}]")
+            except Exception as exc:  # pragma: no cover - unexpected errors
+                logger.exception("Unexpected error during performance monitor execution: %s", exc)
 
         return None
 
@@ -940,8 +970,10 @@ class Orchestrator:
                 try:
                     self._memory_store.store_fact(category="name", key="name", value=name)
                     logger.info("Extracted fact: name.name = '%s'", name)
-                except Exception as exc:
-                    logger.warning("Failed to store fact: %s", exc)
+                except MemoryStorageError as exc:
+                    logger.warning("Failed to store name fact: %s", exc)
+                except Exception as exc:  # pragma: no cover - unexpected errors
+                    logger.exception("Unexpected error storing name fact: %s", exc)
                 return
 
         # Pattern 2: "call me X" or "you can call me X"
@@ -956,8 +988,10 @@ class Orchestrator:
                 try:
                     self._memory_store.store_fact(category="name", key="name", value=name)
                     logger.info("Extracted fact: name.name = '%s'", name)
-                except Exception as exc:
-                    logger.warning("Failed to store fact: %s", exc)
+                except MemoryStorageError as exc:
+                    logger.warning("Failed to store name fact: %s", exc)
+                except Exception as exc:  # pragma: no cover - unexpected errors
+                    logger.exception("Unexpected error storing name fact: %s", exc)
                 return
 
         # Extract birthday - improved patterns
@@ -970,8 +1004,10 @@ class Orchestrator:
             try:
                 self._memory_store.store_fact(category="birthday", key="birthday", value=birthday)
                 logger.info("Extracted fact: birthday.birthday = '%s'", birthday)
-            except Exception as exc:
-                logger.warning("Failed to store fact: %s", exc)
+            except MemoryStorageError as exc:
+                logger.warning("Failed to store birthday fact: %s", exc)
+            except Exception as exc:  # pragma: no cover - unexpected errors
+                logger.exception("Unexpected error storing birthday fact: %s", exc)
             return
 
         # Pattern 2: "I was born in/on Month Day, Year" or "born in Year"
@@ -988,8 +1024,10 @@ class Orchestrator:
                         category="birthday", key="birthday", value=birthday
                     )
                     logger.info("Extracted fact: birthday.birthday = '%s'", birthday)
-                except Exception as exc:
-                    logger.warning("Failed to store fact: %s", exc)
+                except MemoryStorageError as exc:
+                    logger.warning("Failed to store birthday fact: %s", exc)
+                except Exception as exc:  # pragma: no cover - unexpected errors
+                    logger.exception("Unexpected error storing birthday fact: %s", exc)
                 return
 
         # Extract likes - improved patterns
@@ -1006,8 +1044,10 @@ class Orchestrator:
                 try:
                     self._memory_store.store_fact(category="likes", key=key, value=thing)
                     logger.info("Extracted fact: likes.%s = '%s'", key, thing)
-                except Exception as exc:
-                    logger.warning("Failed to store fact: %s", exc)
+                except MemoryStorageError as exc:
+                    logger.warning("Failed to store likes fact: %s", exc)
+                except Exception as exc:  # pragma: no cover - unexpected errors
+                    logger.exception("Unexpected error storing likes fact: %s", exc)
                 return
 
         # Pattern 2: "I love X"
@@ -1022,8 +1062,10 @@ class Orchestrator:
                 try:
                     self._memory_store.store_fact(category="likes", key=key, value=thing)
                     logger.info("Extracted fact: likes.%s = '%s'", key, thing)
-                except Exception as exc:
-                    logger.warning("Failed to store fact: %s", exc)
+                except MemoryStorageError as exc:
+                    logger.warning("Failed to store likes fact: %s", exc)
+                except Exception as exc:  # pragma: no cover - unexpected errors
+                    logger.exception("Unexpected error storing likes fact: %s", exc)
                 return
 
         # Pattern 3: "I enjoy X"
@@ -1035,8 +1077,10 @@ class Orchestrator:
                 try:
                     self._memory_store.store_fact(category="likes", key=key, value=thing)
                     logger.info("Extracted fact: likes.%s = '%s'", key, thing)
-                except Exception as exc:
-                    logger.warning("Failed to store fact: %s", exc)
+                except MemoryStorageError as exc:
+                    logger.warning("Failed to store likes fact: %s", exc)
+                except Exception as exc:  # pragma: no cover - unexpected errors
+                    logger.exception("Unexpected error storing likes fact: %s", exc)
                 return
 
         # Extract dislikes
@@ -1052,8 +1096,10 @@ class Orchestrator:
                 try:
                     self._memory_store.store_fact(category="dislikes", key=key, value=thing)
                     logger.info("Extracted fact: dislikes.%s = '%s'", key, thing)
-                except Exception as exc:
-                    logger.warning("Failed to store fact: %s", exc)
+                except MemoryStorageError as exc:
+                    logger.warning("Failed to store dislikes fact: %s", exc)
+                except Exception as exc:  # pragma: no cover - unexpected errors
+                    logger.exception("Unexpected error storing dislikes fact: %s", exc)
                 return
 
         # Pattern 2: "I hate X"
@@ -1065,8 +1111,10 @@ class Orchestrator:
                 try:
                     self._memory_store.store_fact(category="dislikes", key=key, value=thing)
                     logger.info("Extracted fact: dislikes.%s = '%s'", key, thing)
-                except Exception as exc:
-                    logger.warning("Failed to store fact: %s", exc)
+                except MemoryStorageError as exc:
+                    logger.warning("Failed to store dislikes fact: %s", exc)
+                except Exception as exc:  # pragma: no cover - unexpected errors
+                    logger.exception("Unexpected error storing dislikes fact: %s", exc)
                 return
 
         # Pattern 3: "I dislike X"
@@ -1078,8 +1126,10 @@ class Orchestrator:
                 try:
                     self._memory_store.store_fact(category="dislikes", key=key, value=thing)
                     logger.info("Extracted fact: dislikes.%s = '%s'", key, thing)
-                except Exception as exc:
-                    logger.warning("Failed to store fact: %s", exc)
+                except MemoryStorageError as exc:
+                    logger.warning("Failed to store dislikes fact: %s", exc)
+                except Exception as exc:  # pragma: no cover - unexpected errors
+                    logger.exception("Unexpected error storing dislikes fact: %s", exc)
                 return
 
     def _retrieve_facts(self, query: str) -> Optional[str]:

@@ -135,14 +135,20 @@ class SpeechToText:
         try:
             if ctranslate2 is not None and ctranslate2.get_device_count("cuda") > 0:
                 return True
-        except Exception:  # pragma: no cover - ctranslate2 probing errors
-            logger.debug("ctranslate2 failed to enumerate CUDA devices", exc_info=True)
+        except (RuntimeError, AttributeError) as exc:  # pragma: no cover - ctranslate2 probing errors
+            logger.debug("ctranslate2 failed to enumerate CUDA devices: %s", exc, exc_info=True)
+        except Exception as exc:  # pragma: no cover - unexpected errors
+            logger.warning("Unexpected error probing ctranslate2 CUDA: %s", exc, exc_info=True)
 
         try:
             import torch
 
             return bool(torch.cuda.is_available())
-        except Exception:  # pragma: no cover - torch optional
+        except ImportError as exc:  # pragma: no cover - torch optional
+            logger.debug("torch not available for CUDA detection: %s", exc)
+            return False
+        except Exception as exc:  # pragma: no cover - unexpected errors
+            logger.warning("Unexpected error checking torch CUDA: %s", exc, exc_info=True)
             return False
 
     def _ensure_dependencies(self) -> None:
