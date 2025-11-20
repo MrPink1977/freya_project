@@ -22,6 +22,15 @@ from freya.utils.confusion_detection import detect_confusion
 
 logger = get_logger("dialog_agent")
 
+# Streaming timeouts
+STREAM_CHUNK_TIMEOUT = 10.0  # Max seconds between chunks
+STREAM_TOTAL_TIMEOUT = 120.0  # Max total streaming duration
+
+
+class StreamTimeoutError(TimeoutError):
+    """Raised when streaming exceeds timeout."""
+    pass
+
 
 class DialogAgent(BaseAgent):
     """
@@ -170,9 +179,16 @@ class DialogAgent(BaseAgent):
         try:
             if stream:
                 # Streaming response with live TTS
-                response, token_count = await self._generate_streaming(
-                    messages, model, message.correlation_id
-                )
+                try:
+                    response, token_count = await self._generate_streaming(
+                        messages, model, message.correlation_id
+                    )
+                except (StreamTimeoutError, OllamaError) as exc:
+                    self.logger.warning(
+                        f"Streaming failed ({exc}), falling back to non-streaming"
+                    )
+                    stream = False
+                    response, token_count = await self._generate_non_streaming(messages, model)
             else:
                 # Non-streaming (fallback)
                 response, token_count = await self._generate_non_streaming(messages, model)
@@ -244,20 +260,51 @@ class DialogAgent(BaseAgent):
     async def _generate_streaming(
         self, messages: list[dict], model: str, correlation_id: Optional[str]
     ) -> tuple[str, int]:
-        """Generate streaming response, publishing chunks."""
+        """Generate streaming response with timeout and validation."""
         full_response = ""
         buffer = ""
         chunk_count = 0
+        
+        start_time = time.time()
+        last_chunk_time = start_time
 
         try:
-            # Stream from Ollama
+            # Stream from Ollama with timeout checks
             for chunk in self._ollama.chat_stream(messages):
-                if not chunk:
+                current_time = time.time()
+                
+                # Check total streaming timeout
+                if current_time - start_time > STREAM_TOTAL_TIMEOUT:
+                    self.logger.error(
+                        f"Streaming exceeded total timeout of {STREAM_TOTAL_TIMEOUT}s"
+                    )
+                    raise StreamTimeoutError(
+                        f"Streaming exceeded total timeout of {STREAM_TOTAL_TIMEOUT}s"
+                    )
+                
+                # Check chunk timeout
+                if current_time - last_chunk_time > STREAM_CHUNK_TIMEOUT:
+                    self.logger.error(
+                        f"No chunk received for {STREAM_CHUNK_TIMEOUT}s"
+                    )
+                    raise StreamTimeoutError(
+                        f"No chunk received for {STREAM_CHUNK_TIMEOUT}s"
+                    )
+                
+                # Validate chunk
+                if not chunk or not isinstance(chunk, str):
+                    self.logger.warning(f"Invalid chunk received: {chunk}")
+                    continue
+                
+                if not chunk.strip():
+                    # Empty chunk, update time but don't process
+                    last_chunk_time = current_time
                     continue
 
                 full_response += chunk
                 buffer += chunk
                 chunk_count += 1
+                last_chunk_time = current_time
 
                 # Check for sentence boundaries
                 speakable, buffer = self._partition_speakable(buffer)

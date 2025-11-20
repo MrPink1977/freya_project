@@ -3,13 +3,22 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Iterable, Iterator, Optional
 
 import requests
 from requests import HTTPError, RequestException, Response, Session
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+    before_sleep_log,
+)
 
 from .config import OllamaConfig
 from .logger import get_logger
+from .utils.circuit_breaker import CircuitBreaker
 
 logger = get_logger("ollama")
 
@@ -40,20 +49,59 @@ class OllamaClient:
         self._config = config
         self._session = session or requests.Session()
         self._base_url = config.host.rstrip("/")
+        self._circuit_breaker = CircuitBreaker(
+            failure_threshold=0.5,
+            recovery_timeout=60.0,
+            window_size=10,
+            name="ollama_client"
+        )
 
+    def _should_retry_exception(self, exc: Exception) -> bool:
+        """
+        Determine if exception should trigger retry.
+        
+        Don't retry:
+        - OllamaModelNotFoundError (model not installed)
+        - 4xx errors except 429 (client errors)
+        """
+        if isinstance(exc, OllamaModelNotFoundError):
+            return False
+        
+        if isinstance(exc, HTTPError):
+            if exc.response is not None:
+                status = exc.response.status_code
+                # Don't retry client errors except rate limiting
+                if 400 <= status < 500 and status != 429:
+                    return False
+        
+        return True
+
+    @retry(
+        retry=retry_if_exception_type((RequestException, ConnectionError, TimeoutError)),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=4),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
     def _post(self, endpoint: str, payload: dict, *, stream: bool = False) -> Response:
         url = f"{self._base_url}{endpoint}"
         logger.debug("POST %s payload=%s", url, payload)
-        response = self._session.post(
-            url,
-            json=payload,
-            timeout=60,
-            stream=stream,
-        )
-        if response.status_code == 404 and self._model_missing(response):
-            raise OllamaModelNotFoundError(self._config.model, response=response)
-        response.raise_for_status()
-        return response
+        try:
+            response = self._session.post(
+                url,
+                json=payload,
+                timeout=60,
+                stream=stream,
+            )
+            if response.status_code == 404 and self._model_missing(response):
+                raise OllamaModelNotFoundError(self._config.model, response=response)
+            response.raise_for_status()
+            return response
+        except Exception as exc:
+            if not self._should_retry_exception(exc):
+                raise
+            # Let tenacity handle retryable exceptions
+            raise
 
     def _model_missing(self, response: Response) -> bool:
         """Return True when the response indicates a missing model."""
@@ -77,6 +125,26 @@ class OllamaClient:
 
     def chat(self, messages: Iterable[dict]) -> str:
         """Send chat messages and return the assistant response."""
+        import asyncio
+        
+        async def _chat_with_breaker():
+            return await self._circuit_breaker.call(self._chat_impl, messages)
+        
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Create a new task in the existing loop
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, _chat_with_breaker())
+                    return future.result()
+            else:
+                return loop.run_until_complete(_chat_with_breaker())
+        except RuntimeError:
+            return asyncio.run(_chat_with_breaker())
+    
+    def _chat_impl(self, messages: Iterable[dict]) -> str:
+        """Implementation of chat without circuit breaker."""
         payload = {
             "model": self._config.model,
             "messages": list(messages),

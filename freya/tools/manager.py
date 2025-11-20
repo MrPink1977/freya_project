@@ -111,11 +111,12 @@ class ToolManager:
             tools = [t for t in tools if t.enabled]
         return sorted(tools, key=lambda t: t.name)
 
-    def execute_tool(self, tool_name: str, **kwargs) -> ToolResult:
-        """Execute a tool by name.
+    def execute_tool(self, tool_name: str, timeout: float | None = None, **kwargs) -> ToolResult:
+        """Execute a tool by name with optional timeout.
 
         Args:
             tool_name: Name of tool to execute
+            timeout: Maximum execution time in seconds (default: DEFAULT_TOOL_TIMEOUT)
             **kwargs: Tool-specific arguments
 
         Returns:
@@ -135,10 +136,23 @@ class ToolManager:
             return ToolResult(success=False, output="", error=f"Tool '{tool_name}' is disabled")
 
         try:
-            logger.info("Executing tool '%s' with args: %s", tool_name, kwargs)
-            result = tool.execute(**kwargs)
+            logger.info("Executing tool '%s' with args: %s (timeout: %s)", 
+                       tool_name, kwargs, timeout or "default")
+            
+            # Use execute_with_timeout for timeout protection
+            from .base import DEFAULT_TOOL_TIMEOUT, ToolTimeoutError
+            result = tool.execute_with_timeout(timeout=timeout, **kwargs)
+            
             logger.debug("Tool '%s' result: success=%s", tool_name, result.success)
             return result
+        
+        except ToolTimeoutError as e:
+            logger.error("Tool '%s' timed out after %.1fs", tool_name, e.timeout)
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Tool execution timed out after {e.timeout}s"
+            )
 
         except TypeError as e:
             # Invalid arguments provided to tool
