@@ -14,6 +14,7 @@ Multi-modal AI assistant with:
 import argparse
 import asyncio
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from freya.config import load_settings
@@ -93,15 +94,15 @@ async def main():
         logger.error(f"Failed to load config: {e}")
         sys.exit(1)
 
-    # Override config with CLI args
+    # Override config with CLI args (using dataclasses.replace for frozen dataclasses)
     if args.mode:
-        config.app.interaction_mode = args.mode
+        config = replace(config, app=replace(config.app, interaction_mode=args.mode))
     if args.engine:
-        config.tts.engine = args.engine
+        config = replace(config, tts=replace(config.tts, engine=args.engine))
     if args.model:
-        config.ollama.model = args.model
+        config = replace(config, ollama=replace(config.ollama, model=args.model))
     if args.diagnostic:
-        config.app.startup_mode = "diagnostic"
+        config = replace(config, app=replace(config.app, startup_mode="diagnostic"))
 
     # Run system check if requested
     if args.check:

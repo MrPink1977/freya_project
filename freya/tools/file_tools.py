@@ -1,10 +1,57 @@
-"""File operation tools for Freya."""
+"""File operation tools for Freya with path traversal protection."""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from typing import Optional
 
 from .base import FreyaTool, ToolResult
+
+
+# Define allowed base directories for file operations
+ALLOWED_DIRECTORIES = [
+    Path.home() / "Documents",
+    Path.home() / "Downloads",
+    Path.home() / "Desktop",
+    Path.cwd() / "data",  # Project data directory
+    Path.cwd() / "logs",  # Project logs directory
+]
+
+
+def validate_path(file_path: str) -> tuple[Optional[Path], Optional[str]]:
+    """
+    Validate file path is within allowed directories.
+
+    Args:
+        file_path: Path to validate
+
+    Returns:
+        Tuple of (resolved_path, error_message). If error_message is not None, path is unsafe.
+    """
+    try:
+        # Convert to absolute path and resolve (follows symlinks, removes ..)
+        requested_path = Path(file_path).expanduser().resolve()
+
+        # Check if path is within any allowed directory
+        for allowed_dir in ALLOWED_DIRECTORIES:
+            try:
+                allowed_dir = allowed_dir.resolve()
+                # relative_to() raises ValueError if not a subpath
+                requested_path.relative_to(allowed_dir)
+                return requested_path, None  # Safe!
+            except ValueError:
+                continue  # Try next allowed directory
+
+        # Not in any allowed directory
+        allowed_str = "\n  ".join(str(d) for d in ALLOWED_DIRECTORIES)
+        return None, (
+            f"Access denied: {file_path} is outside allowed directories.\n"
+            f"Allowed directories:\n  {allowed_str}"
+        )
+
+    except Exception as e:
+        return None, f"Invalid path: {e}"
 
 
 class ListFilesTool(FreyaTool):
@@ -37,7 +84,10 @@ class ListFilesTool(FreyaTool):
             ToolResult with file list
         """
         try:
-            base_path = Path(path).expanduser().resolve()
+            # Validate path security
+            base_path, error = validate_path(path)
+            if error:
+                return ToolResult(success=False, output="", error=error)
 
             if not base_path.exists():
                 return ToolResult(success=False, output="", error=f"Path does not exist: {path}")
@@ -127,7 +177,10 @@ class ReadFileTool(FreyaTool):
             ToolResult with file contents
         """
         try:
-            file_path = Path(path).expanduser().resolve()
+            # Validate path security
+            file_path, error = validate_path(path)
+            if error:
+                return ToolResult(success=False, output="", error=error)
 
             if not file_path.exists():
                 return ToolResult(success=False, output="", error=f"File does not exist: {path}")
@@ -187,7 +240,10 @@ class WriteFileTool(FreyaTool):
             ToolResult with success status
         """
         try:
-            file_path = Path(path).expanduser().resolve()
+            # Validate path security
+            file_path, error = validate_path(path)
+            if error:
+                return ToolResult(success=False, output="", error=error)
 
             # Create parent directories if needed
             file_path.parent.mkdir(parents=True, exist_ok=True)

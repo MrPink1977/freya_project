@@ -8,36 +8,11 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Tuple
 
 import yaml
+from dotenv import load_dotenv
 
 from .logger import get_logger
 
 logger = get_logger("config")
-
-
-def _load_env_file() -> None:
-    """Load environment variables from .env file if it exists."""
-    env_path = Path(".env")
-    if not env_path.exists():
-        return
-
-    try:
-        with env_path.open("r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                # Skip comments and empty lines
-                if not line or line.startswith("#"):
-                    continue
-                # Parse KEY=VALUE
-                if "=" in line:
-                    key, value = line.split("=", 1)
-                    key = key.strip()
-                    value = value.strip()
-                    # Only set if not already in environment
-                    if key and not os.getenv(key):
-                        os.environ[key] = value
-        logger.debug("Loaded environment variables from .env file")
-    except Exception as exc:
-        logger.warning("Failed to load .env file: %s", exc)
 
 
 class ConfigValidationError(ValueError):
@@ -225,7 +200,7 @@ def _resolve_config_path(path: Optional[Path]) -> Path:
 def load_settings(path: Optional[Path] = None) -> Settings:
     """Load application settings from YAML configuration."""
     # Load environment variables from .env file if present
-    _load_env_file()
+    load_dotenv()
 
     config_path = _resolve_config_path(path)
     raw = _load_raw_config(config_path)

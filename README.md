@@ -126,17 +126,26 @@ cd freya_project
 python -m venv freya_env
 source freya_env/bin/activate  # On Windows: freya_env\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (recommended - installs package in editable mode)
+pip install -e .
 
-# Or install as a package with dev tools
+# Or install with dev tools for testing and linting
 pip install -e ".[dev]"
 
 # For facial recognition (optional)
 pip install -e ".[face-recognition]"
 ```
 
-### 3. Install Ollama
+### 3. Configure Environment Variables
+```bash
+# Copy example environment file
+cp .env.example .env
+
+# Edit .env and set your ElevenLabs API key (if using ElevenLabs TTS)
+# ELEVENLABS_API_KEY=sk_your_api_key_here
+```
+
+### 4. Install Ollama
 Download and install Ollama from [ollama.ai](https://ollama.ai)
 
 ```bash
@@ -351,8 +360,9 @@ freya_project/
 │   ├── faces/                  # Known faces for recognition
 │   └── chroma_db/              # ChromaDB vector storage
 ├── main.py                     # Entry point
-├── requirements.txt            # Production dependencies
-└── pyproject.toml              # Package configuration
+├── pyproject.toml              # Package configuration & dependencies
+├── .env.example                # Environment variables template
+└── .env                        # Local environment variables (not in git)
 ```
 
 ## Future Enhancements
