@@ -6,6 +6,7 @@ Migration from SQLite to ChromaDB for better performance and scalability.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from dataclasses import dataclass
@@ -75,6 +76,9 @@ class ChromaMemoryStore:
     ) -> None:
         """
         Initialize ChromaDB memory store.
+        
+        Note: ChromaDB client initialization is synchronous but may block briefly.
+        For async initialization, use: await asyncio.to_thread(ChromaMemoryStore, db_path)
 
         Args:
             db_path: Path to ChromaDB storage directory
@@ -87,6 +91,7 @@ class ChromaMemoryStore:
         self._db_path.mkdir(parents=True, exist_ok=True)
 
         # Initialize ChromaDB client (persistent, local)
+        # Note: This is I/O bound and may block briefly during first init
         try:
             self._client = chromadb.PersistentClient(
                 path=str(self._db_path),
@@ -128,7 +133,7 @@ class ChromaMemoryStore:
             f"({self._memories.count()} memories, {self._facts.count()} facts)"
         )
 
-    def store_memory(
+    async def store_memory(
         self,
         *,
         content: str,
@@ -137,7 +142,10 @@ class ChromaMemoryStore:
         metadata: Optional[dict] = None,
     ) -> str:
         """
-        Store a memory entry.
+        Store a memory entry (async to prevent blocking event loop).
+        
+        Note: ChromaDB write operations are wrapped in asyncio.to_thread() to prevent
+        blocking the event loop during disk I/O and embedding generation.
 
         Args:
             content: Memory text
@@ -165,8 +173,10 @@ class ChromaMemoryStore:
         }
 
         # Add to ChromaDB (auto-generates embedding)
+        # Wrapped in thread pool to prevent blocking event loop
         try:
-            self._memories.add(
+            await asyncio.to_thread(
+                self._memories.add,
                 ids=[memory_id],
                 documents=[text],
                 metadatas=[meta],
@@ -286,7 +296,7 @@ class ChromaMemoryStore:
 
         return memories
 
-    def store_fact(
+    async def store_fact(
         self,
         *,
         category: str,
@@ -295,7 +305,10 @@ class ChromaMemoryStore:
         confidence: float = 1.0,
     ) -> str:
         """
-        Store a structured fact.
+        Store a structured fact (async to prevent blocking event loop).
+        
+        Note: ChromaDB write operations are wrapped in asyncio.to_thread() to prevent
+        blocking the event loop during disk I/O and embedding generation.
 
         Args:
             category: Fact category (name, birthday, preference, etc.)
@@ -324,8 +337,10 @@ class ChromaMemoryStore:
             "updated_at": now.isoformat(),
         }
 
+        # Wrapped in thread pool to prevent blocking event loop
         try:
-            self._facts.add(
+            await asyncio.to_thread(
+                self._facts.add,
                 ids=[fact_id],
                 documents=[fact_text],
                 metadatas=[meta],
@@ -339,8 +354,7 @@ class ChromaMemoryStore:
                 error=str(exc),
             )
 
-        logger.debug(f"Stored fact: {category}/{key} = {value}")
-        return fact_id
+        logger.debug(f"Stored fact: {category}/{key} = {value}\")\n        return fact_id
 
     def query_facts(
         self,

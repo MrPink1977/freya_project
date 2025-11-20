@@ -137,8 +137,8 @@ class MemoryAgent(BaseAgent):
         importance = payload.importance
 
         try:
-            # Store in ChromaDB
-            memory_id = self.memory_store.store_memory(
+            # Store in ChromaDB (async to prevent blocking event loop)
+            memory_id = await self.memory_store.store_memory(
                 content=content,
                 role=role,
                 importance=importance,
@@ -242,7 +242,8 @@ class MemoryAgent(BaseAgent):
             return
 
         try:
-            fact_id = self.memory_store.store_fact(
+            # Store fact in ChromaDB (async to prevent blocking event loop)
+            fact_id = await self.memory_store.store_fact(
                 category=category,
                 key=key,
                 value=value,

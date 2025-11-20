@@ -131,16 +131,16 @@ class BaseAgent(ABC):
         self.logger.info(f"Stopping agent {self.agent_id}")
         self.state = AgentState.STOPPED
 
-        # Cancel all running tasks
-        for task in self._tasks:
-            if not task.done():
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-
-        self._tasks.clear()
+        # Cancel all running tasks with proper exception handling
+        if self._tasks:
+            self.logger.debug(f"Cancelling {len(self._tasks)} tasks for {self.agent_id}")
+            for task in self._tasks:
+                if not task.done():
+                    task.cancel()
+            
+            # Wait for all tasks to complete cancellation
+            await asyncio.gather(*self._tasks, return_exceptions=True)
+            self._tasks.clear()
 
         # Cleanup agent-specific resources
         try:
@@ -153,6 +153,20 @@ class BaseAgent(ABC):
             )
 
         self.logger.info(f"Agent {self.agent_id} stopped")
+
+    def _cleanup_completed_tasks(self) -> None:
+        """
+        Remove completed tasks from the task set (prevents memory leak).
+        
+        Called on-demand when task count exceeds threshold to balance
+        memory usage vs cleanup overhead.
+        """
+        if len(self._tasks) > 100:  # Cleanup threshold
+            before_count = len(self._tasks)
+            self._tasks = {task for task in self._tasks if not task.done()}
+            cleaned = before_count - len(self._tasks)
+            if cleaned > 0:
+                self.logger.debug(f"Cleaned up {cleaned} completed tasks for {self.agent_id}")
 
     async def cleanup(self) -> None:
         """
@@ -232,6 +246,9 @@ class BaseAgent(ABC):
             correlation_id=correlation_id,
         )
         self.logger.debug(f"Published to {topic}")
+        
+        # Cleanup completed tasks periodically to prevent memory leak
+        self._cleanup_completed_tasks()
 
     async def publish_error(self, original_message: Message, error: Exception) -> None:
         """
