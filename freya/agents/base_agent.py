@@ -14,6 +14,7 @@ from enum import Enum
 from typing import Any, Dict, Optional
 
 from freya.core.message_bus import Message, MessageBus, MessagePriority
+from freya.core.health_monitor import HealthMonitor
 from freya.exceptions import (
     AgentCleanupError,
     AgentInitializationError,
@@ -55,21 +56,35 @@ class BaseAgent(ABC):
     - Resource cleanup
     """
 
-    def __init__(self, agent_id: str, bus: MessageBus) -> None:
+    def __init__(
+        self,
+        agent_id: str,
+        bus: MessageBus,
+        health_monitor: Optional[HealthMonitor] = None,
+    ) -> None:
         """
         Initialize base agent.
 
         Args:
             agent_id: Unique identifier for this agent
             bus: Message bus for communication
+            health_monitor: Optional health monitor for heartbeat tracking
         """
         self.agent_id = agent_id
         self.bus = bus
+        self.health_monitor = health_monitor
         self.state = AgentState.CREATED
         self.logger = get_logger(f"agent.{agent_id}")
         self._tasks: list[asyncio.Task] = []
+        self._heartbeat_task: Optional[asyncio.Task] = None
 
         self.logger.info(f"Agent {agent_id} created")
+
+        # Register with health monitor if available
+        if self.health_monitor:
+            asyncio.create_task(
+                self.health_monitor.register_agent(agent_id, state=self.state.value)
+            )
 
     @abstractmethod
     async def initialize(self) -> None:
@@ -113,11 +128,21 @@ class BaseAgent(ABC):
                     self.logger.debug(f"Subscribed to topic: {topic}")
 
             self.state = AgentState.READY
+
+            # Start heartbeat task if health monitor is available
+            if self.health_monitor:
+                self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
             self.logger.info(f"Agent {self.agent_id} started and ready")
 
         except Exception as exc:
             self.state = AgentState.ERROR
             self.logger.exception(f"Failed to start agent {self.agent_id}: {exc}")
+            
+            # Record error in health monitor
+            if self.health_monitor:
+                await self.health_monitor.record_error(self.agent_id, str(exc))
+            
             raise AgentInitializationError(
                 f"Agent {self.agent_id} failed to initialize: {exc}",
                 agent_id=self.agent_id,
@@ -130,6 +155,14 @@ class BaseAgent(ABC):
         """
         self.logger.info(f"Stopping agent {self.agent_id}")
         self.state = AgentState.STOPPED
+
+        # Cancel heartbeat task
+        if self._heartbeat_task and not self._heartbeat_task.done():
+            self._heartbeat_task.cancel()
+            try:
+                await self._heartbeat_task
+            except asyncio.CancelledError:
+                pass
 
         # Cancel all running tasks with proper exception handling
         if self._tasks:
@@ -151,6 +184,10 @@ class BaseAgent(ABC):
                 f"Agent {self.agent_id} cleanup failed: {exc}",
                 exc_info=True,
             )
+
+        # Unregister from health monitor
+        if self.health_monitor:
+            await self.health_monitor.unregister_agent(self.agent_id)
 
         self.logger.info(f"Agent {self.agent_id} stopped")
 
@@ -176,6 +213,76 @@ class BaseAgent(ABC):
         """
         pass
 
+    async def restart(self) -> None:
+        """
+        Manually restart agent.
+
+        Useful for recovering from errors or applying configuration changes.
+        """
+        self.logger.info(f"Restarting agent {self.agent_id}")
+        
+        try:
+            # Stop the agent
+            await self.stop()
+            
+            # Brief pause to ensure cleanup
+            await asyncio.sleep(0.5)
+            
+            # Restart the agent
+            await self.start()
+            
+            self.logger.info(f"Agent {self.agent_id} restarted successfully")
+            
+        except Exception as exc:
+            self.logger.exception(f"Failed to restart agent {self.agent_id}: {exc}")
+            self.state = AgentState.ERROR
+            
+            if self.health_monitor:
+                await self.health_monitor.record_error(self.agent_id, f"Restart failed: {exc}")
+            
+            raise
+
+    async def _heartbeat_loop(self) -> None:
+        """
+        Heartbeat loop - sends periodic health updates.
+
+        Runs every 30 seconds while agent is active.
+        """
+        self.logger.debug(f"Heartbeat loop started for {self.agent_id}")
+        
+        while self.state != AgentState.STOPPED:
+            try:
+                if self.health_monitor:
+                    await self.health_monitor.heartbeat(
+                        agent_id=self.agent_id,
+                        state=self.state.value,
+                        metadata=self._get_heartbeat_metadata(),
+                    )
+                
+                # Wait 30 seconds before next heartbeat
+                await asyncio.sleep(30.0)
+                
+            except asyncio.CancelledError:
+                self.logger.debug(f"Heartbeat loop cancelled for {self.agent_id}")
+                break
+            except Exception as exc:
+                self.logger.error(f"Error in heartbeat loop: {exc}")
+                await asyncio.sleep(5)  # Brief pause on error
+
+    def _get_heartbeat_metadata(self) -> Dict[str, Any]:
+        """
+        Get metadata to include in heartbeat.
+
+        Override in subclasses to add custom metadata.
+
+        Returns:
+            Dictionary of metadata
+        """
+        return {
+            "active_tasks": len([t for t in self._tasks if not t.done()]),
+            "total_tasks": len(self._tasks),
+        }
+
     async def _handle_message(self, message: Message) -> None:
         """
         Internal message handler - routes to process_message with error handling.
@@ -197,10 +304,19 @@ class BaseAgent(ABC):
             await self.process_message(message)
 
             self.state = prev_state
+            
+            # Record successful message processing
+            if self.health_monitor:
+                await self.health_monitor.record_message(self.agent_id)
 
         except Exception as exc:
             self.logger.exception(f"Error processing message on topic {message.topic}: {exc}")
             self.state = AgentState.ERROR
+            
+            # Record error in health monitor
+            if self.health_monitor:
+                await self.health_monitor.record_error(self.agent_id, str(exc))
+            
             # Publish error event
             error = AgentMessageError(
                 f"Agent {self.agent_id} failed to process message on {message.topic}: {exc}",

@@ -15,6 +15,7 @@ from enum import Enum
 from typing import Any, Callable, Coroutine, Dict, List, Optional
 
 from freya.logger import get_logger
+from freya.core.persistence import MessagePersistence
 
 
 logger = get_logger(__name__)
@@ -27,6 +28,13 @@ class MessagePriority(Enum):
     NORMAL = 1
     HIGH = 2
     CRITICAL = 3
+
+
+class BackpressureStrategy(Enum):
+    """Backpressure strategies when queue is full."""
+
+    DROP_NEWEST = "drop_newest"  # Drop incoming message (current behavior)
+    DROP_OLDEST = "drop_oldest"  # Drop oldest message from queue
 
 
 @dataclass
@@ -57,24 +65,44 @@ class MessageBus:
     - Correlation ID support for request/response
     """
 
-    def __init__(self, max_history: int = 100, max_queue_size: int = 1000) -> None:
+    def __init__(
+        self,
+        max_history: int = 100,
+        max_queue_size: int = 1000,
+        backpressure_strategy: BackpressureStrategy = BackpressureStrategy.DROP_OLDEST,
+        enable_persistence: bool = False,
+        db_path: str = "data/message_history.db",
+    ) -> None:
         """
         Initialize message bus.
 
         Args:
             max_history: Maximum messages to keep in history for debugging
             max_queue_size: Maximum pending messages in queue (prevents memory overflow)
+            backpressure_strategy: How to handle full queue (DROP_OLDEST recommended)
+            enable_persistence: Enable SQLite persistence for debugging
+            db_path: Path to SQLite database file
         """
         self._subscribers: Dict[str, List[Callable]] = defaultdict(list)
         self._history: List[Message] = []
         self._max_history = max_history
         self._max_queue_size = max_queue_size
+        self._backpressure_strategy = backpressure_strategy
         self._queue: asyncio.PriorityQueue = asyncio.PriorityQueue(maxsize=max_queue_size)
         self._running = False
         self._dispatch_task: Optional[asyncio.Task] = None
         self._sequence = 0  # Sequence number for queue ordering
         self._dropped_messages = 0  # Track dropped messages due to full queue
-        logger.info("MessageBus initialized (max_queue_size=%d)", max_queue_size)
+        self._persistence = MessagePersistence(
+            db_path=db_path,
+            enable_persistence=enable_persistence,
+        )
+        logger.info(
+            "MessageBus initialized (max_queue_size=%d, backpressure=%s, persistence=%s)",
+            max_queue_size,
+            backpressure_strategy.value,
+            enable_persistence,
+        )
 
     async def start(self) -> None:
         """Start message bus dispatch loop."""
@@ -98,6 +126,9 @@ class MessageBus:
                 await self._dispatch_task
             except asyncio.CancelledError:
                 pass
+
+        # Close persistence
+        self._persistence.close()
         logger.info("MessageBus stopped")
 
     def subscribe(self, topic: str, handler: Callable[[Message], Coroutine]) -> None:
@@ -160,6 +191,10 @@ class MessageBus:
         if len(self._history) > self._max_history:
             self._history.pop(0)
 
+        # Store to persistence (async, fire-and-forget)
+        if self._persistence.enabled:
+            asyncio.create_task(self._persistence.store_message(message))
+
         # Queue with inverted priority and sequence number for stable ordering
         # (lower number = higher priority in asyncio)
         priority_value = -priority.value
@@ -173,13 +208,30 @@ class MessageBus:
                 f"correlation_id: {correlation_id})"
             )
         except asyncio.QueueFull:
-            # Queue is full - drop message and log warning
+            # Queue is full - apply backpressure strategy
             self._dropped_messages += 1
-            logger.warning(
-                f"MessageBus queue full ({self._max_queue_size} messages)! "
-                f"Dropped message: {topic} from {sender} "
-                f"(total dropped: {self._dropped_messages})"
-            )
+
+            if self._backpressure_strategy == BackpressureStrategy.DROP_OLDEST:
+                # Remove oldest message from queue and add new one
+                try:
+                    dropped_item = self._queue.get_nowait()
+                    dropped_msg = dropped_item[2]  # Extract message from tuple
+                    logger.warning(
+                        f"MessageBus queue full! Dropping OLDEST message: "
+                        f"{dropped_msg.topic} from {dropped_msg.sender} "
+                        f"(to make room for: {topic} from {sender})"
+                    )
+                    # Now add the new message
+                    self._queue.put_nowait((priority_value, self._sequence, message))
+                except Exception as exc:
+                    logger.error(f"Failed to apply DROP_OLDEST backpressure: {exc}")
+            else:
+                # DROP_NEWEST - just drop the incoming message
+                logger.warning(
+                    f"MessageBus queue full ({self._max_queue_size} messages)! "
+                    f"Dropping NEWEST message: {topic} from {sender} "
+                    f"(total dropped: {self._dropped_messages})"
+                )
 
     async def _dispatch_loop(self) -> None:
         """Main dispatch loop - runs continuously while bus is active."""
@@ -304,17 +356,26 @@ class MessageBus:
             history = [m for m in history if m.topic == topic]
         return history[-limit:]
 
-    def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> Dict[str, Any]:
         """
         Get message bus statistics.
 
         Returns:
             Dictionary with bus stats
         """
-        return {
+        stats = {
             "running": self._running,
             "topics": len(self._subscribers),
             "total_handlers": sum(len(h) for h in self._subscribers.values()),
             "history_size": len(self._history),
             "queue_size": self._queue.qsize(),
+            "dropped_messages": self._dropped_messages,
+            "backpressure_strategy": self._backpressure_strategy.value,
         }
+
+        # Add persistence stats if enabled
+        if self._persistence.enabled:
+            persistence_stats = await self._persistence.get_stats()
+            stats["persistence"] = persistence_stats
+
+        return stats
