@@ -1,9 +1,11 @@
-"""System information tools for Freya."""
+"""System information tools for Freya with command injection protection."""
 
 from __future__ import annotations
 
 import os
 import platform
+import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -83,9 +85,9 @@ class SystemInfoTool(FreyaTool):
 
 
 class ExecuteCommandTool(FreyaTool):
-    """Execute safe shell commands."""
+    """Execute safe shell commands with hybrid security approach."""
 
-    # Whitelist of allowed commands for safety
+    # Whitelist of allowed command names
     ALLOWED_COMMANDS = {
         "ls",
         "dir",
@@ -104,7 +106,23 @@ class ExecuteCommandTool(FreyaTool):
         "wc",
         "grep",
         "find",
+        "ps",
+        "top",
+        "netstat",
     }
+
+    # Dangerous patterns that indicate command injection attempts
+    DANGEROUS_PATTERNS = [
+        r";\s*",  # Command chaining with semicolon
+        r"\|\s*",  # Pipe to another command
+        r"&&",  # AND command chaining
+        r"\|\|",  # OR command chaining
+        r"`",  # Command substitution (backticks)
+        r"\$\(",  # Command substitution $()
+        r">\s*",  # Output redirection
+        r"<\s*",  # Input redirection
+        r"&\s*$",  # Background execution
+    ]
 
     @property
     def name(self) -> str:
@@ -112,37 +130,70 @@ class ExecuteCommandTool(FreyaTool):
 
     @property
     def description(self) -> str:
-        return "Execute safe shell commands (limited whitelist for security)"
+        return "Execute safe shell commands (whitelist + injection protection)"
+
+    def _validate_command(self, command: str) -> tuple[bool, str]:
+        """
+        Validate command for security issues.
+
+        Returns:
+            Tuple of (is_safe, error_message)
+        """
+        # Check for dangerous patterns
+        for pattern in self.DANGEROUS_PATTERNS:
+            if re.search(pattern, command):
+                return False, f"Dangerous pattern detected: {pattern}"
+
+        return True, ""
 
     def execute(self, command: str, timeout: int = 5) -> ToolResult:
-        """Execute a shell command.
+        """Execute a shell command safely.
 
         Args:
-            command: Command to execute (must be in whitelist)
+            command: Command to execute (must pass security checks)
             timeout: Timeout in seconds (default: 5)
 
         Returns:
             ToolResult with command output
         """
         try:
-            # Parse command
-            parts = command.split()
+            # Security validation
+            is_safe, error = self._validate_command(command)
+            if not is_safe:
+                return ToolResult(
+                    success=False,
+                    output="",
+                    error=f"Security check failed: {error}",
+                )
+
+            # Parse command using shlex for proper shell-like splitting
+            try:
+                parts = shlex.split(command)
+            except ValueError as e:
+                return ToolResult(success=False, output="", error=f"Invalid command syntax: {e}")
+
             if not parts:
                 return ToolResult(success=False, output="", error="Empty command")
 
             cmd_name = parts[0]
 
-            # Security check - only allow whitelisted commands
+            # Whitelist check
             if cmd_name not in self.ALLOWED_COMMANDS:
+                allowed_str = ", ".join(sorted(self.ALLOWED_COMMANDS))
                 return ToolResult(
                     success=False,
                     output="",
-                    error=f"Command '{cmd_name}' not allowed. Allowed: {', '.join(sorted(self.ALLOWED_COMMANDS))}",
+                    error=f"Command '{cmd_name}' not allowed. Allowed: {allowed_str}",
                 )
 
-            # Execute command with timeout
+            # Execute with shell=False for security (no shell interpretation)
             result = subprocess.run(
-                parts, capture_output=True, text=True, timeout=timeout, check=False
+                parts,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+                shell=False,  # Critical: prevents shell injection
             )
 
             output = result.stdout.strip() if result.stdout else result.stderr.strip()
