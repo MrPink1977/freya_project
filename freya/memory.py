@@ -354,7 +354,8 @@ class ChromaMemoryStore:
                 error=str(exc),
             )
 
-        logger.debug(f"Stored fact: {category}/{key} = {value}\")\n        return fact_id
+        logger.debug(f"Stored fact: {category}/{key} = {value}")
+        return fact_id
 
     def query_facts(
         self,
