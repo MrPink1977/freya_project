@@ -10,7 +10,10 @@ from freya.tools.file_tools import (
     WriteFileTool,
     validate_path,
     validate_file_size,
+    validate_file_type,
     ALLOWED_DIRECTORIES,
+    ALLOWED_MIME_TYPES,
+    ALLOWED_EXTENSIONS,
     MAX_READ_SIZE,
     MAX_WRITE_SIZE,
 )
@@ -286,9 +289,14 @@ class TestReadFileTool:
         
         result = read_file_tool.execute(path=str(binary_file))
         
-        # Should either fail or handle gracefully
-        if not result.success:
-            assert "binary" in result.error.lower() or "decode" in result.error.lower()
+        # Should reject due to unknown file type
+        assert result.success is False
+        assert (
+            "binary" in result.error.lower()
+            or "unknown" in result.error.lower()
+            or "not allowed" in result.error.lower()
+            or "decode" in result.error.lower()
+        )
 
     def test_metadata_includes_file_info(self, read_file_tool, safe_test_dir):
         """Metadata includes file information."""
@@ -545,4 +553,136 @@ class TestFileSizeLimits:
         assert result.success is True
         assert "size" in result.metadata
         assert result.metadata["size"] == len(content)
+
+
+# ============================================================================
+# MIME TYPE VALIDATION TESTS
+# ============================================================================
+
+
+class TestMimeTypeValidation:
+    """Test MIME type validation for file reading."""
+
+    def test_validate_text_file_by_mime(self, safe_test_dir):
+        """validate_file_type accepts text files by MIME type."""
+        test_file = safe_test_dir / "test.txt"
+        test_file.write_text("plain text content")
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is None
+        assert mime_type in ALLOWED_MIME_TYPES or "text" in mime_type.lower()
+
+    def test_validate_json_file(self, safe_test_dir):
+        """validate_file_type accepts JSON files."""
+        test_file = safe_test_dir / "data.json"
+        test_file.write_text('{"key": "value"}')
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is None
+        assert "json" in (mime_type or "").lower()
+
+    def test_validate_python_file(self, safe_test_dir):
+        """validate_file_type accepts Python files."""
+        test_file = safe_test_dir / "script.py"
+        test_file.write_text("print('hello')")
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is None  # Should accept by extension
+
+    def test_validate_yaml_file(self, safe_test_dir):
+        """validate_file_type accepts YAML files."""
+        test_file = safe_test_dir / "config.yaml"
+        test_file.write_text("key: value")
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is None
+
+    def test_rejects_png_by_magic_bytes(self, safe_test_dir):
+        """validate_file_type rejects PNG images by magic bytes."""
+        test_file = safe_test_dir / "image.png"
+        # Write PNG magic bytes
+        test_file.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is not None
+        assert "binary" in error.lower()
+        assert "PNG" in error
+
+    def test_rejects_jpeg_by_magic_bytes(self, safe_test_dir):
+        """validate_file_type rejects JPEG images by magic bytes."""
+        test_file = safe_test_dir / "photo.jpg"
+        test_file.write_bytes(b"\xFF\xD8\xFF\xE0" + b"\x00" * 100)
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is not None
+        assert "binary" in error.lower()
+        assert "JPEG" in error
+
+    def test_rejects_pdf_by_magic_bytes(self, safe_test_dir):
+        """validate_file_type rejects PDF documents by magic bytes."""
+        test_file = safe_test_dir / "document.pdf"
+        test_file.write_bytes(b"%PDF-1.4" + b"\x00" * 100)
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is not None
+        assert "binary" in error.lower()
+        assert "PDF" in error
+
+    def test_rejects_zip_by_magic_bytes(self, safe_test_dir):
+        """validate_file_type rejects ZIP archives by magic bytes."""
+        test_file = safe_test_dir / "archive.zip"
+        test_file.write_bytes(b"PK\x03\x04" + b"\x00" * 100)
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is not None
+        assert "binary" in error.lower()
+        assert "ZIP" in error
+
+    def test_rejects_exe_by_magic_bytes(self, safe_test_dir):
+        """validate_file_type rejects executables by magic bytes."""
+        test_file = safe_test_dir / "program.exe"
+        test_file.write_bytes(b"MZ" + b"\x00" * 100)
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is not None
+        assert "binary" in error.lower()
+        assert "executable" in error.lower()
+
+    def test_rejects_unknown_extension(self, safe_test_dir):
+        """validate_file_type rejects files with unknown extensions."""
+        test_file = safe_test_dir / "unknown.xyz"
+        test_file.write_text("unknown content")
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is not None
+        assert "unknown" in error.lower() or "not allowed" in error.lower()
+
+    def test_read_tool_blocks_binary_files(self, read_file_tool, safe_test_dir):
+        """ReadFileTool rejects binary files."""
+        test_file = safe_test_dir / "binary.bin"
+        test_file.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 50)
+        
+        result = read_file_tool.execute(path=str(test_file))
+        assert result.success is False
+        assert "binary" in result.error.lower()
+
+    def test_read_tool_includes_mime_in_metadata(self, read_file_tool, safe_test_dir):
+        """ReadFileTool includes MIME type in metadata."""
+        test_file = safe_test_dir / "data.json"
+        test_file.write_text('{"test": true}')
+        
+        result = read_file_tool.execute(path=str(test_file))
+        assert result.success is True
+        assert "mime_type" in result.metadata
+        assert result.metadata["mime_type"] is not None
+
+    def test_extension_fallback_works(self, safe_test_dir):
+        """Extension fallback works when MIME detection fails."""
+        # Create file with allowed extension but no standard MIME type
+        test_file = safe_test_dir / "config.cfg"
+        test_file.write_text("setting=value")
+        
+        mime_type, error = validate_file_type(test_file)
+        assert error is None  # Should accept by extension
+        assert "extension" in (mime_type or "").lower() or mime_type is not None
 

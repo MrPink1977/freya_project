@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import mimetypes
 from pathlib import Path
 from typing import Optional
 
@@ -12,6 +13,58 @@ from .base import FreyaTool, ToolResult
 # File size limits (in bytes)
 MAX_READ_SIZE = 1024 * 1024  # 1 MB - max file size to read
 MAX_WRITE_SIZE = 10 * 1024 * 1024  # 10 MB - max content size to write
+
+
+# Allowed MIME types for reading
+ALLOWED_MIME_TYPES = {
+    "text/plain",
+    "text/html",
+    "text/css",
+    "text/javascript",
+    "text/csv",
+    "text/markdown",
+    "text/xml",
+    "application/json",
+    "application/xml",
+    "application/javascript",
+    "application/x-yaml",
+    "application/yaml",
+}
+
+# Allowed file extensions (fallback when MIME detection fails)
+ALLOWED_EXTENSIONS = {
+    ".txt",
+    ".md",
+    ".py",
+    ".js",
+    ".ts",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".xml",
+    ".html",
+    ".htm",
+    ".css",
+    ".csv",
+    ".log",
+    ".ini",
+    ".cfg",
+    ".conf",
+}
+
+# Magic bytes for common binary formats to reject
+BINARY_MAGIC_BYTES = {
+    b"\x89PNG": "PNG image",
+    b"\xFF\xD8\xFF": "JPEG image",
+    b"GIF87a": "GIF image",
+    b"GIF89a": "GIF image",
+    b"%PDF": "PDF document",
+    b"PK\x03\x04": "ZIP archive",
+    b"PK\x05\x06": "ZIP archive",
+    b"MZ": "Windows executable",
+    b"\x7FELF": "Linux executable",
+    b"\xCA\xFE\xBA\xBE": "Mac executable",
+}
 
 
 # Define allowed base directories for file operations
@@ -83,6 +136,55 @@ def validate_file_size(file_path: Path, max_size: int, operation: str) -> Option
         return None
     except Exception as e:
         return f"Failed to check file size: {e}"
+
+
+def validate_file_type(file_path: Path) -> tuple[Optional[str], Optional[str]]:
+    """
+    Validate file type is text-based and safe to read.
+
+    Uses MIME type detection, extension checking, and magic byte detection
+    to determine if a file is safe to read as text.
+
+    Args:
+        file_path: Path to file to validate
+
+    Returns:
+        Tuple of (mime_type, error_message). If error_message is not None, file is unsafe.
+    """
+    try:
+        # Check magic bytes first (fast rejection of binary files)
+        with open(file_path, "rb") as f:
+            header = f.read(16)
+        
+        for magic_bytes, file_type in BINARY_MAGIC_BYTES.items():
+            if header.startswith(magic_bytes):
+                return None, f"Cannot read binary file: {file_type} detected"
+        
+        # Try MIME type detection
+        mime_type, _ = mimetypes.guess_type(str(file_path))
+        
+        if mime_type and mime_type in ALLOWED_MIME_TYPES:
+            return mime_type, None
+        
+        # Fallback to extension checking
+        extension = file_path.suffix.lower()
+        if extension in ALLOWED_EXTENSIONS:
+            return mime_type or f"text/plain (extension: {extension})", None
+        
+        # Reject unknown types
+        if mime_type:
+            return None, (
+                f"File type not allowed: {mime_type}\n"
+                f"Only text-based files are supported (text/*, application/json, etc.)"
+            )
+        else:
+            return None, (
+                f"Unknown file type with extension {extension or '(none)'}\n"
+                f"Allowed extensions: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+            )
+    
+    except Exception as e:
+        return None, f"Failed to validate file type: {e}"
 
 
 class ListFilesTool(FreyaTool):
@@ -219,6 +321,11 @@ class ReadFileTool(FreyaTool):
             if not file_path.is_file():
                 return ToolResult(success=False, output="", error=f"Not a file: {path}")
 
+            # Validate file type
+            mime_type, type_error = validate_file_type(file_path)
+            if type_error:
+                return ToolResult(success=False, output="", error=type_error)
+
             # Validate file size
             size_error = validate_file_size(file_path, MAX_READ_SIZE, "read")
             if size_error:
@@ -242,6 +349,7 @@ class ReadFileTool(FreyaTool):
                     "path": str(file_path),
                     "lines_read": len(lines),
                     "size": file_path.stat().st_size,
+                    "mime_type": mime_type,
                 },
             )
 
