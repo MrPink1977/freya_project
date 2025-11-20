@@ -70,7 +70,9 @@ class ConversationContext:
         if self.summarizer is not None:
             summary = self.summarizer(archived_copy)
         else:
-            joined = " ".join(message.content.strip() for message in archived_copy if message.content)
+            joined = " ".join(
+                message.content.strip() for message in archived_copy if message.content
+            )
             summary = joined.strip()
 
         self._archived.clear()
@@ -110,7 +112,9 @@ class ConversationContext:
             self._archived.append(evicted)
 
         if not self.enable_summarization:
-            logger.debug("Summarisation disabled; dropping %s archived messages", len(self._archived))
+            logger.debug(
+                "Summarisation disabled; dropping %s archived messages", len(self._archived)
+            )
             self._archived.clear()
             return
 

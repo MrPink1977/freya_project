@@ -23,8 +23,7 @@ class OllamaModelNotFoundError(OllamaError):
 
     def __init__(self, model: str, response: Response | None = None) -> None:
         message = (
-            f"Ollama model '{model}' is not installed. "
-            "Run `ollama pull {model}` to download it."
+            f"Ollama model '{model}' is not installed. " "Run `ollama pull {model}` to download it."
         )
         super().__init__(message, response=response)
         self.model = model
@@ -323,7 +322,6 @@ class OllamaClient:
                 content = message.get("content")
                 if content:
                     yield str(content)
-
 
 
 __all__ = [

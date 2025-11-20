@@ -69,9 +69,7 @@ class SpeechToText:
         """Return the device faster-whisper is currently using."""
         return self._active_device
 
-    def _load_whisper_model(
-        self, config: SpeechToTextConfig
-    ) -> tuple["WhisperModel", str]:
+    def _load_whisper_model(self, config: SpeechToTextConfig) -> tuple["WhisperModel", str]:
         """Load faster-whisper on the requested device, falling back to CPU if needed."""
         if WhisperModel is None:  # pragma: no cover - handled in _ensure_dependencies
             raise SpeechToTextError("faster-whisper is not available")
@@ -215,7 +213,9 @@ class SpeechToText:
             pieces = [segment.text.strip() for segment in segments if getattr(segment, "text", "")]
             text = " ".join(filter(None, pieces)).strip()
             if info.language:
-                logger.debug("Detected language: %s (prob=%.3f)", info.language, info.language_probability)
+                logger.debug(
+                    "Detected language: %s (prob=%.3f)", info.language, info.language_probability
+                )
         except Exception as exc:  # pragma: no cover - depends on whisper runtime
             logger.exception("faster-whisper transcription failed: %s", exc)
             raise SpeechToTextError("faster-whisper failed to transcribe the audio") from exc

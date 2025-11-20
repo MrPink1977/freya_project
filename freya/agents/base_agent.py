@@ -172,9 +172,7 @@ class BaseAgent(ABC):
             self.state = prev_state
 
         except Exception as exc:
-            self.logger.exception(
-                f"Error processing message on topic {message.topic}: {exc}"
-            )
+            self.logger.exception(f"Error processing message on topic {message.topic}: {exc}")
             self.state = AgentState.ERROR
             # Publish error event
             await self.publish_error(message, exc)

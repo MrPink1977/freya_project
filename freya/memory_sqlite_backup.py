@@ -61,7 +61,9 @@ class PersistentMemoryStore:
     _DEFAULT_SEARCH_WINDOW = 200
     _DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"  # Fast, lightweight, 384-dim embeddings
 
-    def __init__(self, db_path: str, search_window: int | None = None, use_embeddings: bool = True) -> None:
+    def __init__(
+        self, db_path: str, search_window: int | None = None, use_embeddings: bool = True
+    ) -> None:
         path = Path(db_path).expanduser()
         if path.parent and not path.parent.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -79,17 +81,23 @@ class PersistentMemoryStore:
                 self._embedding_model = SentenceTransformer(self._DEFAULT_EMBEDDING_MODEL)
                 logger.debug("Embedding model loaded successfully (384 dimensions)")
             except Exception as exc:  # pragma: no cover - model loading
-                logger.warning("Failed to load embedding model: %s. Falling back to lexical search.", exc)
+                logger.warning(
+                    "Failed to load embedding model: %s. Falling back to lexical search.", exc
+                )
                 self._use_embeddings = False
         elif use_embeddings and SentenceTransformer is None:
-            logger.warning("sentence-transformers not installed. Install with: pip install sentence-transformers")
+            logger.warning(
+                "sentence-transformers not installed. Install with: pip install sentence-transformers"
+            )
 
         # check_same_thread=False allows multi-threaded access; all operations
         # are protected by self._lock to ensure thread safety
         self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._initialise_schema()
-        logger.debug("PersistentMemoryStore ready at %s (embeddings: %s)", self._path, self._use_embeddings)
+        logger.debug(
+            "PersistentMemoryStore ready at %s (embeddings: %s)", self._path, self._use_embeddings
+        )
 
     def close(self) -> None:
         with self._lock:
@@ -163,7 +171,9 @@ class PersistentMemoryStore:
             )
             self._conn.commit()
             memory_id = int(cursor.lastrowid)
-            logger.debug("Stored memory %s (%s) [embedding: %s]", memory_id, role, embedding is not None)
+            logger.debug(
+                "Stored memory %s (%s) [embedding: %s]", memory_id, role, embedding is not None
+            )
             return memory_id
 
     def find_similar_memories(
@@ -266,8 +276,11 @@ class PersistentMemoryStore:
                 ((now, record.id) for record in selected),
             )
             self._conn.commit()
-            logger.debug("Retrieved %s semantic memory matches (avg score: %.2f)",
-                        len(selected), sum(r.score for r in selected) / len(selected))
+            logger.debug(
+                "Retrieved %s semantic memory matches (avg score: %.2f)",
+                len(selected),
+                sum(r.score for r in selected) / len(selected),
+            )
             return selected
 
     def _lexical_search(

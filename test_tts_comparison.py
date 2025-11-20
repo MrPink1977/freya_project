@@ -26,20 +26,20 @@ async def test_piper(config):
     print("\n" + "=" * 60)
     print("Testing PIPER (Local TTS)")
     print("=" * 60)
-    
+
     try:
         tts = TextToSpeech(config.tts)
         print(f"Voice: {config.tts.voice_path}")
         print(f"Saying: '{TEST_PHRASE}'")
         print("Speaking...")
-        
+
         # Run in executor to avoid blocking
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, tts.speak, TEST_PHRASE)
-        
+
         tts.close()
         print("✅ Piper test complete")
-        
+
     except Exception as e:
         print(f"❌ Piper test failed: {e}")
         logger.exception(e)
@@ -50,31 +50,31 @@ async def test_elevenlabs(config):
     print("\n" + "=" * 60)
     print("Testing ELEVENLABS (Cloud TTS)")
     print("=" * 60)
-    
+
     if not config.tts.elevenlabs.api_key:
         print("❌ ElevenLabs API key not configured")
         print("   Add your API key to config/default.yaml")
         return
-    
+
     try:
         tts = ElevenLabsTTS(
             api_key=config.tts.elevenlabs.api_key,
             voice_id=config.tts.elevenlabs.voice_id,
             model=config.tts.elevenlabs.model,
         )
-        
+
         print(f"Voice ID: {config.tts.elevenlabs.voice_id}")
         print(f"Model: {config.tts.elevenlabs.model}")
         print(f"Saying: '{TEST_PHRASE}'")
         print("Speaking...")
-        
+
         # Run in executor to avoid blocking
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, tts.speak, TEST_PHRASE)
-        
+
         tts.close()
         print("✅ ElevenLabs test complete")
-        
+
     except Exception as e:
         print(f"❌ ElevenLabs test failed: {e}")
         logger.exception(e)
@@ -87,13 +87,13 @@ async def main():
     if not config_path.exists():
         print("❌ Config file not found: config/default.yaml")
         sys.exit(1)
-    
+
     try:
         config = load_settings(config_path)
     except Exception as e:
         print(f"❌ Failed to load config: {e}")
         sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("  FREYA TTS COMPARISON TEST")
     print("=" * 60)
@@ -102,17 +102,17 @@ async def main():
     print("  2. ElevenLabs (cloud, premium, requires API key)")
     print("\nListen carefully and decide which sounds better!")
     print("=" * 60)
-    
+
     input("\nPress Enter to start test...")
-    
+
     # Test Piper
     await test_piper(config)
-    
+
     await asyncio.sleep(1)  # Brief pause between tests
-    
+
     # Test ElevenLabs
     await test_elevenlabs(config)
-    
+
     print("\n" + "=" * 60)
     print("  TEST COMPLETE")
     print("=" * 60)

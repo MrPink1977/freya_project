@@ -116,9 +116,7 @@ async def test_tool_execution():
     # Test calculator
     results.clear()
     print("Testing: Calculate 100 * 25")
-    await bus.publish(
-        topic="user.query", payload={"text": "calculate 100 * 25"}, sender="test"
-    )
+    await bus.publish(topic="user.query", payload={"text": "calculate 100 * 25"}, sender="test")
     await asyncio.sleep(0.2)
 
     assert len(results) == 1

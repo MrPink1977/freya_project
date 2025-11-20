@@ -80,9 +80,7 @@ class ChromaMemoryStore:
             embedding_model: Sentence-transformers model name
         """
         if chromadb is None:
-            raise ImportError(
-                "chromadb not installed. Install with: pip install chromadb"
-            )
+            raise ImportError("chromadb not installed. Install with: pip install chromadb")
 
         self._db_path = Path(db_path).expanduser()
         self._db_path.mkdir(parents=True, exist_ok=True)

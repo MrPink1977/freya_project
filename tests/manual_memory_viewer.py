@@ -13,7 +13,9 @@ if not db_path.exists():
     exit(1)
 
 conn = sqlite3.connect(str(db_path))
-cursor = conn.execute("SELECT role, content, importance, created_at FROM memories ORDER BY created_at DESC LIMIT 20")
+cursor = conn.execute(
+    "SELECT role, content, importance, created_at FROM memories ORDER BY created_at DESC LIMIT 20"
+)
 
 print("\n=== RECENT MEMORIES ===")
 count = 0

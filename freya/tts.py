@@ -13,6 +13,7 @@ from pathlib import Path
 
 try:  # pragma: no cover - exercised via runtime import availability
     from piper import PiperVoice
+
     try:
         from piper.voice import AudioChunk  # type: ignore[attr-defined]
     except Exception:  # pragma: no cover - AudioChunk is optional in older builds
@@ -149,9 +150,7 @@ class TextToSpeech:
             try:
                 chunks = tuple(self._generate_pcm_stream(normalized))
             except Exception as exc:  # pragma: no cover - backend dependent
-                logger.debug(
-                    "Skipping preload for phrase '%s' due to error: %s", normalized, exc
-                )
+                logger.debug("Skipping preload for phrase '%s' due to error: %s", normalized, exc)
                 continue
 
             if not chunks:
@@ -162,9 +161,7 @@ class TextToSpeech:
                 continue
 
             self._preloaded_audio[normalized] = chunks
-            logger.debug(
-                "Preloaded %d audio chunk(s) for phrase '%s'", len(chunks), normalized
-            )
+            logger.debug("Preloaded %d audio chunk(s) for phrase '%s'", len(chunks), normalized)
 
     def _generate_pcm_stream(self, text: str) -> Iterable[bytes]:
         """Yield normalised PCM chunks for the given text."""
@@ -276,9 +273,7 @@ class TextToSpeech:
     def _extract_audio_chunk(self, chunk: "AudioChunk") -> object | None:  # type: ignore[name-defined]
         """Extract the audio payload from a Piper ``AudioChunk`` instance."""
         self._maybe_update_sample_rate(getattr(chunk, "sample_rate", None))
-        logger.debug(
-            "Inspecting Piper AudioChunk %s", self._describe_chunk(chunk)
-        )
+        logger.debug("Inspecting Piper AudioChunk %s", self._describe_chunk(chunk))
 
         # Known modern Piper attributes that already expose byte or ndarray data.
         preferred_attrs = (
@@ -460,9 +455,7 @@ class TextToSpeech:
     def _floats_to_int16(self, array) -> "np.ndarray":  # type: ignore[name-defined]
         """Convert float PCM arrays to int16 for playback."""
         if np is None:
-            raise TextToSpeechError(
-                "Piper returned floating-point audio but NumPy is unavailable"
-            )
+            raise TextToSpeechError("Piper returned floating-point audio but NumPy is unavailable")
         clipped = np.clip(array, -1.0, 1.0)
         return (clipped * 32767).astype(np.int16)
 
@@ -642,16 +635,12 @@ class TextToSpeech:
                     details.append(f"{attr}=bytes[{len(value)}]")
                     continue
                 if np is not None and isinstance(value, np.ndarray):
-                    details.append(
-                        f"{attr}=ndarray(shape={value.shape},dtype={value.dtype})"
-                    )
+                    details.append(f"{attr}=ndarray(shape={value.shape},dtype={value.dtype})")
                     continue
                 if isinstance(value, (int, float)):
                     details.append(f"{attr}={value}")
                     continue
-                if isinstance(value, Sequence) and not isinstance(
-                    value, (str, bytes, bytearray)
-                ):
+                if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
                     details.append(f"{attr}=sequence(len={len(value)})")
                     continue
                 summary = type(value).__name__
@@ -681,9 +670,7 @@ class TextToSpeech:
                     )
                     return int(sample_rate)
             except Exception as exc:  # pragma: no cover - metadata optional
-                logger.warning(
-                    "Unable to read Piper metadata from %s: %s", metadata_path, exc
-                )
+                logger.warning("Unable to read Piper metadata from %s: %s", metadata_path, exc)
 
         # Fallback to any attribute provided by the Piper voice instance.
         sample_rate_attr = getattr(self._voice, "sample_rate", None)
@@ -696,7 +683,9 @@ class TextToSpeech:
                 logger.debug("Using Piper voice sample_rate attribute: %s", sample_rate)
                 return sample_rate
 
-        logger.debug("Piper sample rate could not be determined from metadata; defaulting to 22050Hz")
+        logger.debug(
+            "Piper sample rate could not be determined from metadata; defaulting to 22050Hz"
+        )
         return 22050
 
     def _maybe_update_sample_rate(self, value: object) -> None:
@@ -763,9 +752,7 @@ def create_tts(config: TextToSpeechConfig):
         )
 
     else:
-        raise TextToSpeechError(
-            f"Invalid TTS engine '{engine}'. Options: 'piper' or 'elevenlabs'"
-        )
+        raise TextToSpeechError(f"Invalid TTS engine '{engine}'. Options: 'piper' or 'elevenlabs'")
 
 
 __all__ = ["TextToSpeech", "TextToSpeechError", "create_tts"]

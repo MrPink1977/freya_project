@@ -92,18 +92,14 @@ class FacialRecognition:
         """Reload known faces from the configured directory."""
 
         if not self._directory.exists():
-            raise FaceRecognitionError(
-                f"Known faces directory not found: {self._directory}"
-            )
+            raise FaceRecognitionError(f"Known faces directory not found: {self._directory}")
 
         profiles: List[FaceProfile] = []
         encodings: List[np.ndarray] = []
         for image_path, name in self._iter_face_files(self._directory):
             try:
                 image = face_recognition.load_image_file(str(image_path))
-                vectors = face_recognition.face_encodings(
-                    image, model=self._encoding_model
-                )
+                vectors = face_recognition.face_encodings(image, model=self._encoding_model)
             except Exception as exc:  # pragma: no cover - backend specific
                 logger.warning("Failed to load face from %s: %s", image_path, exc)
                 continue
@@ -150,7 +146,9 @@ class FacialRecognition:
         formatted = candidate.replace("_", " ").strip()
         return formatted or "Unknown"
 
-    def recognize_faces(self, frame: np.ndarray, timestamp: Optional[float] = None) -> List[RecognitionResult]:
+    def recognize_faces(
+        self, frame: np.ndarray, timestamp: Optional[float] = None
+    ) -> List[RecognitionResult]:
         """Return recognised faces for a BGR frame from an RTSP/Camera feed."""
 
         if face_recognition is None:
@@ -167,9 +165,7 @@ class FacialRecognition:
         rgb_frame = frame[:, :, ::-1]
 
         try:
-            locations = face_recognition.face_locations(
-                rgb_frame, model=self._detection_model
-            )
+            locations = face_recognition.face_locations(rgb_frame, model=self._detection_model)
             if not locations:
                 return []
             encodings = face_recognition.face_encodings(

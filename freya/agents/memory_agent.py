@@ -60,12 +60,8 @@ class MemoryAgent(BaseAgent):
     def _initialize_fact_patterns(self) -> dict:
         """Initialize regex patterns for fact extraction."""
         return {
-            "name_is": re.compile(
-                r"my name(?:'s| is) (\w+(?:\s+\w+)?)", re.IGNORECASE
-            ),
-            "call_me": re.compile(
-                r"(?:you can |just )?call me (\w+)", re.IGNORECASE
-            ),
+            "name_is": re.compile(r"my name(?:'s| is) (\w+(?:\s+\w+)?)", re.IGNORECASE),
+            "call_me": re.compile(r"(?:you can |just )?call me (\w+)", re.IGNORECASE),
             "birthday_is": re.compile(
                 r"my birthday(?:'s| is) ([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)",
                 re.IGNORECASE,
@@ -74,9 +70,7 @@ class MemoryAgent(BaseAgent):
                 r"(?:i was )?born (?:on |in )?([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?|\d{4}|[a-z]+ \d{4})",
                 re.IGNORECASE,
             ),
-            "favorite": re.compile(
-                r"my favorite (\w+) is ([^.,!?]+)", re.IGNORECASE
-            ),
+            "favorite": re.compile(r"my favorite (\w+) is ([^.,!?]+)", re.IGNORECASE),
             "i_like": re.compile(r"i (?:really |absolutely )?like ([^.,!?]+)", re.IGNORECASE),
             "i_love": re.compile(r"i (?:really |absolutely )?love ([^.,!?]+)", re.IGNORECASE),
             "i_hate": re.compile(r"i (?:really |absolutely )?hate ([^.,!?]+)", re.IGNORECASE),

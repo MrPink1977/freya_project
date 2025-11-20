@@ -24,9 +24,7 @@ def test_store_and_retrieve():
     store.store_memory(content="My name is Tommy", role="user", importance=5)
     store.store_memory(content="I love pizza", role="user", importance=3)
     store.store_memory(content="I hate Mondays", role="user", importance=2)
-    store.store_memory(
-        content="I work as a software engineer", role="user", importance=4
-    )
+    store.store_memory(content="I work as a software engineer", role="user", importance=4)
     store.store_memory(content="The weather is nice today", role="user", importance=1)
 
     print(f"Stored 5 memories\n")
@@ -74,12 +72,8 @@ def test_facts():
 
     print("Storing facts...")
     store.store_fact(category="name", key="first_name", value="Tommy", confidence=1.0)
-    store.store_fact(
-        category="preference", key="favorite_color", value="blue", confidence=0.9
-    )
-    store.store_fact(
-        category="preference", key="favorite_food", value="pizza", confidence=1.0
-    )
+    store.store_fact(category="preference", key="favorite_color", value="blue", confidence=0.9)
+    store.store_fact(category="preference", key="favorite_food", value="pizza", confidence=1.0)
 
     # Query facts
     print("\nQuerying facts:\n")
@@ -108,9 +102,7 @@ def test_performance():
 
     print("Adding 50 memories...")
     for i in range(50):
-        store.store_memory(
-            content=f"Memory number {i} with some random content", role="user"
-        )
+        store.store_memory(content=f"Memory number {i} with some random content", role="user")
 
     stats = store.get_stats()
     print(f"Total memories: {stats['total_memories']}")

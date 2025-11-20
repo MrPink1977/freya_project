@@ -21,25 +21,25 @@ class CalculatorTool(FreyaTool):
 
     # Safe mathematical functions allowed in eval
     SAFE_FUNCTIONS = {
-        'abs': abs,
-        'round': round,
-        'min': min,
-        'max': max,
-        'sum': sum,
-        'pow': pow,
+        "abs": abs,
+        "round": round,
+        "min": min,
+        "max": max,
+        "sum": sum,
+        "pow": pow,
         # Math functions
-        'sqrt': math.sqrt,
-        'sin': math.sin,
-        'cos': math.cos,
-        'tan': math.tan,
-        'log': math.log,
-        'log10': math.log10,
-        'exp': math.exp,
-        'floor': math.floor,
-        'ceil': math.ceil,
+        "sqrt": math.sqrt,
+        "sin": math.sin,
+        "cos": math.cos,
+        "tan": math.tan,
+        "log": math.log,
+        "log10": math.log10,
+        "exp": math.exp,
+        "floor": math.floor,
+        "ceil": math.ceil,
         # Constants
-        'pi': math.pi,
-        'e': math.e,
+        "pi": math.pi,
+        "e": math.e,
     }
 
     def execute(self, expression: str) -> ToolResult:
@@ -59,22 +59,16 @@ class CalculatorTool(FreyaTool):
                 return ToolResult(success=False, output="", error="Empty expression")
 
             # Replace ^ with ** for exponentiation
-            expr = expr.replace('^', '**')
+            expr = expr.replace("^", "**")
 
             # Security check - only allow safe characters
-            if not re.match(r'^[0-9+\-*/().,\s\w]+$', expr):
+            if not re.match(r"^[0-9+\-*/().,\s\w]+$", expr):
                 return ToolResult(
-                    success=False,
-                    output="",
-                    error="Expression contains invalid characters"
+                    success=False, output="", error="Expression contains invalid characters"
                 )
 
             # Evaluate with restricted globals
-            result = eval(
-                expr,
-                {"__builtins__": {}},
-                self.SAFE_FUNCTIONS
-            )
+            result = eval(expr, {"__builtins__": {}}, self.SAFE_FUNCTIONS)
 
             # Format result
             if isinstance(result, float):
@@ -82,7 +76,7 @@ class CalculatorTool(FreyaTool):
                 if result.is_integer():
                     output = str(int(result))
                 else:
-                    output = f"{result:.10f}".rstrip('0').rstrip('.')
+                    output = f"{result:.10f}".rstrip("0").rstrip(".")
             else:
                 output = str(result)
 
@@ -92,8 +86,8 @@ class CalculatorTool(FreyaTool):
                 metadata={
                     "expression": expression,
                     "result": result,
-                    "result_type": type(result).__name__
-                }
+                    "result_type": type(result).__name__,
+                },
             )
 
         except ZeroDivisionError:

@@ -62,9 +62,7 @@ async def test_message_bus():
 
     # Subscribe and publish
     bus.subscribe("test.topic", test_handler)
-    await bus.publish(
-        topic="test.topic", payload={"data": "hello"}, sender="test_sender"
-    )
+    await bus.publish(topic="test.topic", payload={"data": "hello"}, sender="test_sender")
 
     # Give dispatch loop time to process
     await asyncio.sleep(0.2)
@@ -183,18 +181,10 @@ async def test_priority_messages():
     bus.subscribe("priority.test", priority_handler)
 
     # Publish in reverse priority order
-    await bus.publish(
-        "priority.test", {"order": 1}, "test", priority=MessagePriority.LOW
-    )
-    await bus.publish(
-        "priority.test", {"order": 2}, "test", priority=MessagePriority.NORMAL
-    )
-    await bus.publish(
-        "priority.test", {"order": 3}, "test", priority=MessagePriority.HIGH
-    )
-    await bus.publish(
-        "priority.test", {"order": 4}, "test", priority=MessagePriority.CRITICAL
-    )
+    await bus.publish("priority.test", {"order": 1}, "test", priority=MessagePriority.LOW)
+    await bus.publish("priority.test", {"order": 2}, "test", priority=MessagePriority.NORMAL)
+    await bus.publish("priority.test", {"order": 3}, "test", priority=MessagePriority.HIGH)
+    await bus.publish("priority.test", {"order": 4}, "test", priority=MessagePriority.CRITICAL)
 
     await asyncio.sleep(0.2)
 

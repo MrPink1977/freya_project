@@ -30,11 +30,7 @@ class WebScraperTool(FreyaTool):
         return "Scrape and extract text content, links, or specific elements from web pages"
 
     def execute(
-        self,
-        url: str,
-        mode: str = "text",
-        selector: str | None = None,
-        max_length: int = 5000
+        self, url: str, mode: str = "text", selector: str | None = None, max_length: int = 5000
     ) -> ToolResult:
         """Scrape a web page.
 
@@ -52,14 +48,14 @@ class WebScraperTool(FreyaTool):
             return ToolResult(
                 success=False,
                 output="",
-                error="requests library not installed. Run: pip install requests"
+                error="requests library not installed. Run: pip install requests",
             )
 
         if BeautifulSoup is None:
             return ToolResult(
                 success=False,
                 output="",
-                error="beautifulsoup4 library not installed. Run: pip install beautifulsoup4"
+                error="beautifulsoup4 library not installed. Run: pip install beautifulsoup4",
             )
 
         try:
@@ -76,7 +72,7 @@ class WebScraperTool(FreyaTool):
             response.raise_for_status()
 
             # Parse HTML
-            soup = BeautifulSoup(response.content, 'html.parser')
+            soup = BeautifulSoup(response.content, "html.parser")
 
             # Remove script and style elements
             for element in soup(["script", "style", "nav", "footer", "aside"]):
@@ -84,13 +80,13 @@ class WebScraperTool(FreyaTool):
 
             # Extract based on mode
             if mode == "title":
-                title = soup.find('title')
+                title = soup.find("title")
                 output = title.get_text().strip() if title else "No title found"
 
             elif mode == "links":
                 links = []
-                for link in soup.find_all('a', href=True):
-                    href = link['href']
+                for link in soup.find_all("a", href=True):
+                    href = link["href"]
                     text = link.get_text().strip()
                     full_url = urljoin(url, href)
                     if text and href:
@@ -102,7 +98,7 @@ class WebScraperTool(FreyaTool):
 
             elif mode == "headings":
                 headings = []
-                for tag in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                for tag in ["h1", "h2", "h3", "h4", "h5", "h6"]:
                     for heading in soup.find_all(tag):
                         text = heading.get_text().strip()
                         if text:
@@ -122,18 +118,18 @@ class WebScraperTool(FreyaTool):
             else:  # mode == "text" (default)
                 # Try to find main content
                 main_content = (
-                    soup.find('article') or
-                    soup.find('main') or
-                    soup.find('div', class_=re.compile(r'content|article|post|entry')) or
-                    soup.find('body')
+                    soup.find("article")
+                    or soup.find("main")
+                    or soup.find("div", class_=re.compile(r"content|article|post|entry"))
+                    or soup.find("body")
                 )
 
                 if main_content:
                     # Get text and clean it up
-                    text = main_content.get_text(separator='\n', strip=True)
+                    text = main_content.get_text(separator="\n", strip=True)
                     # Remove excessive whitespace
-                    text = re.sub(r'\n\s*\n', '\n\n', text)
-                    text = re.sub(r' +', ' ', text)
+                    text = re.sub(r"\n\s*\n", "\n\n", text)
+                    text = re.sub(r" +", " ", text)
                     output = text.strip()
                 else:
                     output = "Could not extract main content"
@@ -149,8 +145,8 @@ class WebScraperTool(FreyaTool):
                     "url": url,
                     "mode": mode,
                     "length": len(output),
-                    "title": soup.find('title').get_text().strip() if soup.find('title') else None
-                }
+                    "title": soup.find("title").get_text().strip() if soup.find("title") else None,
+                },
             )
 
         except requests.Timeout:

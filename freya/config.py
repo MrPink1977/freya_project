@@ -73,9 +73,7 @@ def _validate_non_empty(value: str, field_name: str, section: str = "") -> None:
     """Validate that a string value is not empty."""
     prefix = f"{section}." if section else ""
     if not value or not value.strip():
-        raise ConfigValidationError(
-            f"Configuration error: {prefix}{field_name} cannot be empty"
-        )
+        raise ConfigValidationError(f"Configuration error: {prefix}{field_name} cannot be empty")
 
 
 def _validate_choice(
@@ -240,9 +238,9 @@ def load_settings(path: Optional[Path] = None) -> Settings:
     tts_raw = raw.get("tts", {})
     memory_raw = raw.get("memory", {})
 
-    # Validate Ollama configuration
-    ollama_host = ollama_raw.get("host", "http://localhost:11434")
-    ollama_model = ollama_raw.get("model", "llama3.2:3b")
+    # Validate Ollama configuration (environment variables take precedence)
+    ollama_host = str(os.getenv("OLLAMA_HOST") or ollama_raw.get("host", "http://localhost:11434"))
+    ollama_model = str(os.getenv("OLLAMA_MODEL") or ollama_raw.get("model", "llama3.2:3b"))
     _validate_non_empty(ollama_host, "host", "ollama")
     _validate_non_empty(ollama_model, "model", "ollama")
 
@@ -297,7 +295,7 @@ def load_settings(path: Optional[Path] = None) -> Settings:
     long_term_config = LongTermMemoryConfig(
         enabled=bool(long_term_raw.get("enabled", False)),
         store_type=lt_store_type,
-        db_path=str(long_term_raw.get("db_path", "freya_memory.db")),
+        db_path=str(os.getenv("MEMORY_DB_PATH") or long_term_raw.get("db_path", "freya_memory.db")),
         recall_limit=lt_recall_limit,
         min_similarity=lt_min_similarity,
         auto_store_keywords=auto_store_keywords,
@@ -312,16 +310,12 @@ def load_settings(path: Optional[Path] = None) -> Settings:
     # Validate app configuration
     startup_mode_raw = str(app_raw.get("startup_mode", "normal")).strip().lower()
     if startup_mode_raw not in {"normal", "diagnostic"}:
-        logger.warning(
-            "Invalid startup_mode '%s', defaulting to 'normal'", startup_mode_raw
-        )
+        logger.warning("Invalid startup_mode '%s', defaulting to 'normal'", startup_mode_raw)
         startup_mode_raw = "normal"
 
     interaction_mode_raw = str(app_raw.get("interaction_mode", "voice")).strip().lower()
     if interaction_mode_raw not in {"voice", "text"}:
-        logger.warning(
-            "Invalid interaction_mode '%s', defaulting to 'voice'", interaction_mode_raw
-        )
+        logger.warning("Invalid interaction_mode '%s', defaulting to 'voice'", interaction_mode_raw)
         interaction_mode_raw = "voice"
 
     toggle_hotkey = str(app_raw.get("mode_toggle_hotkey", "ctrl+t")).strip()
@@ -337,9 +331,7 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         )
 
     app_config = AppConfig(
-        system_prompt=app_raw.get(
-            "system_prompt", "You are Freya, a helpful local AI assistant."
-        ),
+        system_prompt=app_raw.get("system_prompt", "You are Freya, a helpful local AI assistant."),
         max_history=memory_config.short_term.max_history,
         wake_word=wake_word,
         wake_word_sensitivity=wake_sensitivity,
@@ -406,9 +398,7 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         encoding_model=str(face_raw.get("encoding_model", "small")),
         tolerance=float(face_raw.get("tolerance", 0.5)),
         camera_channel=camera_channel,
-        min_recognition_interval=float(
-            face_raw.get("min_recognition_interval", 5.0)
-        ),
+        min_recognition_interval=float(face_raw.get("min_recognition_interval", 5.0)),
     )
     vision_config = VisionConfig(facial_recognition=face_config)
 
@@ -432,17 +422,13 @@ def load_settings(path: Optional[Path] = None) -> Settings:
     # Parse ElevenLabs configuration (environment variables take precedence)
     elevenlabs_raw = tts_raw.get("elevenlabs", {})
     elevenlabs_config = ElevenLabsConfig(
-        api_key=str(
-            os.getenv("ELEVENLABS_API_KEY")
-            or elevenlabs_raw.get("api_key", "")
-        ),
+        api_key=str(os.getenv("ELEVENLABS_API_KEY") or elevenlabs_raw.get("api_key", "")),
         voice_id=str(
             os.getenv("ELEVENLABS_VOICE_ID")
             or elevenlabs_raw.get("voice_id", "21m00Tcm4TlvDq8ikWAM")
         ),
         model=str(
-            os.getenv("ELEVENLABS_MODEL")
-            or elevenlabs_raw.get("model", "eleven_turbo_v2_5")
+            os.getenv("ELEVENLABS_MODEL") or elevenlabs_raw.get("model", "eleven_turbo_v2_5")
         ),
         stability=float(elevenlabs_raw.get("stability", 0.5)),
         similarity_boost=float(elevenlabs_raw.get("similarity_boost", 0.75)),

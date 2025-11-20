@@ -193,7 +193,9 @@ class RTSPStreamHandler:
 
                     data = self._audio_process.stdout.read(chunk_size)
                     if not data:
-                        logger.warning("Audio stream ended for '%s', reconnecting...", self._config.channel_id)
+                        logger.warning(
+                            "Audio stream ended for '%s', reconnecting...", self._config.channel_id
+                        )
                         break
 
                     chunk = AudioChunk(
@@ -237,7 +239,9 @@ class RTSPStreamHandler:
                 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffering for lower latency
 
                 if not cap.isOpened():
-                    logger.warning("Failed to open video stream for '%s', retrying...", self._config.channel_id)
+                    logger.warning(
+                        "Failed to open video stream for '%s', retrying...", self._config.channel_id
+                    )
                     time.sleep(3.0)
                     continue
 
@@ -247,7 +251,10 @@ class RTSPStreamHandler:
                 while self._running:
                     ret, frame = cap.read()
                     if not ret:
-                        logger.warning("Video frame read failed for '%s', reconnecting...", self._config.channel_id)
+                        logger.warning(
+                            "Video frame read failed for '%s', reconnecting...",
+                            self._config.channel_id,
+                        )
                         break
 
                     video_frame = VideoFrame(frame=frame, timestamp=time.time())

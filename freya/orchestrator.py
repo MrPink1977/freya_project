@@ -88,6 +88,7 @@ def _strip_markdown_for_speech(text: str) -> str:
 
     return cleaned.strip()
 
+
 _DEFAULT_MEMORY_KEYWORDS: Sequence[str] = (
     "remember",
     "my name is",
@@ -153,7 +154,9 @@ class Orchestrator:
         self._stt = stt
         self._tts = tts
         self._output = output_fn
-        self._memory_store = memory_store if memory_config and memory_store and memory_config.enabled else None
+        self._memory_store = (
+            memory_store if memory_config and memory_store and memory_config.enabled else None
+        )
         self._memory_config = memory_config if memory_config and memory_config.enabled else None
         self._memory_keywords: Sequence[str] = self._initialise_memory_keywords(memory_config)
         self._mode_lock = threading.Lock()
@@ -163,7 +166,7 @@ class Orchestrator:
         self._stop_speech_hotkey_handle: Optional[int] = None
         self._hotkey_available = keyboard is not None and bool(self._mode_toggle_hotkey)
         self._wake_detector = wake_detector
-        
+
         # Initialize wake word matcher (delegates variant generation and matching logic)
         self._wake_matcher = WakeWordMatcher(
             wake_word=wake_word,
@@ -210,7 +213,6 @@ class Orchestrator:
             self._unregister_mode_hotkey()
             self._unregister_stop_speech_hotkey()
 
-
     def _announce_startup(self) -> None:
         speak = self._get_mode() is InteractionMode.VOICE
         self._announce_mode(speak=speak)
@@ -224,7 +226,6 @@ class Orchestrator:
                 "keyboard package not available; interaction mode hotkey '%s' is disabled",
                 self._mode_toggle_hotkey,
             )
-
 
     def _announce_mode(self, speak: bool = False) -> None:
         mode = self._get_mode()
@@ -246,7 +247,6 @@ class Orchestrator:
                 self._tts.speak(_strip_markdown_for_speech(self._voice_ready_prompt))
             except TextToSpeechError:
                 self._output("[Warning] Unable to initialize speech output. Check logs.")
-
 
     def _voice_cycle(self) -> bool:
         while True:
@@ -321,7 +321,6 @@ class Orchestrator:
             self._handle_user_content(content)
             continue
 
-
     def _text_cycle(self) -> bool:
         while True:
             if self._get_mode() is not InteractionMode.TEXT:
@@ -343,7 +342,6 @@ class Orchestrator:
 
             self._handle_user_content(message)
             continue
-
 
     def _handle_user_content(self, content: str) -> None:
         user_line = f"You said: {content}"
@@ -393,9 +391,7 @@ class Orchestrator:
             # Extend session window after assistant response to allow follow-up questions
             self._session_active_until = time.monotonic() + self._session_window
 
-    def _obtain_assistant_response(
-        self, messages: list[dict]
-    ) -> tuple[str, bool, bool]:
+    def _obtain_assistant_response(self, messages: list[dict]) -> tuple[str, bool, bool]:
         """Return the assistant reply and whether streaming was used."""
 
         try:
@@ -455,9 +451,7 @@ class Orchestrator:
 
         return "".join(collected).strip(), tts_error is None
 
-    def _partition_speakable(
-        self, buffer: str, *, force: bool = False
-    ) -> tuple[list[str], str]:
+    def _partition_speakable(self, buffer: str, *, force: bool = False) -> tuple[list[str], str]:
         """Split accumulated text into speakable chunks."""
 
         pieces: list[str] = []
@@ -514,7 +508,6 @@ class Orchestrator:
             split_idx += 1
         return split_idx
 
-
     def _handle_exit(self) -> bool:
         goodbye = "Goodbye!"
         goodbye_line = goodbye
@@ -526,7 +519,6 @@ class Orchestrator:
         except TextToSpeechError:
             self._output("[Warning] Unable to speak the goodbye message.")
         return False
-
 
     def _register_mode_hotkey(self) -> None:
         if not self._hotkey_available or keyboard is None:
@@ -542,7 +534,6 @@ class Orchestrator:
             )
             self._hotkey_handle = None
             self._hotkey_available = False
-
 
     def _unregister_mode_hotkey(self) -> None:
         if self._hotkey_handle is None or keyboard is None:
@@ -585,11 +576,9 @@ class Orchestrator:
         logger.info("Stop speech hotkey pressed")
         self._tts.stop_speaking()
 
-
     def _get_mode(self) -> InteractionMode:
         with self._mode_lock:
             return self._current_mode
-
 
     def _set_mode(self, mode: InteractionMode) -> None:
         with self._mode_lock:
@@ -597,17 +586,18 @@ class Orchestrator:
             if mode is not InteractionMode.VOICE:
                 self._session_active_until = 0.0
 
-
     def _toggle_mode(self) -> None:
         current = self._get_mode()
-        new_mode = InteractionMode.TEXT if current is InteractionMode.VOICE else InteractionMode.VOICE
+        new_mode = (
+            InteractionMode.TEXT if current is InteractionMode.VOICE else InteractionMode.VOICE
+        )
         self._set_mode(new_mode)
         logger.info("Interaction mode switched to %s", new_mode.value)
         self._announce_mode(speak=False)
 
     def _detect_wake_word(self, message: str) -> tuple[bool, int]:
         """Return whether the wake word was heard and the index after it.
-        
+
         Delegates to WakeWordMatcher for detection logic.
         Returns (detected, cutoff_index) where cutoff_index is the position
         after the wake word in the original message.
@@ -656,7 +646,6 @@ class Orchestrator:
                 return True, remainder
 
         return False, ""
-
 
     def _initialise_memory_keywords(
         self, memory_config: Optional[LongTermMemoryConfig]
@@ -727,7 +716,10 @@ class Orchestrator:
             except Exception as exc:
                 logger.warning("Time tool failed: %s", exc)
 
-        if any(pattern in lowered for pattern in ["what date", "current date", "today's date", "what day"]):
+        if any(
+            pattern in lowered
+            for pattern in ["what date", "current date", "today's date", "what day"]
+        ):
             try:
                 logger.info("Detected date query, using get_current_date tool")
                 self._output("[Getting current date...]")
@@ -762,7 +754,9 @@ class Orchestrator:
             try:
                 logger.info("Detected list files request")
                 self._output("[Listing files...]")
-                result = self._tool_manager.execute_tool("list_files", path=".", pattern="*", recursive=False)
+                result = self._tool_manager.execute_tool(
+                    "list_files", path=".", pattern="*", recursive=False
+                )
                 if result.success:
                     return f"TOOL RESULT (list_files): {result.output}\n\nShow these files to the user."
             except Exception as exc:
@@ -780,8 +774,17 @@ class Orchestrator:
                 logger.warning("System info tool failed: %s", exc)
 
         # Performance monitoring
-        perf_patterns = ["performance", "cpu usage", "memory usage", "ram usage", "disk usage",
-                         "gpu usage", "task manager", "resource usage", "system performance"]
+        perf_patterns = [
+            "performance",
+            "cpu usage",
+            "memory usage",
+            "ram usage",
+            "disk usage",
+            "gpu usage",
+            "task manager",
+            "resource usage",
+            "system performance",
+        ]
         if any(pattern in lowered for pattern in perf_patterns):
             try:
                 logger.info("Detected performance monitoring request")
@@ -804,15 +807,25 @@ class Orchestrator:
         """
         # Remove common conversational filler at start
         conversational_prefixes = [
-            "no, ", "yes, ", "ok, ", "okay, ", "sure, ", "alright, ",
-            "i want to ", "i'd like to ", "i need to ", "can you ",
-            "could you ", "please ", "will you "
+            "no, ",
+            "yes, ",
+            "ok, ",
+            "okay, ",
+            "sure, ",
+            "alright, ",
+            "i want to ",
+            "i'd like to ",
+            "i need to ",
+            "can you ",
+            "could you ",
+            "please ",
+            "will you ",
         ]
 
         cleaned = lowered
         for prefix in conversational_prefixes:
             if cleaned.startswith(prefix):
-                cleaned = cleaned[len(prefix):].strip()
+                cleaned = cleaned[len(prefix) :].strip()
 
         # Find which trigger was used and its position
         trigger_found = None
@@ -830,11 +843,11 @@ class Orchestrator:
         # Extract query based on trigger position
         if trigger_pos == 0:
             # Trigger at start: "search for X" or "what is X"
-            query = cleaned[len(trigger_found):].strip()
+            query = cleaned[len(trigger_found) :].strip()
             # Remove common connecting words
             for connector in ["for", "about", "on", "the", "a", "an"]:
                 if query.startswith(connector + " "):
-                    query = query[len(connector) + 1:].strip()
+                    query = query[len(connector) + 1 :].strip()
         else:
             # Trigger in middle/end: "hear the news from today, search the internet"
             # Extract the topic before the trigger
@@ -859,7 +872,7 @@ class Orchestrator:
                 # Use last meaningful phrase before trigger
                 words = before_trigger.split()
                 # Get last 3-5 words as query
-                query = " ".join(words[-min(5, len(words)):])
+                query = " ".join(words[-min(5, len(words)) :])
 
         # Final cleanup - remove trailing questions and phrases
         query = query.strip()
@@ -892,11 +905,28 @@ class Orchestrator:
 
         # Skip extraction from questions - they're asking, not telling
         question_indicators = [
-            "do you", "can you", "what", "when", "where", "who", "why", "how",
-            "is it", "are you", "will you", "should", "could", "would",
-            "remember my", "know my", "recall"
+            "do you",
+            "can you",
+            "what",
+            "when",
+            "where",
+            "who",
+            "why",
+            "how",
+            "is it",
+            "are you",
+            "will you",
+            "should",
+            "could",
+            "would",
+            "remember my",
+            "know my",
+            "recall",
         ]
-        if any(lowered.startswith(indicator) or f" {indicator}" in lowered for indicator in question_indicators):
+        if any(
+            lowered.startswith(indicator) or f" {indicator}" in lowered
+            for indicator in question_indicators
+        ):
             logger.debug("Skipping fact extraction - detected question")
             return
 
@@ -918,7 +948,11 @@ class Orchestrator:
         match = re.search(r"(?:you can |just )?call me (\w+)", lowered)
         if match:
             name = match.group(1).strip().title()
-            if len(name) >= 2 and not name.isdigit() and name.lower() not in ["back", "later", "tomorrow"]:
+            if (
+                len(name) >= 2
+                and not name.isdigit()
+                and name.lower() not in ["back", "later", "tomorrow"]
+            ):
                 try:
                     self._memory_store.store_fact(category="name", key="name", value=name)
                     logger.info("Extracted fact: name.name = '%s'", name)
@@ -928,7 +962,9 @@ class Orchestrator:
 
         # Extract birthday - improved patterns
         # Pattern 1: "my birthday is Month Day, Year" or "my birthday is Month Day"
-        match = re.search(r"my birthday(?:'s| is) ([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)", lowered)
+        match = re.search(
+            r"my birthday(?:'s| is) ([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)", lowered
+        )
         if match:
             birthday = match.group(1).strip().title()
             try:
@@ -939,13 +975,18 @@ class Orchestrator:
             return
 
         # Pattern 2: "I was born in/on Month Day, Year" or "born in Year"
-        match = re.search(r"(?:i was )?born (?:on |in )?([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?|\d{4}|[a-z]+ \d{4})", lowered)
+        match = re.search(
+            r"(?:i was )?born (?:on |in )?([a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?|\d{4}|[a-z]+ \d{4})",
+            lowered,
+        )
         if match:
             birthday = match.group(1).strip().title()
             # Don't extract if it's a question word like "in?"
             if not birthday.endswith("?") and len(birthday) >= 4:
                 try:
-                    self._memory_store.store_fact(category="birthday", key="birthday", value=birthday)
+                    self._memory_store.store_fact(
+                        category="birthday", key="birthday", value=birthday
+                    )
                     logger.info("Extracted fact: birthday.birthday = '%s'", birthday)
                 except Exception as exc:
                     logger.warning("Failed to store fact: %s", exc)
@@ -957,7 +998,10 @@ class Orchestrator:
         if match:
             thing = match.group(1).strip()
             # Filter out common false positives
-            if thing not in ["to", "that", "this", "it", "how", "when", "where"] and len(thing) >= 3:
+            if (
+                thing not in ["to", "that", "this", "it", "how", "when", "where"]
+                and len(thing) >= 3
+            ):
                 key = thing.split()[0]
                 try:
                     self._memory_store.store_fact(category="likes", key=key, value=thing)
@@ -970,7 +1014,10 @@ class Orchestrator:
         match = re.search(r"i love ([a-z]+(?:\s+[a-z]+)?)", lowered)
         if match:
             thing = match.group(1).strip()
-            if thing not in ["to", "that", "this", "it", "how", "when", "where"] and len(thing) >= 3:
+            if (
+                thing not in ["to", "that", "this", "it", "how", "when", "where"]
+                and len(thing) >= 3
+            ):
                 key = thing.split()[0]
                 try:
                     self._memory_store.store_fact(category="likes", key=key, value=thing)
@@ -997,7 +1044,10 @@ class Orchestrator:
         match = re.search(r"i (?:don't|do not|dont) like ([a-z]+(?:\s+[a-z]+)?)", lowered)
         if match:
             thing = match.group(1).strip()
-            if thing not in ["to", "that", "this", "it", "how", "when", "where"] and len(thing) >= 3:
+            if (
+                thing not in ["to", "that", "this", "it", "how", "when", "where"]
+                and len(thing) >= 3
+            ):
                 key = thing.split()[0]
                 try:
                     self._memory_store.store_fact(category="dislikes", key=key, value=thing)
@@ -1040,26 +1090,43 @@ class Orchestrator:
         lowered = query.lower()
 
         # Check for name queries
-        if any(phrase in lowered for phrase in ["my name", "what's my name", "who am i", "do you know my name"]):
+        if any(
+            phrase in lowered
+            for phrase in ["my name", "what's my name", "who am i", "do you know my name"]
+        ):
             fact = self._memory_store.get_fact("name", "name")
             if fact:
                 return f"FACT: Your name is {fact.value}."
 
         # Check for birthday queries
-        if any(phrase in lowered for phrase in ["my birthday", "when was i born", "when am i born", "my birth"]):
+        if any(
+            phrase in lowered
+            for phrase in ["my birthday", "when was i born", "when am i born", "my birth"]
+        ):
             fact = self._memory_store.get_fact("birthday", "birthday")
             if fact:
                 return f"FACT: Your birthday is {fact.value}."
 
         # Check for likes queries
-        if any(phrase in lowered for phrase in ["what do i like", "things i like", "my favorite", "do i like"]):
+        if any(
+            phrase in lowered
+            for phrase in ["what do i like", "things i like", "my favorite", "do i like"]
+        ):
             facts = self._memory_store.get_fact("likes")
             if isinstance(facts, list) and facts:
                 likes_list = [f.value for f in facts[:3]]  # Top 3
                 return f"FACT: You like: {', '.join(likes_list)}."
 
         # Check for dislikes queries
-        if any(phrase in lowered for phrase in ["what do i dislike", "what don't i like", "things i hate", "do i dislike"]):
+        if any(
+            phrase in lowered
+            for phrase in [
+                "what do i dislike",
+                "what don't i like",
+                "things i hate",
+                "do i dislike",
+            ]
+        ):
             facts = self._memory_store.get_fact("dislikes")
             if isinstance(facts, list) and facts:
                 dislikes_list = [f.value for f in facts[:3]]

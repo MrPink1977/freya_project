@@ -23,7 +23,7 @@ class ListFilesTool(FreyaTool):
         path: str = ".",
         pattern: str = "*",
         recursive: bool = False,
-        show_hidden: bool = False
+        show_hidden: bool = False,
     ) -> ToolResult:
         """List files in a directory.
 
@@ -56,7 +56,7 @@ class ListFilesTool(FreyaTool):
 
             for item in sorted(items):
                 # Skip hidden files if requested
-                if not show_hidden and item.name.startswith('.'):
+                if not show_hidden and item.name.startswith("."):
                     continue
 
                 relative = item.relative_to(base_path)
@@ -87,11 +87,7 @@ class ListFilesTool(FreyaTool):
             return ToolResult(
                 success=True,
                 output=output,
-                metadata={
-                    "path": str(base_path),
-                    "file_count": len(files),
-                    "dir_count": len(dirs)
-                }
+                metadata={"path": str(base_path), "file_count": len(files), "dir_count": len(dirs)},
             )
 
         except PermissionError:
@@ -102,7 +98,7 @@ class ListFilesTool(FreyaTool):
     @staticmethod
     def _format_size(size: int) -> str:
         """Format file size in human-readable format."""
-        for unit in ['B', 'KB', 'MB', 'GB']:
+        for unit in ["B", "KB", "MB", "GB"]:
             if size < 1024:
                 return f"{size:.1f}{unit}"
             size /= 1024
@@ -140,7 +136,7 @@ class ReadFileTool(FreyaTool):
                 return ToolResult(success=False, output="", error=f"Not a file: {path}")
 
             # Read file
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 lines = []
                 for i, line in enumerate(f):
                     if i >= max_lines:
@@ -156,8 +152,8 @@ class ReadFileTool(FreyaTool):
                 metadata={
                     "path": str(file_path),
                     "lines_read": len(lines),
-                    "size": file_path.stat().st_size
-                }
+                    "size": file_path.stat().st_size,
+                },
             )
 
         except UnicodeDecodeError:
@@ -197,8 +193,8 @@ class WriteFileTool(FreyaTool):
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Write file
-            mode = 'a' if append else 'w'
-            with open(file_path, mode, encoding='utf-8') as f:
+            mode = "a" if append else "w"
+            with open(file_path, mode, encoding="utf-8") as f:
                 f.write(content)
 
             action = "Appended to" if append else "Wrote"
@@ -211,8 +207,8 @@ class WriteFileTool(FreyaTool):
                     "path": str(file_path),
                     "bytes_written": len(content),
                     "total_size": size,
-                    "appended": append
-                }
+                    "appended": append,
+                },
             )
 
         except PermissionError:

@@ -56,7 +56,9 @@ def test_camera_config():
             if channel.channel_type.name == "REOLINK":
                 print(f"  Camera IP: {channel.ip}:{channel.rtsp_port}")
                 print(f"  Username: {channel.username}")
-                print(f"  Password: {'*' * len(channel.password) if channel.password else 'NOT SET'}")
+                print(
+                    f"  Password: {'*' * len(channel.password) if channel.password else 'NOT SET'}"
+                )
 
             print()
 
@@ -73,6 +75,7 @@ def test_camera_config():
         print("✗ Configuration Test FAILED")
         print("=" * 60)
         return False
+
 
 if __name__ == "__main__":
     success = test_camera_config()

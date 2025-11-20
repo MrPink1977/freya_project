@@ -274,7 +274,9 @@ class SystemCheck:
             print(self._colour("✓ All systems operational!\n", Fore.GREEN if Fore else ""))
             return True
 
-        print(self._colour("⚠ Some systems failed - check errors above\n", Fore.RED if Fore else ""))
+        print(
+            self._colour("⚠ Some systems failed - check errors above\n", Fore.RED if Fore else "")
+        )
         response = input("Continue anyway? (y/n): ")
         return response.strip().lower() == "y"
 

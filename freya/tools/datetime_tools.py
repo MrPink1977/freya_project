@@ -44,7 +44,7 @@ class GetCurrentTime(FreyaTool):
             return ToolResult(
                 success=True,
                 output=output,
-                metadata={"timestamp": now.isoformat(), "timezone": timezone}
+                metadata={"timestamp": now.isoformat(), "timezone": timezone},
             )
         except Exception as e:
             return ToolResult(success=False, output="", error=f"Failed to get time: {e}")
@@ -89,8 +89,8 @@ class GetCurrentDate(FreyaTool):
                     "year": now.year,
                     "month": now.month,
                     "day": now.day,
-                    "weekday": now.strftime("%A")
-                }
+                    "weekday": now.strftime("%A"),
+                },
             )
         except Exception as e:
             return ToolResult(success=False, output="", error=f"Failed to get date: {e}")
@@ -129,8 +129,7 @@ class CalculateTimeUntil(FreyaTool):
 
             if delta.total_seconds() < 0:
                 return ToolResult(
-                    success=True,
-                    output=f"That date has already passed {abs(delta.days)} days ago"
+                    success=True, output=f"That date has already passed {abs(delta.days)} days ago"
                 )
 
             days = delta.days
@@ -153,7 +152,7 @@ class CalculateTimeUntil(FreyaTool):
             return ToolResult(
                 success=True,
                 output=output,
-                metadata={"total_seconds": delta.total_seconds(), "days": days}
+                metadata={"total_seconds": delta.total_seconds(), "days": days},
             )
         except Exception as e:
             return ToolResult(success=False, output="", error=f"Failed to calculate time: {e}")

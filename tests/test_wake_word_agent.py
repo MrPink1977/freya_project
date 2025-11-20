@@ -131,15 +131,15 @@ async def test_session_window():
     await agent.start()
 
     # Initial wake word
-    stt.set_transcripts([
-        "Hey, Freya what time is it?",  # Wake word
-        "and what's the date?",  # Continuation (no wake word)
-    ])
+    stt.set_transcripts(
+        [
+            "Hey, Freya what time is it?",  # Wake word
+            "and what's the date?",  # Continuation (no wake word)
+        ]
+    )
     detector.should_detect = True
 
-    await bus.publish(
-        Message(topic="wake.start", payload={}, priority=MessagePriority.HIGH)
-    )
+    await bus.publish(Message(topic="wake.start", payload={}, priority=MessagePriority.HIGH))
 
     # Wait for both detections
     await asyncio.sleep(0.5)
@@ -153,9 +153,7 @@ async def test_session_window():
     # Second message should have continuation=True
     assert detected_messages[1].payload.get("continuation") is True
 
-    await bus.publish(
-        Message(topic="wake.stop", payload={}, priority=MessagePriority.HIGH)
-    )
+    await bus.publish(Message(topic="wake.stop", payload={}, priority=MessagePriority.HIGH))
 
     await asyncio.sleep(0.1)
     await agent.stop()
@@ -187,16 +185,16 @@ async def test_session_timeout():
     await agent.start()
 
     # Initial wake word
-    stt.set_transcripts([
-        "Hey, Freya hello",  # Wake word
-        "",  # Silence
-        "",  # More silence (session expires)
-    ])
+    stt.set_transcripts(
+        [
+            "Hey, Freya hello",  # Wake word
+            "",  # Silence
+            "",  # More silence (session expires)
+        ]
+    )
     detector.should_detect = True
 
-    await bus.publish(
-        Message(topic="wake.start", payload={}, priority=MessagePriority.HIGH)
-    )
+    await bus.publish(Message(topic="wake.start", payload={}, priority=MessagePriority.HIGH))
 
     # Wait for session to expire
     await asyncio.sleep(0.5)
@@ -205,9 +203,7 @@ async def test_session_timeout():
     assert len(timeout_messages) >= 1
     assert timeout_messages[0].topic == "wake.timeout"
 
-    await bus.publish(
-        Message(topic="wake.stop", payload={}, priority=MessagePriority.HIGH)
-    )
+    await bus.publish(Message(topic="wake.stop", payload={}, priority=MessagePriority.HIGH))
 
     await asyncio.sleep(0.1)
     await agent.stop()

@@ -55,9 +55,7 @@ class ToolExecutorAgent(BaseAgent):
             "read_file": re.compile(
                 r"\b(read|show|open|display)\s+(file|the\s+file)\b", re.IGNORECASE
             ),
-            "write_file": re.compile(
-                r"\b(write|create|save)\s+(to\s+)?file\b", re.IGNORECASE
-            ),
+            "write_file": re.compile(r"\b(write|create|save)\s+(to\s+)?file\b", re.IGNORECASE),
             "system": re.compile(
                 r"\b(system\s+info|os\s+info|python\s+version|disk\s+space)\b",
                 re.IGNORECASE,

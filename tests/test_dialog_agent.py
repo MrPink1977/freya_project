@@ -51,7 +51,7 @@ class MockOllamaClient:
         if self.current_stream_index >= len(self.streaming_responses):
             yield "Default stream chunk"
             return
-        
+
         for chunk in self.streaming_responses[self.current_stream_index]:
             yield chunk
         self.current_stream_index += 1
@@ -86,9 +86,7 @@ async def test_streaming_response():
     bus.subscribe("dialog.complete", collect_complete)
 
     # Set streaming response
-    ollama.set_streaming_responses([
-        ["The answer ", "is 42. ", "This is ", "the truth."]
-    ])
+    ollama.set_streaming_responses([["The answer ", "is 42. ", "This is ", "the truth."]])
 
     await agent.start()
 
@@ -145,10 +143,12 @@ async def test_confusion_escalation():
 
     # First response: confusion signal
     # Second response: better answer (after escalation)
-    ollama.set_streaming_responses([
-        ["I don't know the answer."],  # Confusion
-        ["The answer is 42!"],  # After escalation
-    ])
+    ollama.set_streaming_responses(
+        [
+            ["I don't know the answer."],  # Confusion
+            ["The answer is 42!"],  # After escalation
+        ]
+    )
 
     await agent.start()
 

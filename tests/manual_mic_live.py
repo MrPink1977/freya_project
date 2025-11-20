@@ -14,13 +14,7 @@ p = pyaudio.PyAudio()
 print("Opening microphone... will check levels every 5 seconds")
 print("Press Ctrl+C to stop\n")
 
-stream = p.open(
-    format=FORMAT,
-    channels=CHANNELS,
-    rate=RATE,
-    input=True,
-    frames_per_buffer=CHUNK
-)
+stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
 
 try:
     sample_count = 1
@@ -37,11 +31,11 @@ try:
                 continue
 
         # Combine all frames
-        audio_data = np.frombuffer(b''.join(frames), dtype=np.int16)
+        audio_data = np.frombuffer(b"".join(frames), dtype=np.int16)
 
         # Calculate average and peak volume
         if len(audio_data) > 0:
-            avg_volume = int(np.sqrt(np.mean(np.abs(audio_data)**2)))
+            avg_volume = int(np.sqrt(np.mean(np.abs(audio_data) ** 2)))
             peak_volume = int(np.max(np.abs(audio_data)))
 
             # Visual bar for average

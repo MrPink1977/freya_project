@@ -126,7 +126,9 @@ class ONVIFAudioClient:
             True if audio was streamed successfully, False otherwise
         """
         if not self._session_active:
-            logger.warning("Cannot stream audio, session not active for '%s'", self._config.channel_id)
+            logger.warning(
+                "Cannot stream audio, session not active for '%s'", self._config.channel_id
+            )
             return False
 
         try:
@@ -153,6 +155,7 @@ class ONVIFAudioClient:
 
         try:
             import importlib.util
+
             if importlib.util.find_spec("requests") is None:
                 logger.warning("requests library not available for HTTP audio streaming")
                 return

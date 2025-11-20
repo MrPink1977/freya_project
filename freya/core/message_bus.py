@@ -57,21 +57,24 @@ class MessageBus:
     - Correlation ID support for request/response
     """
 
-    def __init__(self, max_history: int = 100) -> None:
+    def __init__(self, max_history: int = 100, max_queue_size: int = 1000) -> None:
         """
         Initialize message bus.
 
         Args:
             max_history: Maximum messages to keep in history for debugging
+            max_queue_size: Maximum pending messages in queue (prevents memory overflow)
         """
         self._subscribers: Dict[str, List[Callable]] = defaultdict(list)
         self._history: List[Message] = []
         self._max_history = max_history
-        self._queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
+        self._max_queue_size = max_queue_size
+        self._queue: asyncio.PriorityQueue = asyncio.PriorityQueue(maxsize=max_queue_size)
         self._running = False
         self._dispatch_task: Optional[asyncio.Task] = None
         self._sequence = 0  # Sequence number for queue ordering
-        logger.info("MessageBus initialized")
+        self._dropped_messages = 0  # Track dropped messages due to full queue
+        logger.info("MessageBus initialized (max_queue_size=%d)", max_queue_size)
 
     async def start(self) -> None:
         """Start message bus dispatch loop."""
@@ -161,12 +164,22 @@ class MessageBus:
         # (lower number = higher priority in asyncio)
         priority_value = -priority.value
         self._sequence += 1
-        await self._queue.put((priority_value, self._sequence, message))
 
-        logger.debug(
-            f"Published: {topic} from {sender} (priority: {priority.name}, "
-            f"correlation_id: {correlation_id})"
-        )
+        try:
+            # Try to add to queue without blocking
+            self._queue.put_nowait((priority_value, self._sequence, message))
+            logger.debug(
+                f"Published: {topic} from {sender} (priority: {priority.name}, "
+                f"correlation_id: {correlation_id})"
+            )
+        except asyncio.QueueFull:
+            # Queue is full - drop message and log warning
+            self._dropped_messages += 1
+            logger.warning(
+                f"MessageBus queue full ({self._max_queue_size} messages)! "
+                f"Dropped message: {topic} from {sender} "
+                f"(total dropped: {self._dropped_messages})"
+            )
 
     async def _dispatch_loop(self) -> None:
         """Main dispatch loop - runs continuously while bus is active."""

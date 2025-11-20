@@ -182,7 +182,7 @@ class ElevenLabsTTS:
                         logger.debug("Stop signal received, halting playback")
                         break
 
-                    chunk = raw_data[i:i + chunk_size]
+                    chunk = raw_data[i : i + chunk_size]
                     stream.write(chunk)
 
             finally:
