@@ -1,51 +1,78 @@
 # freya/wake_word_matcher.py
 
-import asyncio
-from pydub import AudioSegment
+import re
+from difflib import SequenceMatcher
+
 
 class WakeWordMatcher:
-    def __init__(self):
-        self.wake_word_audio = None
+    """Fuzzy wake word matcher with token-based detection."""
     
-    async def detect_wake_word(self):
-        # This is a placeholder function, replace it with your actual wake word detection logic
-        if not self.wake_word_audio:
-            self.wake_word_audio = AudioSegment.from_file("wake_word_audio.wav")
+    def __init__(
+        self,
+        wake_word: str = "Hey, Freya",
+        sensitivity: float = 0.75,
+        token_offset_limit: int = 2,
+    ):
+        """
+        Initialize wake word matcher.
         
-        # Detect the wake word in the audio
-        sample_rate = 44100
-        frame_size = 256
+        Args:
+            wake_word: Wake word phrase to detect
+            sensitivity: Match sensitivity (0-1, higher = stricter)
+            token_offset_limit: Max tokens allowed before/after wake word
+        """
+        self.wake_word = wake_word.lower()
+        self.wake_word_display = wake_word
+        self.sensitivity = max(0.0, min(1.0, sensitivity))
+        self.token_offset_limit = token_offset_limit
         
-        frames = []
-        for i in range(0, len(self.wake_word_audio), frame_size):
-            start_time = (i / float(sample_rate))
-            end_time = min((i + frame_size) / float(sample_rate), len(self.wake_word_audio) / float(sample_rate))
-            
-            # Preprocess the audio frame
-            chunk = self.wake_word_audio[round(start_time * sample_rate): round(end_time * sample_rate)]
-            frames.append(chunk)
-        
-        # Compute the spectrogram of each frame
-        features = []
-        for i in range(len(frames)):
-            freq = frames[i].to_array()[0]
-            
-            # This is a placeholder, replace it with your actual feature extraction logic
-            features.append([freq])
-        
-        # Check if the wake word was detected
-        wake_word_detected = False
-        
-        for feature in features:
-            for f in feature:
-                if abs(f) > 50: # 50 is an example threshold value
-                    wake_word_detected = True
-                    break
-            
-            if wake_word_detected:
-                break
-        
-        return wake_word_detected
+        # Tokenize wake word
+        self.wake_tokens = self._tokenize(self.wake_word)
     
-    async def set_wake_word_audio(self, audio_file):
-        self.wake_word_audio = AudioSegment.from_file(audio_file)
+    def _tokenize(self, text: str) -> list[str]:
+        """Split text into tokens."""
+        return re.findall(r'\w+', text.lower())
+    
+    def _fuzzy_match(self, str1: str, str2: str) -> float:
+        """Calculate fuzzy match ratio between two strings."""
+        return SequenceMatcher(None, str1, str2).ratio()
+    
+    def find_wake_word(self, transcript: str) -> tuple[bool, str]:
+        """
+        Find wake word in transcript using fuzzy matching.
+        
+        Args:
+            transcript: Input transcript to search
+            
+        Returns:
+            (detected, remainder): Whether wake word detected and remaining text
+        """
+        if not transcript:
+            return False, ""
+        
+        transcript_lower = transcript.lower()
+        tokens = self._tokenize(transcript_lower)
+        
+        if not tokens:
+            return False, ""
+        
+        # Try to find wake word sequence
+        wake_len = len(self.wake_tokens)
+        
+        for i in range(len(tokens) - wake_len + 1):
+            # Check if this position might be wake word
+            window = tokens[i:i + wake_len]
+            
+            # Calculate match score
+            match_score = sum(
+                self._fuzzy_match(wake_tok, trans_tok)
+                for wake_tok, trans_tok in zip(self.wake_tokens, window)
+            ) / wake_len
+            
+            if match_score >= self.sensitivity:
+                # Found wake word! Extract remainder
+                remainder_tokens = tokens[i + wake_len:]
+                remainder = " ".join(remainder_tokens)
+                return True, remainder
+        
+        return False, ""

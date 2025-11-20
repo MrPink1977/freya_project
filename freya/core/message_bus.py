@@ -70,6 +70,7 @@ class MessageBus:
         self._queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
         self._running = False
         self._dispatch_task: Optional[asyncio.Task] = None
+        self._sequence = 0  # Sequence number for queue ordering
         logger.info("MessageBus initialized")
 
     async def start(self) -> None:
@@ -156,9 +157,11 @@ class MessageBus:
         if len(self._history) > self._max_history:
             self._history.pop(0)
 
-        # Queue with inverted priority (lower number = higher priority in asyncio)
+        # Queue with inverted priority and sequence number for stable ordering
+        # (lower number = higher priority in asyncio)
         priority_value = -priority.value
-        await self._queue.put((priority_value, message))
+        self._sequence += 1
+        await self._queue.put((priority_value, self._sequence, message))
 
         logger.debug(
             f"Published: {topic} from {sender} (priority: {priority.name}, "
@@ -171,7 +174,8 @@ class MessageBus:
         while self._running:
             try:
                 # Wait for next message (blocks until available)
-                _, message = await asyncio.wait_for(self._queue.get(), timeout=0.1)
+                # Unpack priority, sequence, and message
+                _, _, message = await asyncio.wait_for(self._queue.get(), timeout=0.1)
                 await self._deliver_message(message)
             except asyncio.TimeoutError:
                 # No messages, continue loop

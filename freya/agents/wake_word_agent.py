@@ -42,6 +42,7 @@ class WakeWordAgent(BaseAgent):
         wake_sensitivity: float = 0.75,
         session_window: float = 8.0,
         wake_detector: Optional[WakeWordDetector] = None,
+        channel_id: str = "pc",
     ) -> None:
         """
         Initialize wake word agent.
@@ -54,6 +55,7 @@ class WakeWordAgent(BaseAgent):
             wake_sensitivity: Detection sensitivity (0-1)
             session_window: Seconds to keep session active after wake
             wake_detector: Optional lightweight wake detector (Whisper tiny)
+            channel_id: Audio channel this agent listens on (pc, doorbell, etc.)
         """
         super().__init__(agent_id, bus)
         self._stt = stt
@@ -65,6 +67,7 @@ class WakeWordAgent(BaseAgent):
         )
         self._session_window = max(0.0, session_window)
         self._session_active_until = 0.0
+        self._channel_id = channel_id
 
         # State management
         self._listening = False
@@ -74,7 +77,7 @@ class WakeWordAgent(BaseAgent):
         """Initialize wake word agent."""
         self.logger.info(
             f"WakeWordAgent initialized: wake_word='{self._wake_matcher.wake_word_display}', "
-            f"session_window={self._session_window}s"
+            f"session_window={self._session_window}s, channel={self._channel_id}"
         )
 
     def get_capabilities(self) -> list[AgentCapability]:
@@ -181,14 +184,8 @@ class WakeWordAgent(BaseAgent):
         self.logger.debug("Wake word listen loop stopped")
 
     async def _listen_for_wake_word(self) -> None:
-        """Listen for wake word using lightweight detector or STT."""
+        """Listen for wake word using STT."""
         try:
-            # Use lightweight wake detector if available (Whisper tiny)
-            if self._wake_detector:
-                detected = await asyncio.to_thread(self._wake_detector.detect)
-                if not detected:
-                    return
-
             # Use STT to get full transcript
             transcript = await asyncio.to_thread(self._stt.listen)
             if not transcript or not transcript.strip():
@@ -211,6 +208,7 @@ class WakeWordAgent(BaseAgent):
                         "full_transcript": transcript,
                         "confidence": 0.9,  # TODO: Get from wake detector
                         "session_expires": self._session_active_until,
+                        "channel_id": self._channel_id,
                     },
                     priority=MessagePriority.HIGH,
                 )
@@ -257,6 +255,7 @@ class WakeWordAgent(BaseAgent):
                     "confidence": 1.0,
                     "continuation": True,
                     "session_expires": self._session_active_until,
+                    "channel_id": self._channel_id,
                 },
                 priority=MessagePriority.HIGH,
             )

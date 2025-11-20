@@ -13,9 +13,11 @@ from typing import Callable, Optional
 from freya.agents.base_agent import BaseAgent
 from freya.agents.dialog_agent import DialogAgent
 from freya.agents.memory_agent import MemoryAgent
+from freya.agents.speech_agent import SpeechAgent
 from freya.agents.tool_executor_agent import ToolExecutorAgent
 from freya.agents.wake_word_agent import WakeWordAgent
 from freya.context import ConversationContext
+from freya.coordination.audio_channel_manager import AudioChannelManager
 from freya.core.message_bus import Message, MessageBus, MessagePriority
 from freya.logger import get_logger
 from freya.memory import ChromaMemoryStore
@@ -40,8 +42,7 @@ class OrchestrationCoordinator:
         self,
         ollama_client: OllamaClient,
         context: ConversationContext,
-        stt: SpeechToText,
-        tts: TextToSpeech,
+        config,  # Full config object for SpeechAgent
         memory_store: ChromaMemoryStore,
         tool_manager: ToolManager,
         output_fn: Callable[[str], None] = print,
@@ -64,8 +65,7 @@ class OrchestrationCoordinator:
         Args:
             ollama_client: Ollama LLM client
             context: Conversation context manager
-            stt: Speech-to-text engine
-            tts: Text-to-speech engine
+            config: Full configuration object
             memory_store: ChromaDB memory store
             tool_manager: Tool registry
             output_fn: Output function for user messages
@@ -81,15 +81,21 @@ class OrchestrationCoordinator:
         """
         self._output = output_fn
         self._mode = interaction_mode.lower()
-        
-        # Legacy components (until SpeechAgent built)
-        self._stt = stt
-        self._tts = tts
+        self._config = config
         
         # Create MessageBus
         self.bus = MessageBus()
         
+        # Create AudioChannelManager
+        self._channel_manager = AudioChannelManager(self.bus)
+        
         # Initialize agents
+        self._speech_agent = SpeechAgent(
+            agent_id="speech",
+            message_bus=self.bus,
+            config=config,
+        )
+        
         self._tool_agent = ToolExecutorAgent(
             agent_id="tool_executor",
             bus=self.bus,
@@ -103,14 +109,19 @@ class OrchestrationCoordinator:
             auto_extract_facts=True,
         )
         
+        # Create temporary STT for wake word (until we have multi-channel STT)
+        from freya.stt import SpeechToText
+        _temp_stt = SpeechToText(config.stt)
+        
         self._wake_agent = WakeWordAgent(
             agent_id="wake_word",
             bus=self.bus,
-            stt=stt,
+            stt=_temp_stt,
             wake_word=wake_word,
             wake_sensitivity=wake_sensitivity,
             session_window=session_window,
             wake_detector=wake_detector,
+            channel_id="pc",  # Default PC channel
         )
         
         self._dialog_agent = DialogAgent(
@@ -126,6 +137,7 @@ class OrchestrationCoordinator:
         
         # Agent list for lifecycle management
         self._agents: list[BaseAgent] = [
+            self._speech_agent,
             self._tool_agent,
             self._memory_agent,
             self._wake_agent,
@@ -146,7 +158,7 @@ class OrchestrationCoordinator:
             await self._subscribe_to_events()
             
             # Announce startup
-            self._announce_startup()
+            await self._announce_startup()
             
             # Run appropriate mode
             if self._mode == "voice":
@@ -162,8 +174,19 @@ class OrchestrationCoordinator:
     async def _start_agents(self) -> None:
         """Start all agents."""
         logger.info("Starting agents...")
+        
+        # Start message bus FIRST
+        print("[DEBUG] Coordinator: Starting MessageBus...")
+        await self.bus.start()
+        print("[DEBUG] Coordinator: MessageBus started")
+        
+        # Start channel manager
+        await self._channel_manager.start()
+        
+        # Start all agents
         for agent in self._agents:
             await agent.start()
+        
         logger.info("All agents started")
         self._running = True
 
@@ -171,8 +194,17 @@ class OrchestrationCoordinator:
         """Stop all agents."""
         logger.info("Stopping agents...")
         self._running = False
+        
+        # Stop all agents
         for agent in self._agents:
             await agent.stop()
+        
+        # Stop channel manager
+        await self._channel_manager.stop()
+        
+        # Stop message bus last
+        await self.bus.stop()
+        
         logger.info("All agents stopped")
 
     async def _subscribe_to_events(self) -> None:
@@ -180,7 +212,7 @@ class OrchestrationCoordinator:
         # Wake word detected → handle conversation
         self.bus.subscribe("wake.detected", self._handle_wake_detected)
         
-        # Dialog chunk → speak with TTS
+        # Dialog chunk → forward to speech agent
         self.bus.subscribe("dialog.chunk", self._handle_dialog_chunk)
         
         # Dialog complete → store in memory
@@ -189,20 +221,27 @@ class OrchestrationCoordinator:
         # Tool result → inject into dialog context
         self.bus.subscribe("tool.result", self._handle_tool_result)
         
+        # Speech transcription → process as user input
+        self.bus.subscribe("speech.transcription", self._handle_transcription)
+        
         logger.debug("Coordinator subscribed to events")
 
-    def _announce_startup(self) -> None:
+    async def _announce_startup(self) -> None:
         """Announce startup and mode."""
         if self._mode == "voice":
             self._output(
                 "Freya: Voice mode active. Say 'Hey, Freya' followed by your message. "
                 "Say 'exit' or 'quit' to stop."
             )
-            # Speak ready prompt
-            try:
-                self._tts.speak("Freya is ready.")
-            except Exception as exc:
-                logger.warning(f"TTS error during startup: {exc}")
+            # Speak ready prompt via SpeechAgent
+            print("[DEBUG] Coordinator: Publishing speech.speak_request...")
+            await self.bus.publish(
+                topic="speech.speak_request",
+                payload={"text": "Freya is ready.", "channel_id": "pc"},
+                sender="coordinator",
+                priority=MessagePriority.NORMAL,
+            )
+            print("[DEBUG] Coordinator: Published speech.speak_request")
         else:
             self._output(
                 "Freya: Text mode active. Type your message and press Enter. "
@@ -213,11 +252,10 @@ class OrchestrationCoordinator:
         """Run voice interaction mode with wake word detection."""
         # Start wake word listening
         await self.bus.publish(
-            Message(
-                topic="wake.start",
-                payload={},
-                priority=MessagePriority.HIGH,
-            )
+            topic="wake.start",
+            payload={},
+            sender="coordinator",
+            priority=MessagePriority.HIGH,
         )
         
         # Keep running until interrupted
@@ -273,11 +311,12 @@ class OrchestrationCoordinator:
     async def _handle_wake_detected(self, message: Message) -> None:
         """Handle wake word detection - start conversation flow."""
         transcript = message.payload.get("transcript", "").strip()
+        channel_id = message.payload.get("channel_id", "pc")
         
         if not transcript:
             return
         
-        logger.info(f"Wake detected: '{transcript}'")
+        logger.info(f"Wake detected on {channel_id}: '{transcript}'")
         
         # Query memory for relevant context
         memories_text = await self._query_relevant_memories(transcript)
@@ -285,49 +324,50 @@ class OrchestrationCoordinator:
         # Inject memories into dialog context
         if memories_text:
             await self.bus.publish(
-                Message(
-                    topic="dialog.inject_context",
-                    payload={"context": memories_text},
-                    priority=MessagePriority.NORMAL,
-                )
+                topic="dialog.inject_context",
+                payload={"context": memories_text},
+                sender="coordinator",
+                priority=MessagePriority.NORMAL,
             )
         
-        # Send to dialog agent
-        await self._handle_user_input(transcript)
+        # Send to dialog agent with channel info
+        await self._handle_user_input(transcript, channel_id)
 
-    async def _handle_user_input(self, user_text: str) -> None:
+    async def _handle_user_input(self, user_text: str, channel_id: str = "pc") -> None:
         """Process user input through dialog agent."""
         # Store user message in memory
         await self.bus.publish(
-            Message(
-                topic="memory.store",
-                payload={"content": user_text, "role": "user", "importance": 1},
-                priority=MessagePriority.NORMAL,
-            )
+            topic="memory.store",
+            payload={"content": user_text, "role": "user", "importance": 1},
+            sender="coordinator",
+            priority=MessagePriority.NORMAL,
         )
         
-        # Send to dialog agent
+        # Send to dialog agent with channel context
         await self.bus.publish(
-            Message(
-                topic="dialog.request",
-                payload={"text": user_text, "stream": True},
-                priority=MessagePriority.HIGH,
-            )
+            topic="dialog.request",
+            payload={"text": user_text, "stream": True, "channel_id": channel_id},
+            sender="coordinator",
+            priority=MessagePriority.HIGH,
         )
 
     async def _handle_dialog_chunk(self, message: Message) -> None:
-        """Handle dialog chunk - speak with TTS in voice mode."""
+        """Handle dialog chunk - forward to speech agent for TTS."""
         text = message.payload.get("text", "")
+        channel_id = message.payload.get("channel_id", "pc")
         
         if not text:
             return
         
-        # Speak in voice mode (TTS handles async internally)
+        # Forward to SpeechAgent in voice mode
         if self._mode == "voice":
-            try:
-                self._tts.speak(text)
-            except Exception as exc:
-                logger.warning(f"TTS error: {exc}")
+            await self.bus.publish(
+                topic="speech.speak_request",
+                payload={"text": text, "channel_id": channel_id},
+                sender="coordinator",
+                priority=MessagePriority.HIGH,
+                correlation_id=message.correlation_id,
+            )
         else:
             # In text mode, print chunks as they arrive
             print(text, end="", flush=True)
@@ -349,11 +389,10 @@ class OrchestrationCoordinator:
         
         # Store assistant response
         await self.bus.publish(
-            Message(
-                topic="memory.store",
-                payload={"content": response, "role": "assistant", "importance": 1},
-                priority=MessagePriority.NORMAL,
-            )
+            topic="memory.store",
+            payload={"content": response, "role": "assistant", "importance": 1},
+            sender="coordinator",
+            priority=MessagePriority.NORMAL,
         )
 
     async def _handle_tool_result(self, message: Message) -> None:
@@ -364,12 +403,22 @@ class OrchestrationCoordinator:
         if result:
             context_text = f"Tool '{tool_name}' result: {result}"
             await self.bus.publish(
-                Message(
-                    topic="dialog.inject_context",
-                    payload={"context": context_text},
-                    priority=MessagePriority.NORMAL,
-                )
+                topic="dialog.inject_context",
+                payload={"context": context_text},
+                sender="coordinator",
+                priority=MessagePriority.NORMAL,
             )
+    
+    async def _handle_transcription(self, message: Message) -> None:
+        """Handle speech transcription from SpeechAgent."""
+        text = message.payload.get("text", "").strip()
+        channel_id = message.payload.get("channel_id", "pc")
+        
+        if not text:
+            return
+        
+        logger.info(f"Transcription from {channel_id}: '{text}'")
+        await self._handle_user_input(text, channel_id)
 
     async def _query_relevant_memories(self, query: str, limit: int = 3) -> str:
         """Query memory agent for relevant context."""
@@ -388,12 +437,11 @@ class OrchestrationCoordinator:
         
         # Publish query
         await self.bus.publish(
-            Message(
-                topic="memory.query",
-                payload={"query": query, "limit": limit, "min_score": 0.3},
-                priority=MessagePriority.NORMAL,
-                correlation_id=correlation_id,
-            )
+            topic="memory.query",
+            payload={"query": query, "limit": limit, "min_score": 0.3},
+            sender="coordinator",
+            priority=MessagePriority.NORMAL,
+            correlation_id=correlation_id,
         )
         
         # Wait for results (with timeout)
@@ -424,29 +472,32 @@ def create_coordinator_from_config(config) -> OrchestrationCoordinator:
     """
     # Import here to avoid circular dependencies
     from freya.config import Settings
+    from freya.context import ConversationContext
     from freya.memory import ChromaMemoryStore
     from freya.ollama_client import OllamaClient
-    from freya.stt import SpeechToText
     from freya.tools import ToolManager
-    from freya.tts import TextToSpeech
     from freya.wake import WakeWordDetector
     
     # Initialize components
+    print("[DEBUG] factory: Creating OllamaClient...")
     ollama = OllamaClient(config.ollama)
+    print("[DEBUG] factory: Creating ConversationContext...")
     context = ConversationContext(
         system_prompt=config.app.system_prompt,
         max_history=config.app.max_history,
     )
-    stt = SpeechToText(config.stt)
-    tts = TextToSpeech(config.tts)
     
     # Memory
+    print("[DEBUG] factory: Creating ChromaMemoryStore...")
     memory_store = ChromaMemoryStore(
         db_path=config.memory.long_term.db_path,
     )
+    print("[DEBUG] factory: ChromaMemoryStore created")
     
     # Tools
+    print("[DEBUG] factory: Creating ToolManager...")
     tool_manager = ToolManager()
+    print("[DEBUG] factory: ToolManager created")
     
     # Wake detector (optional)
     wake_detector = None
@@ -459,8 +510,7 @@ def create_coordinator_from_config(config) -> OrchestrationCoordinator:
     return OrchestrationCoordinator(
         ollama_client=ollama,
         context=context,
-        stt=stt,
-        tts=tts,
+        config=config,  # Pass full config for SpeechAgent
         memory_store=memory_store,
         tool_manager=tool_manager,
         wake_word=config.app.wake_word,

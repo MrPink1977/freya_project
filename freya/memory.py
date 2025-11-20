@@ -253,10 +253,13 @@ class ChromaMemoryStore:
         # Sort by adjusted score
         memories.sort(key=lambda m: m.score, reverse=True)
 
-        logger.debug(
-            f"Retrieved {len(memories)} memories (avg score: "
-            f"{sum(m.score for m in memories) / len(memories):.2f})"
-        )
+        if memories:
+            logger.debug(
+                f"Retrieved {len(memories)} memories (avg score: "
+                f"{sum(m.score for m in memories) / len(memories):.2f})"
+            )
+        else:
+            logger.debug("No memories found matching query")
 
         return memories
 
