@@ -139,12 +139,17 @@ class HealthMonitor:
             state: Optional state update
             metadata: Optional metadata update
         """
+        # Check if agent exists (without holding lock for auto-register)
         async with self._lock:
-            if agent_id not in self._agents:
-                # Auto-register if not found
-                await self.register_agent(agent_id, state=state or "unknown", metadata=metadata)
-                return
+            agent_exists = agent_id in self._agents
+        
+        # Auto-register if not found (outside lock to avoid deadlock)
+        if not agent_exists:
+            await self.register_agent(agent_id, state=state or "unknown", metadata=metadata)
+            return
 
+        # Update existing agent
+        async with self._lock:
             health = self._agents[agent_id]
             health.last_heartbeat = time.time()
 

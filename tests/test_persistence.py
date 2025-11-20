@@ -98,9 +98,9 @@ async def test_store_multiple_messages(persistence):
 @pytest.mark.asyncio
 async def test_query_by_topic(persistence):
     """Test querying messages by topic."""
-    await persistence.store_message(Message("topic.one", "agent", {}, MessagePriority.NORMAL))
-    await persistence.store_message(Message("topic.two", "agent", {}, MessagePriority.NORMAL))
-    await persistence.store_message(Message("topic.one", "agent", {}, MessagePriority.NORMAL))
+    await persistence.store_message(Message("topic.one", {}, "agent", MessagePriority.NORMAL))
+    await persistence.store_message(Message("topic.two", {}, "agent", MessagePriority.NORMAL))
+    await persistence.store_message(Message("topic.one", {}, "agent", MessagePriority.NORMAL))
     
     messages = await persistence.query_messages(topic="topic.one")
     assert len(messages) == 2
@@ -109,9 +109,9 @@ async def test_query_by_topic(persistence):
 @pytest.mark.asyncio
 async def test_query_by_sender(persistence):
     """Test querying messages by sender."""
-    await persistence.store_message(Message("topic", "agent1", {}, MessagePriority.NORMAL))
-    await persistence.store_message(Message("topic", "agent2", {}, MessagePriority.NORMAL))
-    await persistence.store_message(Message("topic", "agent1", {}, MessagePriority.NORMAL))
+    await persistence.store_message(Message("topic", {}, "agent1", MessagePriority.NORMAL))
+    await persistence.store_message(Message("topic", {}, "agent2", MessagePriority.NORMAL))
+    await persistence.store_message(Message("topic", {}, "agent1", MessagePriority.NORMAL))
     
     messages = await persistence.query_messages(sender="agent1")
     assert len(messages) == 2
@@ -120,9 +120,9 @@ async def test_query_by_sender(persistence):
 @pytest.mark.asyncio
 async def test_query_with_wildcard(persistence):
     """Test querying with wildcard topics."""
-    await persistence.store_message(Message("agent.memory.store", "agent", {}, MessagePriority.NORMAL))
-    await persistence.store_message(Message("agent.memory.query", "agent", {}, MessagePriority.NORMAL))
-    await persistence.store_message(Message("system.startup", "agent", {}, MessagePriority.NORMAL))
+    await persistence.store_message(Message("agent.memory.store", {}, "agent", MessagePriority.NORMAL))
+    await persistence.store_message(Message("agent.memory.query", {}, "agent", MessagePriority.NORMAL))
+    await persistence.store_message(Message("system.startup", {}, "agent", MessagePriority.NORMAL))
     
     messages = await persistence.query_messages(topic="agent.memory.*")
     assert len(messages) == 2
@@ -132,7 +132,7 @@ async def test_query_with_wildcard(persistence):
 async def test_query_with_limit(persistence):
     """Test query limit."""
     for i in range(10):
-        await persistence.store_message(Message("topic", "agent", {"i": i}, MessagePriority.NORMAL))
+        await persistence.store_message(Message("topic", {"i": i}, "agent", MessagePriority.NORMAL))
     
     messages = await persistence.query_messages(limit=5)
     assert len(messages) == 5
@@ -143,7 +143,7 @@ async def test_cleanup_old_messages(persistence):
     """Test automatic cleanup of old messages."""
     # Store more than max_messages
     for i in range(120):  # max is 100
-        await persistence.store_message(Message("topic", "agent", {"i": i}, MessagePriority.NORMAL))
+        await persistence.store_message(Message("topic", {"i": i}, "agent", MessagePriority.NORMAL))
     
     # Should have cleaned up to max_messages
     messages = await persistence.query_messages(limit=200)
@@ -153,9 +153,9 @@ async def test_cleanup_old_messages(persistence):
 @pytest.mark.asyncio
 async def test_get_stats(persistence):
     """Test getting persistence stats."""
-    await persistence.store_message(Message("topic1", "agent1", {}, MessagePriority.NORMAL))
-    await persistence.store_message(Message("topic2", "agent1", {}, MessagePriority.NORMAL))
-    await persistence.store_message(Message("topic1", "agent2", {}, MessagePriority.NORMAL))
+    await persistence.store_message(Message("topic1", {}, "agent1", MessagePriority.NORMAL))
+    await persistence.store_message(Message("topic2", {}, "agent1", MessagePriority.NORMAL))
+    await persistence.store_message(Message("topic1", {}, "agent2", MessagePriority.NORMAL))
     
     stats = await persistence.get_stats()
     
@@ -170,7 +170,7 @@ async def test_get_stats(persistence):
 async def test_clear_all(persistence):
     """Test clearing all messages."""
     for i in range(5):
-        await persistence.store_message(Message("topic", "agent", {}, MessagePriority.NORMAL))
+        await persistence.store_message(Message("topic", {}, "agent", MessagePriority.NORMAL))
     
     await persistence.clear_all()
     
@@ -181,7 +181,7 @@ async def test_clear_all(persistence):
 @pytest.mark.asyncio
 async def test_disabled_persistence_no_op(persistence_disabled):
     """Test disabled persistence doesn't store anything."""
-    message = Message("topic", "agent", {}, MessagePriority.NORMAL)
+    message = Message("topic", {}, "agent", MessagePriority.NORMAL)
     await persistence_disabled.store_message(message)
     
     messages = await persistence_disabled.query_messages()
@@ -197,10 +197,10 @@ async def test_correlation_id_query(persistence):
     corr_id = "test-correlation-123"
     
     await persistence.store_message(
-        Message("topic", "agent", {}, MessagePriority.NORMAL, correlation_id=corr_id)
+        Message("topic", {}, "agent", MessagePriority.NORMAL, correlation_id=corr_id)
     )
     await persistence.store_message(
-        Message("topic", "agent", {}, MessagePriority.NORMAL, correlation_id="other")
+        Message("topic", {}, "agent", MessagePriority.NORMAL, correlation_id="other")
     )
     
     messages = await persistence.query_messages(correlation_id=corr_id)

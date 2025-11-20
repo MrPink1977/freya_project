@@ -206,6 +206,9 @@ async def test_agent_restart_with_health_monitor(bus, health_monitor):
     # Restart
     await agent.restart()
     
+    # Wait for heartbeat to update state
+    await asyncio.sleep(0.2)
+    
     # Check health still tracked
     health2 = await health_monitor.get_health("test_agent")
     assert health2 is not None

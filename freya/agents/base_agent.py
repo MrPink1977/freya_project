@@ -80,12 +80,6 @@ class BaseAgent(ABC):
 
         self.logger.info(f"Agent {agent_id} created")
 
-        # Register with health monitor if available
-        if self.health_monitor:
-            asyncio.create_task(
-                self.health_monitor.register_agent(agent_id, state=self.state.value)
-            )
-
     @abstractmethod
     async def initialize(self) -> None:
         """
@@ -118,6 +112,14 @@ class BaseAgent(ABC):
 
         try:
             self.state = AgentState.INITIALIZING
+            
+            # Register with health monitor if available
+            if self.health_monitor:
+                await self.health_monitor.register_agent(
+                    self.agent_id, 
+                    state=self.state.value
+                )
+            
             await self.initialize()
 
             # Subscribe to input topics
@@ -155,6 +157,13 @@ class BaseAgent(ABC):
         """
         self.logger.info(f"Stopping agent {self.agent_id}")
         self.state = AgentState.STOPPED
+
+        # Unsubscribe from all topics
+        capabilities = self.get_capabilities()
+        for capability in capabilities:
+            for topic in capability.input_topics:
+                self.bus.unsubscribe(topic, self._handle_message)
+                self.logger.debug(f"Unsubscribed from topic: {topic}")
 
         # Cancel heartbeat task
         if self._heartbeat_task and not self._heartbeat_task.done():
