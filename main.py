@@ -11,6 +11,7 @@ import re
 import shutil
 from datetime import datetime
 from enum import Enum
+from dataclasses import replace
 from pathlib import Path
 from typing import Callable
 
@@ -147,21 +148,27 @@ def main() -> None:
     # Load settings and apply overrides from env/CLI
     settings = load_settings()
 
+    # settings objects are frozen dataclasses; build a modified copy instead
+    app_cfg = settings.app
+
     # Environment variable override: FREYA_STARTUP_MODE
     env_mode = os.getenv("FREYA_STARTUP_MODE")
     if env_mode:
-        settings.app.startup_mode = env_mode
+        app_cfg = replace(app_cfg, startup_mode=env_mode)
 
     # Environment variable to control prompting: FREYA_PROMPT_FOR_MODE (1/0, true/false)
     env_prompt = os.getenv("FREYA_PROMPT_FOR_MODE")
     if env_prompt is not None:
-        settings.app.prompt_for_mode = env_prompt.lower() in ("1", "true", "yes")
+        app_cfg = replace(app_cfg, prompt_for_mode=env_prompt.lower() in ("1", "true", "yes"))
 
     # CLI overrides take precedence
     if args.startup_mode:
-        settings.app.startup_mode = args.startup_mode
+        app_cfg = replace(app_cfg, startup_mode=args.startup_mode)
     if args.no_prompt:
-        settings.app.prompt_for_mode = False
+        app_cfg = replace(app_cfg, prompt_for_mode=False)
+
+    # Rebuild a new Settings object with the updated AppConfig
+    settings = replace(settings, app=app_cfg)
 
     mode = _select_startup_mode(settings.app)
 
