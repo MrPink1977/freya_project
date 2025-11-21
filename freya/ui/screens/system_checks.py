@@ -10,7 +10,7 @@ from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer, Header, Static
 
 if TYPE_CHECKING:
-    from freya.config import FreyaConfig
+    from freya.config import Settings
 
 from ..checks import BaseSystemCheck
 from ..checks.audio_check import MicrophoneCheck, SpeakerCheck
@@ -30,7 +30,7 @@ class SystemChecksScreen(Screen):
         ("q", "quit_screen", "Back"),
     ]
 
-    def __init__(self, config: FreyaConfig):
+    def __init__(self, config: Settings):
         super().__init__()
         self.config = config
         self.checks: list[BaseSystemCheck] = []
@@ -41,8 +41,8 @@ class SystemChecksScreen(Screen):
         self.checks = [
             PythonCheck(min_version=(3, 11)),
             OllamaCheck(
-                host=self.config.dialog.host,
-                model=self.config.dialog.model,
+                host=self.config.ollama.host,
+                model=self.config.ollama.model,
             ),
             WhisperCheck(
                 model=self.config.stt.model_id,

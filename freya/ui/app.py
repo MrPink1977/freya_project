@@ -11,7 +11,7 @@ from textual.widgets import Footer, Header, Static
 from textual.containers import Vertical
 
 if TYPE_CHECKING:
-    from freya.config import FreyaConfig
+    from freya.config import Settings
 
 from .screens.system_checks import SystemChecksScreen
 
@@ -67,7 +67,7 @@ class FreyaApp(App):
         "checks": SystemChecksScreen,
     }
 
-    def __init__(self, config: FreyaConfig):
+    def __init__(self, config: Settings):
         super().__init__()
         self.config = config
 

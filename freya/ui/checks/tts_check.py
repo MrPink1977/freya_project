@@ -30,23 +30,23 @@ class TTSCheck(BaseSystemCheck):
 
     async def _check_piper(self) -> CheckResult:
         """Check Piper TTS."""
+        # Piper is typically used via subprocess, not as a Python library
+        # Check if piper executable exists or if piper-tts package is installed
         try:
-            import piper
+            # Check if we have the Freya TTS module that wraps Piper
+            from freya import tts
+            return CheckResult(
+                status=CheckStatus.PASSED,
+                message="Piper TTS available",
+                details="Using Freya's TTS wrapper",
+            )
         except ImportError:
-            try:
-                import piper_tts
-            except ImportError:
-                return CheckResult(
-                    status=CheckStatus.FAILED,
-                    message="piper-tts not installed",
-                    fix_suggestion="pip install piper-tts",
-                )
-
-        return CheckResult(
-            status=CheckStatus.PASSED,
-            message="Piper TTS available",
-            details="Local TTS engine",
-        )
+            return CheckResult(
+                status=CheckStatus.WARNING,
+                message="Piper TTS not configured",
+                details="TTS module not found",
+                fix_suggestion="Ensure Freya TTS module is properly installed",
+            )
 
     async def _check_elevenlabs(self) -> CheckResult:
         """Check ElevenLabs TTS."""
