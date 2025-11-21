@@ -159,6 +159,7 @@ class Orchestrator:
         interaction_mode: str = "voice",
         mode_toggle_hotkey: str = "ctrl+t",
         wake_detector: Optional[WakeWordDetector] = None,
+        personality_engine: Optional["PersonalityEngine"] = None,
     ) -> None:
         self._client = client
         self._context = context
@@ -177,6 +178,7 @@ class Orchestrator:
         self._stop_speech_hotkey_handle: Optional[int] = None
         self._hotkey_available = keyboard is not None and bool(self._mode_toggle_hotkey)
         self._wake_detector = wake_detector
+        self._personality_engine = personality_engine
 
         # Initialize wake word matcher (delegates variant generation and matching logic)
         self._wake_matcher = WakeWordMatcher(
@@ -1201,8 +1203,28 @@ class Orchestrator:
             except Exception as exc:  # pragma: no cover - defensive logging
                 logger.exception("Failed to retrieve memories: %s", exc)
 
-        # Build enriched message list with tool results, search results, facts, and/or memories
-        if not tool_results and not search_results and not facts_block and not memory_block:
+        # Get personality instructions if enabled
+        personality_instructions: Optional[str] = None
+        if self._personality_engine:
+            try:
+                from .personality.engine import get_time_of_day
+                
+                personality_instructions = self._personality_engine.analyze_and_adapt(
+                    user_text, time_of_day=get_time_of_day()
+                )
+                if personality_instructions:
+                    logger.debug("Injected personality instructions")
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.exception("Failed to get personality instructions: %s", exc)
+
+        # Build enriched message list with tool results, search results, facts, memories, and personality
+        if (
+            not tool_results
+            and not search_results
+            and not facts_block
+            and not memory_block
+            and not personality_instructions
+        ):
             return base_messages
 
         enriched_messages = [base_messages[0]]  # Start with system prompt
@@ -1218,6 +1240,9 @@ class Orchestrator:
 
         if memory_block:
             enriched_messages.append({"role": "system", "content": memory_block})
+
+        if personality_instructions:
+            enriched_messages.append({"role": "system", "content": personality_instructions})
 
         enriched_messages.extend(base_messages[1:])  # Add conversation history
         return enriched_messages
