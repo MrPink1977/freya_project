@@ -13,7 +13,7 @@ try:
 except ImportError:
     Fore = Style = None  # type: ignore
 
-from .config import FreyaConfig
+from .config import Settings
 from .logger import get_logger
 from .system_check import SystemCheck
 
@@ -23,7 +23,7 @@ logger = get_logger("startup_system")
 class StartupSystem:
     """Manages comprehensive startup sequence with checks, menu, and logging."""
     
-    def __init__(self, config: FreyaConfig):
+    def __init__(self, config: Settings):
         self.config = config
         self.checker = SystemCheck()
         self.test_log: list[str] = []
@@ -333,7 +333,7 @@ class StartupSystem:
             logger.error(f"Failed to save test log: {e}")
 
 
-def run_interactive_startup(config: FreyaConfig) -> Optional[str]:
+def run_interactive_startup(config: Settings) -> Optional[str]:
     """
     Run complete interactive startup sequence.
     Returns the mode to start ("voice", "text") or None to quit.
