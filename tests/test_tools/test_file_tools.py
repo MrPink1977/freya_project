@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from freya.tools.file_tools import (
+    ALLOWED_MIME_TYPES,
+    MAX_READ_SIZE,
+    MAX_WRITE_SIZE,
     ListFilesTool,
     ReadFileTool,
     WriteFileTool,
-    validate_path,
     validate_file_size,
     validate_file_type,
-    ALLOWED_DIRECTORIES,
-    ALLOWED_MIME_TYPES,
-    ALLOWED_EXTENSIONS,
-    MAX_READ_SIZE,
-    MAX_WRITE_SIZE,
+    validate_path,
 )
-
 
 # ============================================================================
 # FIXTURES
@@ -49,7 +48,7 @@ def safe_test_dir(tmp_path):
     test_dir = Path.cwd() / "data" / "test_files"
     test_dir.mkdir(parents=True, exist_ok=True)
     yield test_dir
-    
+
     # Cleanup after test
     import shutil
     if test_dir.exists():
@@ -71,7 +70,7 @@ class TestPathValidation:
             "../../Windows/System32/config/sam",
             str(Path.home() / "Documents" / ".." / ".." / ".." / "etc" / "passwd"),
         ]
-        
+
         for path in dangerous_paths:
             resolved, error = validate_path(path)
             assert resolved is None, f"Should block path traversal: {path}"
@@ -86,7 +85,7 @@ class TestPathValidation:
             "/var/log/syslog",
             str(Path("/root/.ssh/id_rsa")),
         ]
-        
+
         for path in dangerous_paths:
             resolved, error = validate_path(path)
             assert resolved is None, f"Should block absolute path: {path}"
@@ -97,11 +96,11 @@ class TestPathValidation:
         # Create symlink to /etc (outside allowed dirs)
         symlink = safe_test_dir / "escape_link"
         target = Path("/etc") if Path("/etc").exists() else Path("C:/Windows")
-        
+
         try:
             symlink.symlink_to(target)
             resolved, error = validate_path(str(symlink))
-            
+
             # Should either block (resolved=None) or resolve to target
             # If it resolves, check target is blocked
             if resolved:
@@ -117,7 +116,7 @@ class TestPathValidation:
         # Test with safe_test_dir which is in ALLOWED_DIRECTORIES
         test_file = safe_test_dir / "valid_file.txt"
         test_file.write_text("test")
-        
+
         resolved, error = validate_path(str(test_file))
         assert resolved is not None, f"Should allow path in safe directory: {test_file}"
         assert error is None
@@ -128,10 +127,10 @@ class TestPathValidation:
         # Create a file in safe_test_dir
         test_file = safe_test_dir / "test.txt"
         test_file.write_text("test")
-        
+
         # Test relative path
         resolved, error = validate_path("data/test_files/test.txt")
-        assert error is None, f"Should allow relative path in allowed dir"
+        assert error is None, "Should allow relative path in allowed dir"
         assert resolved is not None
 
     def test_handles_invalid_path_syntax(self):
@@ -140,7 +139,7 @@ class TestPathValidation:
             "\x00null_byte_injection",
             "invalid\npath\nwith\nnewlines",
         ]
-        
+
         for path in invalid_paths:
             resolved, error = validate_path(path)
             # Should either block or handle gracefully
@@ -161,9 +160,9 @@ class TestListFilesTool:
         (safe_test_dir / "file1.txt").write_text("content1")
         (safe_test_dir / "file2.txt").write_text("content2")
         (safe_test_dir / "subdir").mkdir()
-        
+
         result = list_files_tool.execute(path=str(safe_test_dir))
-        
+
         assert result.success is True
         assert "file1.txt" in result.output
         assert "file2.txt" in result.output
@@ -174,9 +173,9 @@ class TestListFilesTool:
         (safe_test_dir / "test.txt").write_text("text")
         (safe_test_dir / "test.py").write_text("code")
         (safe_test_dir / "data.json").write_text("data")
-        
+
         result = list_files_tool.execute(path=str(safe_test_dir), pattern="*.txt")
-        
+
         assert result.success is True
         assert "test.txt" in result.output
         assert "test.py" not in result.output
@@ -188,9 +187,9 @@ class TestListFilesTool:
         subdir.mkdir()
         (subdir / "nested.txt").write_text("nested")
         (safe_test_dir / "root.txt").write_text("root")
-        
+
         result = list_files_tool.execute(path=str(safe_test_dir), recursive=True)
-        
+
         assert result.success is True
         assert "root.txt" in result.output
         assert "nested.txt" in result.output or "subdir" in result.output
@@ -198,7 +197,7 @@ class TestListFilesTool:
     def test_blocks_listing_outside_allowed_dirs(self, list_files_tool):
         """Block listing directories outside allowed paths."""
         dangerous_paths = ["/etc", "C:/Windows/System32", "/root"]
-        
+
         for path in dangerous_paths:
             result = list_files_tool.execute(path=path)
             assert result.success is False
@@ -209,7 +208,7 @@ class TestListFilesTool:
         """Handle nonexistent directory gracefully."""
         nonexistent = safe_test_dir / "does_not_exist"
         result = list_files_tool.execute(path=str(nonexistent))
-        
+
         assert result.success is False
         assert "does not exist" in result.error.lower()
 
@@ -218,9 +217,9 @@ class TestListFilesTool:
         (safe_test_dir / "file1.txt").write_text("1")
         (safe_test_dir / "file2.txt").write_text("2")
         (safe_test_dir / "subdir").mkdir()
-        
+
         result = list_files_tool.execute(path=str(safe_test_dir))
-        
+
         assert result.success is True
         assert "file_count" in result.metadata
         assert "dir_count" in result.metadata
@@ -241,9 +240,9 @@ class TestReadFileTool:
         test_file = safe_test_dir / "test.txt"
         content = "Hello, Freya!\nLine 2\nLine 3"
         test_file.write_text(content)
-        
+
         result = read_file_tool.execute(path=str(test_file))
-        
+
         assert result.success is True
         assert "Hello, Freya!" in result.output
         assert "Line 2" in result.output
@@ -254,9 +253,9 @@ class TestReadFileTool:
         test_file = safe_test_dir / "long.txt"
         lines = [f"Line {i}" for i in range(200)]
         test_file.write_text("\n".join(lines))
-        
+
         result = read_file_tool.execute(path=str(test_file), max_lines=50)
-        
+
         assert result.success is True
         assert "truncated" in result.output.lower()
         assert result.metadata["lines_read"] <= 51  # 50 lines + truncation message
@@ -268,7 +267,7 @@ class TestReadFileTool:
             "C:/Windows/System32/config/sam",
             "../../../etc/shadow",
         ]
-        
+
         for path in dangerous_files:
             result = read_file_tool.execute(path=path)
             assert result.success is False
@@ -278,7 +277,7 @@ class TestReadFileTool:
         """Handle nonexistent file gracefully."""
         nonexistent = safe_test_dir / "missing.txt"
         result = read_file_tool.execute(path=str(nonexistent))
-        
+
         assert result.success is False
         assert "does not exist" in result.error.lower()
 
@@ -286,9 +285,9 @@ class TestReadFileTool:
         """Handle binary files gracefully."""
         binary_file = safe_test_dir / "binary.dat"
         binary_file.write_bytes(b"\x00\x01\x02\xff\xfe")
-        
+
         result = read_file_tool.execute(path=str(binary_file))
-        
+
         # Should reject due to unknown file type
         assert result.success is False
         assert (
@@ -302,9 +301,9 @@ class TestReadFileTool:
         """Metadata includes file information."""
         test_file = safe_test_dir / "info.txt"
         test_file.write_text("Test content")
-        
+
         result = read_file_tool.execute(path=str(test_file))
-        
+
         assert result.success is True
         assert "path" in result.metadata
         assert "size" in result.metadata
@@ -323,9 +322,9 @@ class TestWriteFileTool:
         """Write content to a new file."""
         test_file = safe_test_dir / "new.txt"
         content = "Hello from Freya!"
-        
+
         result = write_file_tool.execute(path=str(test_file), content=content)
-        
+
         assert result.success is True
         assert test_file.exists()
         assert test_file.read_text() == content
@@ -335,10 +334,10 @@ class TestWriteFileTool:
         """Overwrite existing file by default."""
         test_file = safe_test_dir / "existing.txt"
         test_file.write_text("Old content")
-        
+
         new_content = "New content"
         result = write_file_tool.execute(path=str(test_file), content=new_content)
-        
+
         assert result.success is True
         assert test_file.read_text() == new_content
 
@@ -346,13 +345,13 @@ class TestWriteFileTool:
         """Append to file when append=True."""
         test_file = safe_test_dir / "append.txt"
         test_file.write_text("First line\n")
-        
+
         result = write_file_tool.execute(
-            path=str(test_file), 
-            content="Second line\n", 
+            path=str(test_file),
+            content="Second line\n",
             append=True
         )
-        
+
         assert result.success is True
         content = test_file.read_text()
         assert "First line" in content
@@ -362,9 +361,9 @@ class TestWriteFileTool:
     def test_creates_parent_directories(self, write_file_tool, safe_test_dir):
         """Create parent directories if they don't exist."""
         nested_file = safe_test_dir / "sub1" / "sub2" / "file.txt"
-        
+
         result = write_file_tool.execute(path=str(nested_file), content="nested")
-        
+
         assert result.success is True
         assert nested_file.exists()
         assert nested_file.read_text() == "nested"
@@ -376,7 +375,7 @@ class TestWriteFileTool:
             "C:/Windows/System32/malware.exe",
             "../../../root/exploit.sh",
         ]
-        
+
         for path in dangerous_files:
             result = write_file_tool.execute(path=path, content="malicious")
             assert result.success is False
@@ -386,9 +385,9 @@ class TestWriteFileTool:
         """Metadata includes write information."""
         test_file = safe_test_dir / "meta.txt"
         content = "Test metadata"
-        
+
         result = write_file_tool.execute(path=str(test_file), content=content)
-        
+
         assert result.success is True
         assert "path" in result.metadata
         assert "bytes_written" in result.metadata
@@ -408,7 +407,7 @@ class TestFileToolsResult:
         """Validate ListFilesTool ToolResult structure."""
         (safe_test_dir / "test.txt").write_text("test")
         result = list_files_tool.execute(path=str(safe_test_dir))
-        
+
         # Check success result
         assert hasattr(result, "success")
         assert hasattr(result, "output")
@@ -423,7 +422,7 @@ class TestFileToolsResult:
         test_file = safe_test_dir / "test.txt"
         test_file.write_text("content")
         result = read_file_tool.execute(path=str(test_file))
-        
+
         assert result.success is True
         assert isinstance(result.output, str)
         assert result.metadata is not None
@@ -432,7 +431,7 @@ class TestFileToolsResult:
         """Validate WriteFileTool ToolResult structure."""
         test_file = safe_test_dir / "test.txt"
         result = write_file_tool.execute(path=str(test_file), content="test")
-        
+
         assert result.success is True
         assert isinstance(result.output, str)
         assert result.metadata is not None
@@ -440,7 +439,7 @@ class TestFileToolsResult:
     def test_error_result_structure(self, read_file_tool):
         """Validate error ToolResult structure."""
         result = read_file_tool.execute(path="/invalid/path/file.txt")
-        
+
         assert result.success is False
         assert result.error is not None
         assert isinstance(result.error, str)
@@ -459,7 +458,7 @@ class TestFileSizeLimits:
         """validate_file_size returns None for files within limit."""
         test_file = safe_test_dir / "small.txt"
         test_file.write_text("small content")
-        
+
         error = validate_file_size(test_file, MAX_READ_SIZE, "read")
         assert error is None
 
@@ -469,7 +468,7 @@ class TestFileSizeLimits:
         # Create file larger than 1 MB limit
         large_content = "x" * (MAX_READ_SIZE + 1000)
         test_file.write_text(large_content)
-        
+
         error = validate_file_size(test_file, MAX_READ_SIZE, "read")
         assert error is not None
         assert "too large" in error.lower()
@@ -481,7 +480,7 @@ class TestFileSizeLimits:
         # Create 1.5 MB file (exceeds 1 MB limit)
         large_content = "a" * (MAX_READ_SIZE + 500000)
         test_file.write_text(large_content)
-        
+
         result = read_file_tool.execute(path=str(test_file))
         assert result.success is False
         assert "too large" in result.error.lower()
@@ -493,7 +492,7 @@ class TestFileSizeLimits:
         # Create file exactly at limit
         content = "b" * MAX_READ_SIZE
         test_file.write_text(content)
-        
+
         result = read_file_tool.execute(path=str(test_file))
         assert result.success is True
 
@@ -502,7 +501,7 @@ class TestFileSizeLimits:
         test_file = safe_test_dir / "big_write.txt"
         # Try to write 11 MB (exceeds 10 MB limit)
         large_content = "c" * (MAX_WRITE_SIZE + 1000000)
-        
+
         result = write_file_tool.execute(path=str(test_file), content=large_content)
         assert result.success is False
         assert "too large" in result.error.lower()
@@ -513,7 +512,7 @@ class TestFileSizeLimits:
         test_file = safe_test_dir / "exactly_max_write.txt"
         # Write exactly at limit (10 MB)
         content = "d" * MAX_WRITE_SIZE
-        
+
         result = write_file_tool.execute(path=str(test_file), content=content)
         assert result.success is True
 
@@ -523,7 +522,7 @@ class TestFileSizeLimits:
         # Create initial file with 1 MB
         initial_content = "e" * (1024 * 1024)
         test_file.write_text(initial_content)
-        
+
         # Append 1 MB more (total 2 MB, well within 10 MB limit)
         append_content = "f" * (1024 * 1024)
         result = write_file_tool.execute(path=str(test_file), content=append_content, append=True)
@@ -535,7 +534,7 @@ class TestFileSizeLimits:
         # Create file with 9 MB
         initial_content = "g" * (9 * 1024 * 1024)
         test_file.write_text(initial_content)
-        
+
         # Try to append 2 MB more (total 11 MB, exceeds 10 MB limit)
         append_content = "h" * (2 * 1024 * 1024)
         result = write_file_tool.execute(path=str(test_file), content=append_content, append=True)
@@ -548,7 +547,7 @@ class TestFileSizeLimits:
         test_file = safe_test_dir / "with_size.txt"
         content = "test content with size"
         test_file.write_text(content)
-        
+
         result = read_file_tool.execute(path=str(test_file))
         assert result.success is True
         assert "size" in result.metadata
@@ -567,7 +566,7 @@ class TestMimeTypeValidation:
         """validate_file_type accepts text files by MIME type."""
         test_file = safe_test_dir / "test.txt"
         test_file.write_text("plain text content")
-        
+
         mime_type, error = validate_file_type(test_file)
         assert error is None
         assert mime_type in ALLOWED_MIME_TYPES or "text" in mime_type.lower()
@@ -576,7 +575,7 @@ class TestMimeTypeValidation:
         """validate_file_type accepts JSON files."""
         test_file = safe_test_dir / "data.json"
         test_file.write_text('{"key": "value"}')
-        
+
         mime_type, error = validate_file_type(test_file)
         assert error is None
         assert "json" in (mime_type or "").lower()
@@ -585,7 +584,7 @@ class TestMimeTypeValidation:
         """validate_file_type accepts Python files."""
         test_file = safe_test_dir / "script.py"
         test_file.write_text("print('hello')")
-        
+
         mime_type, error = validate_file_type(test_file)
         assert error is None  # Should accept by extension
 
@@ -593,7 +592,7 @@ class TestMimeTypeValidation:
         """validate_file_type accepts YAML files."""
         test_file = safe_test_dir / "config.yaml"
         test_file.write_text("key: value")
-        
+
         mime_type, error = validate_file_type(test_file)
         assert error is None
 
@@ -602,7 +601,7 @@ class TestMimeTypeValidation:
         test_file = safe_test_dir / "image.png"
         # Write PNG magic bytes
         test_file.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
-        
+
         mime_type, error = validate_file_type(test_file)
         assert error is not None
         assert "binary" in error.lower()
@@ -612,7 +611,7 @@ class TestMimeTypeValidation:
         """validate_file_type rejects JPEG images by magic bytes."""
         test_file = safe_test_dir / "photo.jpg"
         test_file.write_bytes(b"\xFF\xD8\xFF\xE0" + b"\x00" * 100)
-        
+
         mime_type, error = validate_file_type(test_file)
         assert error is not None
         assert "binary" in error.lower()
@@ -622,7 +621,7 @@ class TestMimeTypeValidation:
         """validate_file_type rejects PDF documents by magic bytes."""
         test_file = safe_test_dir / "document.pdf"
         test_file.write_bytes(b"%PDF-1.4" + b"\x00" * 100)
-        
+
         mime_type, error = validate_file_type(test_file)
         assert error is not None
         assert "binary" in error.lower()
@@ -632,7 +631,7 @@ class TestMimeTypeValidation:
         """validate_file_type rejects ZIP archives by magic bytes."""
         test_file = safe_test_dir / "archive.zip"
         test_file.write_bytes(b"PK\x03\x04" + b"\x00" * 100)
-        
+
         mime_type, error = validate_file_type(test_file)
         assert error is not None
         assert "binary" in error.lower()
@@ -642,7 +641,7 @@ class TestMimeTypeValidation:
         """validate_file_type rejects executables by magic bytes."""
         test_file = safe_test_dir / "program.exe"
         test_file.write_bytes(b"MZ" + b"\x00" * 100)
-        
+
         mime_type, error = validate_file_type(test_file)
         assert error is not None
         assert "binary" in error.lower()
@@ -652,7 +651,7 @@ class TestMimeTypeValidation:
         """validate_file_type rejects files with unknown extensions."""
         test_file = safe_test_dir / "unknown.xyz"
         test_file.write_text("unknown content")
-        
+
         mime_type, error = validate_file_type(test_file)
         assert error is not None
         assert "unknown" in error.lower() or "not allowed" in error.lower()
@@ -661,7 +660,7 @@ class TestMimeTypeValidation:
         """ReadFileTool rejects binary files."""
         test_file = safe_test_dir / "binary.bin"
         test_file.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 50)
-        
+
         result = read_file_tool.execute(path=str(test_file))
         assert result.success is False
         assert "binary" in result.error.lower()
@@ -670,7 +669,7 @@ class TestMimeTypeValidation:
         """ReadFileTool includes MIME type in metadata."""
         test_file = safe_test_dir / "data.json"
         test_file.write_text('{"test": true}')
-        
+
         result = read_file_tool.execute(path=str(test_file))
         assert result.success is True
         assert "mime_type" in result.metadata
@@ -681,7 +680,7 @@ class TestMimeTypeValidation:
         # Create file with allowed extension but no standard MIME type
         test_file = safe_test_dir / "config.cfg"
         test_file.write_text("setting=value")
-        
+
         mime_type, error = validate_file_type(test_file)
         assert error is None  # Should accept by extension
         assert "extension" in (mime_type or "").lower() or mime_type is not None

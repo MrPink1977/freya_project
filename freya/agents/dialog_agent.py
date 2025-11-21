@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from freya.agents.base_agent import AgentCapability, BaseAgent
+
+if TYPE_CHECKING:
+    from freya.personality.engine import PersonalityEngine
 from freya.context import ConversationContext
 from freya.core.message_bus import Message, MessageBus, MessagePriority
 from freya.exceptions import AgentMessageError
@@ -106,7 +109,7 @@ class DialogAgent(BaseAgent):
 
         # Injected context (tool results, memories)
         self._injected_context: list[str] = []
-        
+
         # Personality engine
         self._personality_engine = personality_engine
 
@@ -162,7 +165,7 @@ class DialogAgent(BaseAgent):
                 correlation_id=message.correlation_id,
             )
             return
-        
+
         # Use validated data
         user_text = payload.text
         override_model = payload.model
@@ -270,7 +273,7 @@ class DialogAgent(BaseAgent):
         full_response = ""
         buffer = ""
         chunk_count = 0
-        
+
         start_time = time.time()
         last_chunk_time = start_time
 
@@ -278,7 +281,7 @@ class DialogAgent(BaseAgent):
             # Stream from Ollama with timeout checks
             for chunk in self._ollama.chat_stream(messages):
                 current_time = time.time()
-                
+
                 # Check total streaming timeout
                 if current_time - start_time > STREAM_TOTAL_TIMEOUT:
                     self.logger.error(
@@ -287,7 +290,7 @@ class DialogAgent(BaseAgent):
                     raise StreamTimeoutError(
                         f"Streaming exceeded total timeout of {STREAM_TOTAL_TIMEOUT}s"
                     )
-                
+
                 # Check chunk timeout
                 if current_time - last_chunk_time > STREAM_CHUNK_TIMEOUT:
                     self.logger.error(
@@ -296,12 +299,12 @@ class DialogAgent(BaseAgent):
                     raise StreamTimeoutError(
                         f"No chunk received for {STREAM_CHUNK_TIMEOUT}s"
                     )
-                
+
                 # Validate chunk
                 if not chunk or not isinstance(chunk, str):
                     self.logger.warning(f"Invalid chunk received: {chunk}")
                     continue
-                
+
                 if not chunk.strip():
                     # Empty chunk, update time but don't process
                     last_chunk_time = current_time
@@ -360,7 +363,7 @@ class DialogAgent(BaseAgent):
         if self._personality_engine and user_text:
             try:
                 from datetime import datetime
-                
+
                 # Get time of day
                 hour = datetime.now().hour
                 if 5 <= hour < 12:
@@ -371,11 +374,11 @@ class DialogAgent(BaseAgent):
                     time_of_day = "evening"
                 else:
                     time_of_day = "night"
-                
+
                 personality_instructions = self._personality_engine.analyze_and_adapt(
                     user_text, time_of_day=time_of_day
                 )
-                
+
                 if personality_instructions:
                     # Replace placeholder in system prompt
                     if messages and messages[0]["role"] == "system":
@@ -383,11 +386,11 @@ class DialogAgent(BaseAgent):
                             "{{PERSONALITY_INSTRUCTIONS}}",
                             personality_instructions
                         )
-                    
+
                     self.logger.debug("Injected personality instructions")
             except Exception as exc:
                 self.logger.warning(f"Failed to get personality instructions: {exc}")
-        
+
         # Remove placeholder if personality is disabled or failed
         if messages and messages[0]["role"] == "system":
             messages[0]["content"] = messages[0]["content"].replace(

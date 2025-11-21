@@ -7,10 +7,10 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from freya.config import load_settings
-from freya.stt import SpeechToText
 from freya.agents.wake_word_agent import WakeWordAgent
-from freya.core.message_bus import MessageBus, Message
+from freya.config import load_settings
+from freya.core.message_bus import Message, MessageBus
+from freya.stt import SpeechToText
 
 
 async def main():
@@ -49,7 +49,7 @@ async def main():
     detections = []
 
     async def on_wake_detected(msg: Message):
-        print(f"\n🎤 WAKE WORD DETECTED!")
+        print("\n🎤 WAKE WORD DETECTED!")
         print(f"   Payload: {msg.payload}")
         detections.append(msg)
 

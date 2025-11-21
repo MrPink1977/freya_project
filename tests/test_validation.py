@@ -1,101 +1,72 @@
 """Quick validation test for agent architecture."""
 
-import sys
 import asyncio
 
-# Test imports
-print("Testing imports...")
-try:
-    from freya.core.message_bus import MessageBus
-
-    print("  ✓ MessageBus")
-except Exception as e:
-    print(f"  ✗ MessageBus: {e}")
-    sys.exit(1)
-
-try:
-    from freya.agents.base_agent import BaseAgent
-
-    print("  ✓ BaseAgent")
-except Exception as e:
-    print(f"  ✗ BaseAgent: {e}")
-    sys.exit(1)
-
-try:
-    from freya.agents.dialog_agent import DialogAgent
-
-    print("  ✓ DialogAgent")
-except Exception as e:
-    print(f"  ✗ DialogAgent: {e}")
-    sys.exit(1)
-
-try:
-    from freya.agents.memory_agent import MemoryAgent
-
-    print("  ✓ MemoryAgent")
-except Exception as e:
-    print(f"  ✗ MemoryAgent: {e}")
-    sys.exit(1)
-
-try:
-    from freya.agents.tool_executor_agent import ToolExecutorAgent
-
-    print("  ✓ ToolExecutorAgent")
-except Exception as e:
-    print(f"  ✗ ToolExecutorAgent: {e}")
-    sys.exit(1)
-
-try:
-    from freya.agents.wake_word_agent import WakeWordAgent
-
-    print("  ✓ WakeWordAgent")
-except Exception as e:
-    print(f"  ✗ WakeWordAgent: {e}")
-    sys.exit(1)
-
-try:
-    from freya.coordination.orchestration_coordinator import OrchestrationCoordinator
-
-    print("  ✓ OrchestrationCoordinator")
-except Exception as e:
-    print(f"  ✗ OrchestrationCoordinator: {e}")
-    sys.exit(1)
-
-print("\n✓ All imports successful!")
-
-# Test basic message bus
-print("\nTesting MessageBus...")
+import pytest
 
 
-async def test_bus():
-    bus = MessageBus()
-    received = []
+class TestImports:
+    """Test that all critical imports work."""
 
-    async def handler(msg):
-        received.append(msg)
+    def test_message_bus_import(self):
+        """Test MessageBus import."""
+        from freya.core.message_bus import MessageBus
+        assert MessageBus is not None
 
-    bus.subscribe("test.topic", handler)
+    def test_base_agent_import(self):
+        """Test BaseAgent import."""
+        from freya.agents.base_agent import BaseAgent
+        assert BaseAgent is not None
 
-    from freya.core.message_bus import Message, MessagePriority
+    def test_dialog_agent_import(self):
+        """Test DialogAgent import."""
+        from freya.agents.dialog_agent import DialogAgent
+        assert DialogAgent is not None
 
-    await bus.publish(
-        Message(topic="test.topic", payload={"data": "test"}, priority=MessagePriority.NORMAL)
-    )
+    def test_memory_agent_import(self):
+        """Test MemoryAgent import."""
+        from freya.agents.memory_agent import MemoryAgent
+        assert MemoryAgent is not None
 
-    await asyncio.sleep(0.1)
+    def test_tool_executor_agent_import(self):
+        """Test ToolExecutorAgent import."""
+        from freya.agents.tool_executor_agent import ToolExecutorAgent
+        assert ToolExecutorAgent is not None
 
-    if received:
-        print("  ✓ MessageBus pub/sub working")
-        return True
-    else:
-        print("  ✗ MessageBus pub/sub failed")
-        return False
+    def test_wake_word_agent_import(self):
+        """Test WakeWordAgent import."""
+        from freya.agents.wake_word_agent import WakeWordAgent
+        assert WakeWordAgent is not None
+
+    def test_orchestration_coordinator_import(self):
+        """Test OrchestrationCoordinator import."""
+        from freya.coordination.orchestration_coordinator import OrchestrationCoordinator
+        assert OrchestrationCoordinator is not None
 
 
-if asyncio.run(test_bus()):
-    print("\n✓✓✓ VALIDATION PASSED ✓✓✓")
-    print("\nAgent architecture is functional!")
-    sys.exit(0)
-else:
-    print("\n✗ VALIDATION FAILED")
-    sys.exit(1)
+class TestMessageBusPubSub:
+    """Test basic MessageBus pub/sub functionality."""
+
+    @pytest.mark.asyncio
+    async def test_message_bus_pubsub(self):
+        """Test basic MessageBus pub/sub."""
+        from freya.core.message_bus import MessageBus, MessagePriority
+
+        bus = MessageBus()
+        await bus.start()
+
+        received = []
+
+        async def handler(msg):
+            received.append(msg)
+
+        bus.subscribe("test.topic", handler)
+
+        await bus.publish("test.topic", {"data": "test"}, "test", MessagePriority.NORMAL)
+
+        await asyncio.sleep(0.1)
+
+        await bus.stop()
+
+        assert len(received) == 1
+        assert received[0].payload == {"data": "test"}

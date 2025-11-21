@@ -7,16 +7,14 @@ Provides async pub/sub pattern for decoupled agent interaction.
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Coroutine, Dict, List, Optional
 
-from freya.logger import get_logger
 from freya.core.persistence import MessagePersistence
-
+from freya.logger import get_logger
 
 logger = get_logger(__name__)
 

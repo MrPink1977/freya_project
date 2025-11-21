@@ -6,17 +6,15 @@ Provides simple persistence for debugging and message replay.
 
 import asyncio
 import json
-import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from freya.core.message_bus import Message, MessagePriority
+    from freya.core.message_bus import Message
 
 from freya.logger import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -24,7 +22,7 @@ logger = get_logger(__name__)
 class MessagePersistence:
     """
     SQLite-based message persistence for debugging.
-    
+
     Features:
     - Async-safe database operations
     - Message storage with full metadata
@@ -116,7 +114,7 @@ class MessagePersistence:
                 # Insert message
                 self._conn.execute(
                     """
-                    INSERT INTO messages 
+                    INSERT INTO messages
                     (topic, sender, priority, payload, correlation_id, timestamp, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
@@ -150,10 +148,10 @@ class MessagePersistence:
                 to_delete = count - self.max_messages
                 self._conn.execute(
                     """
-                    DELETE FROM messages 
+                    DELETE FROM messages
                     WHERE id IN (
-                        SELECT id FROM messages 
-                        ORDER BY created_at ASC 
+                        SELECT id FROM messages
+                        ORDER BY created_at ASC
                         LIMIT ?
                     )
                     """,

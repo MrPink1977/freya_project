@@ -14,16 +14,16 @@ except ImportError:
     DDGS = None
 
 from tenacity import (
+    before_sleep_log,
     retry,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    before_sleep_log,
 )
 
 from ..logger import get_logger
-from ..utils.rate_limiter import TokenBucketRateLimiter, RateLimitError
 from ..utils.circuit_breaker import CircuitBreaker
+from ..utils.rate_limiter import RateLimitError, TokenBucketRateLimiter
 
 logger = get_logger("web_search")
 
@@ -204,7 +204,7 @@ async def search_web_async(
         except Exception as exc:
             logger.exception("Web search failed: %s", exc)
             raise WebSearchError(f"Search failed: {exc}") from exc
-    
+
     return await _circuit_breaker.call(_perform_search)
 
 
@@ -231,7 +231,7 @@ def search_web(query: str, max_results: int = 5, use_cache: bool = True) -> str:
         return asyncio.run(search_web_async(query, max_results, use_cache))
     else:
         # Already in async context, run in executor
-        future = loop.run_in_executor(
+        _future = loop.run_in_executor(  # noqa: F841 - kept for reference
             None, lambda: asyncio.run(search_web_async(query, max_results, use_cache))
         )
         return asyncio.run_coroutine_threadsafe(

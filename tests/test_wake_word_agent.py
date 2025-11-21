@@ -76,11 +76,10 @@ async def test_wake_word_detection():
 
     # Start listening
     await bus.publish(
-        Message(
-            topic="wake.start",
-            payload={},
-            priority=MessagePriority.HIGH,
-        )
+        "wake.start",
+        {},
+        "test",
+        MessagePriority.HIGH,
     )
 
     # Wait for detection
@@ -94,11 +93,10 @@ async def test_wake_word_detection():
 
     # Stop listening and cleanup
     await bus.publish(
-        Message(
-            topic="wake.stop",
-            payload={},
-            priority=MessagePriority.HIGH,
-        )
+        "wake.stop",
+        {},
+        "test",
+        MessagePriority.HIGH,
     )
 
     await asyncio.sleep(0.1)
@@ -139,7 +137,7 @@ async def test_session_window():
     )
     detector.should_detect = True
 
-    await bus.publish(Message(topic="wake.start", payload={}, priority=MessagePriority.HIGH))
+    await bus.publish("wake.start", {}, "test", MessagePriority.HIGH)
 
     # Wait for both detections
     await asyncio.sleep(0.5)
@@ -153,7 +151,7 @@ async def test_session_window():
     # Second message should have continuation=True
     assert detected_messages[1].payload.get("continuation") is True
 
-    await bus.publish(Message(topic="wake.stop", payload={}, priority=MessagePriority.HIGH))
+    await bus.publish("wake.stop", {}, "test", MessagePriority.HIGH)
 
     await asyncio.sleep(0.1)
     await agent.stop()
@@ -194,7 +192,7 @@ async def test_session_timeout():
     )
     detector.should_detect = True
 
-    await bus.publish(Message(topic="wake.start", payload={}, priority=MessagePriority.HIGH))
+    await bus.publish("wake.start", {}, "test", MessagePriority.HIGH)
 
     # Wait for session to expire
     await asyncio.sleep(0.5)
@@ -203,7 +201,7 @@ async def test_session_timeout():
     assert len(timeout_messages) >= 1
     assert timeout_messages[0].topic == "wake.timeout"
 
-    await bus.publish(Message(topic="wake.stop", payload={}, priority=MessagePriority.HIGH))
+    await bus.publish("wake.stop", {}, "test", MessagePriority.HIGH)
 
     await asyncio.sleep(0.1)
     await agent.stop()
@@ -229,11 +227,10 @@ async def test_dynamic_window_update():
 
     # Update session window
     await bus.publish(
-        Message(
-            topic="wake.set_window",
-            payload={"window": 5.0},
-            priority=MessagePriority.NORMAL,
-        )
+        "wake.set_window",
+        {"window": 5.0},
+        "test",
+        MessagePriority.NORMAL,
     )
 
     await asyncio.sleep(0.1)

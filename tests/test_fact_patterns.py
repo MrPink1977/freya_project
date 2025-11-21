@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from freya.utils.fact_patterns import (
     EXTRACTION_PATTERNS,
     FACT_QUERY_PHRASES,
@@ -51,7 +49,7 @@ class TestExtractionPatterns:
     def test_name_pattern_matches(self):
         """Name pattern matches expected strings."""
         patterns = get_extraction_patterns()
-        
+
         assert patterns["name_is"].search("My name is Alice")
         assert patterns["name_is"].search("my name's Bob")
         assert patterns["call_me"].search("Call me Charlie")

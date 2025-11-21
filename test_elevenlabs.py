@@ -7,6 +7,7 @@ print("=" * 60)
 try:
     print("\n1. Importing config...")
     from pathlib import Path
+
     from freya.config import load_settings
 
     print("\n2. Loading config...")

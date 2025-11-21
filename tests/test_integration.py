@@ -108,11 +108,10 @@ async def test_full_integration():
 
     # Store a memory
     await bus.publish(
-        Message(
-            topic="memory.store",
-            payload={"content": "User likes pizza", "role": "user", "importance": 2},
-            priority=MessagePriority.NORMAL,
-        )
+        "memory.store",
+        {"content": "User likes pizza", "role": "user", "importance": 2},
+        "test",
+        MessagePriority.NORMAL,
     )
     await asyncio.sleep(0.2)
 
@@ -125,12 +124,11 @@ async def test_full_integration():
     bus.subscribe("memory.results", collect_memory_results)
 
     await bus.publish(
-        Message(
-            topic="memory.query",
-            payload={"query": "favorite food", "limit": 3},
-            priority=MessagePriority.NORMAL,
-            correlation_id="test_memory_query",
-        )
+        "memory.query",
+        {"query": "favorite food", "limit": 3},
+        "test",
+        MessagePriority.NORMAL,
+        correlation_id="test_memory_query",
     )
 
     await asyncio.sleep(0.3)
@@ -162,11 +160,10 @@ async def test_full_integration():
     bus.subscribe("dialog.complete", collect_complete)
 
     await bus.publish(
-        Message(
-            topic="dialog.request",
-            payload={"text": "What's 2 plus 2?", "stream": True},
-            priority=MessagePriority.HIGH,
-        )
+        "dialog.request",
+        {"text": "What's 2 plus 2?", "stream": True},
+        "test",
+        MessagePriority.HIGH,
     )
 
     await asyncio.sleep(0.5)
@@ -188,11 +185,10 @@ async def test_full_integration():
     test_facts_passed = False
 
     await bus.publish(
-        Message(
-            topic="memory.store",
-            payload={"content": "My name is Alice", "role": "user", "importance": 1},
-            priority=MessagePriority.NORMAL,
-        )
+        "memory.store",
+        {"content": "My name is Alice", "role": "user", "importance": 1},
+        "test",
+        MessagePriority.NORMAL,
     )
 
     await asyncio.sleep(0.3)
@@ -206,11 +202,10 @@ async def test_full_integration():
     bus.subscribe("memory.fact.results", collect_fact_results)
 
     await bus.publish(
-        Message(
-            topic="memory.fact.query",
-            payload={"query": "name", "category": "name", "limit": 3},
-            priority=MessagePriority.NORMAL,
-        )
+        "memory.fact.query",
+        {"query": "name", "category": "name", "limit": 3},
+        "test",
+        MessagePriority.NORMAL,
     )
 
     await asyncio.sleep(0.3)

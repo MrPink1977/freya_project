@@ -8,7 +8,6 @@ from ..exceptions import (
     ToolExecutionError,
     ToolInputError,
     ToolNetworkError,
-    ToolNotFoundError,
     ToolPermissionError,
 )
 from ..logger import get_logger
@@ -136,16 +135,16 @@ class ToolManager:
             return ToolResult(success=False, output="", error=f"Tool '{tool_name}' is disabled")
 
         try:
-            logger.info("Executing tool '%s' with args: %s (timeout: %s)", 
+            logger.info("Executing tool '%s' with args: %s (timeout: %s)",
                        tool_name, kwargs, timeout or "default")
-            
+
             # Use execute_with_timeout for timeout protection
-            from .base import DEFAULT_TOOL_TIMEOUT, ToolTimeoutError
+            from .base import ToolTimeoutError
             result = tool.execute_with_timeout(timeout=timeout, **kwargs)
-            
+
             logger.debug("Tool '%s' result: success=%s", tool_name, result.success)
             return result
-        
+
         except ToolTimeoutError as e:
             logger.error("Tool '%s' timed out after %.1fs", tool_name, e.timeout)
             return ToolResult(

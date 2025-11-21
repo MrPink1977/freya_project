@@ -112,7 +112,7 @@ class ToolExecutorAgent(BaseAgent):
                 correlation_id=message.correlation_id,
             )
             return
-        
+
         # Use validated data
         query = payload.text
 

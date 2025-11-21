@@ -77,7 +77,7 @@ class PerformanceMonitorTool(FreyaTool):
         cpu_count = psutil.cpu_count(logical=True)
         cpu_freq = psutil.cpu_freq()
 
-        info = f"CPU Usage:\n"
+        info = "CPU Usage:\n"
         info += f"  Overall: {cpu_percent}%\n"
         info += f"  Cores: {cpu_count} logical CPUs\n"
 
@@ -87,7 +87,7 @@ class PerformanceMonitorTool(FreyaTool):
         # Per-core breakdown
         per_cpu = psutil.cpu_percent(interval=0.1, percpu=True)
         if len(per_cpu) <= 16:  # Only show if reasonable number of cores
-            info += f"\n  Per-core: "
+            info += "\n  Per-core: "
             cores_str = ", ".join(f"{i}={p:.0f}%" for i, p in enumerate(per_cpu[:8]))
             info += cores_str
             if len(per_cpu) > 8:
@@ -105,7 +105,7 @@ class PerformanceMonitorTool(FreyaTool):
         used_gb = mem.used / (1024**3)
         available_gb = mem.available / (1024**3)
 
-        info = f"Memory (RAM):\n"
+        info = "Memory (RAM):\n"
         info += f"  Total: {total_gb:.1f} GB\n"
         info += f"  Used: {used_gb:.1f} GB ({mem.percent}%)\n"
         info += f"  Available: {available_gb:.1f} GB\n"
@@ -113,7 +113,7 @@ class PerformanceMonitorTool(FreyaTool):
         if swap.total > 0:
             swap_total_gb = swap.total / (1024**3)
             swap_used_gb = swap.used / (1024**3)
-            info += f"\nSwap:\n"
+            info += "\nSwap:\n"
             info += f"  Total: {swap_total_gb:.1f} GB\n"
             info += f"  Used: {swap_used_gb:.1f} GB ({swap.percent}%)"
 
@@ -162,7 +162,7 @@ class PerformanceMonitorTool(FreyaTool):
         sent_mb = net_io.bytes_sent / (1024**2)
         recv_mb = net_io.bytes_recv / (1024**2)
 
-        info = f"Network (since boot):\n"
+        info = "Network (since boot):\n"
         info += f"  Sent: {sent_mb:.1f} MB\n"
         info += f"  Received: {recv_mb:.1f} MB\n"
         info += f"  Packets sent: {net_io.packets_sent}\n"

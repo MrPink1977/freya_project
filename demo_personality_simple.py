@@ -28,7 +28,7 @@ def demo_personality():
             "patience": 0.8,
         }
     }
-    
+
     engine = PersonalityEngine(config)
     print("Personality engine initialized with base traits")
     print()
@@ -77,23 +77,23 @@ def demo_personality():
 
         # Analyze and get personality instructions
         instructions = engine.analyze_and_adapt(scenario["query"])
-        
+
         # Get current state
         state = engine.get_state_summary()
-        
-        print(f"Freya's State:")
+
+        print("Freya's State:")
         print(f"  Emotional State: {state['emotional_state']}")
         print(f"  Mode: {state['mode']}")
         print(f"  Energy Level: {state['energy_level']}")
         print(f"  Conversation Depth: {state['conversation_depth']}")
         print()
-        
+
         if instructions:
-            print(f"Personality Instructions for LLM:")
+            print("Personality Instructions for LLM:")
             print(instructions)
         else:
             print("  (No specific personality instructions)")
-        
+
         print()
 
     # Final mood summary

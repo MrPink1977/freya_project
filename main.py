@@ -13,8 +13,10 @@ Multi-modal AI assistant with:
 
 import argparse
 import asyncio
+import os
 import sys
 from dataclasses import replace
+from enum import Enum, auto
 from pathlib import Path
 
 from freya.config import load_settings
@@ -22,6 +24,37 @@ from freya.coordination.orchestration_coordinator import create_coordinator_from
 from freya.logger import get_logger
 
 logger = get_logger("main")
+
+
+class StartupMode(Enum):
+    """Startup mode for the application."""
+    NORMAL = auto()
+    DIAGNOSTIC = auto()
+
+
+def _parse_mode(mode_str: str) -> StartupMode:
+    """Parse startup mode string to enum."""
+    if mode_str.lower() == "diagnostic":
+        return StartupMode.DIAGNOSTIC
+    return StartupMode.NORMAL
+
+
+def _select_startup_mode(config) -> StartupMode:
+    """Select startup mode based on config and user input."""
+    default_mode = _parse_mode(config.startup_mode)
+
+    # If not interactive or prompting disabled, use config default
+    if not os.isatty(0) or not config.prompt_for_mode:
+        return default_mode
+
+    # Interactive mode selection
+    try:
+        response = input("Select mode (n=normal, d=diagnostic): ").strip().lower()
+        if response == "d":
+            return StartupMode.DIAGNOSTIC
+        return StartupMode.NORMAL
+    except (EOFError, KeyboardInterrupt):
+        return default_mode
 
 
 def parse_args():
