@@ -64,6 +64,8 @@ class DialogAgent(BaseAgent):
         keep_recent_turns: int = 20,
         # Escalation
         enable_escalation: bool = True,
+        # Personality
+        personality_engine: Optional["PersonalityEngine"] = None,
     ) -> None:
         """
         Initialize dialog agent.
@@ -80,6 +82,7 @@ class DialogAgent(BaseAgent):
             transfer_threshold: Transfer to long-term at this % (0.75 = 75%)
             keep_recent_turns: How many recent turns to keep after transfer
             enable_escalation: Auto-retry with better model on confusion
+            personality_engine: Optional personality engine for adaptive responses
         """
         super().__init__(agent_id, bus)
         self._ollama = ollama_client
@@ -103,6 +106,9 @@ class DialogAgent(BaseAgent):
 
         # Injected context (tool results, memories)
         self._injected_context: list[str] = []
+        
+        # Personality engine
+        self._personality_engine = personality_engine
 
     async def initialize(self) -> None:
         """Initialize dialog agent."""
@@ -168,8 +174,8 @@ class DialogAgent(BaseAgent):
         # Check context size and transfer if needed
         await self._check_and_transfer_context()
 
-        # Build prompt with injected context
-        messages = self._build_prompt()
+        # Build prompt with injected context and personality
+        messages = self._build_prompt(user_text)
 
         # Select model (override or default)
         model = override_model or self._current_model
@@ -346,9 +352,47 @@ class DialogAgent(BaseAgent):
         token_count = len(response) // 4
         return response, token_count
 
-    def _build_prompt(self) -> list[dict]:
-        """Build prompt with injected context and conversation history."""
+    def _build_prompt(self, user_text: str = "") -> list[dict]:
+        """Build prompt with injected context, personality, and conversation history."""
         messages = self._context.as_messages()
+
+        # Get personality instructions if engine is available
+        if self._personality_engine and user_text:
+            try:
+                from datetime import datetime
+                
+                # Get time of day
+                hour = datetime.now().hour
+                if 5 <= hour < 12:
+                    time_of_day = "morning"
+                elif 12 <= hour < 17:
+                    time_of_day = "afternoon"
+                elif 17 <= hour < 21:
+                    time_of_day = "evening"
+                else:
+                    time_of_day = "night"
+                
+                personality_instructions = self._personality_engine.analyze_and_adapt(
+                    user_text, time_of_day=time_of_day
+                )
+                
+                if personality_instructions:
+                    # Replace placeholder in system prompt
+                    if messages and messages[0]["role"] == "system":
+                        messages[0]["content"] = messages[0]["content"].replace(
+                            "{{PERSONALITY_INSTRUCTIONS}}",
+                            personality_instructions
+                        )
+                    
+                    self.logger.debug("Injected personality instructions")
+            except Exception as exc:
+                self.logger.warning(f"Failed to get personality instructions: {exc}")
+        
+        # Remove placeholder if personality is disabled or failed
+        if messages and messages[0]["role"] == "system":
+            messages[0]["content"] = messages[0]["content"].replace(
+                "{{PERSONALITY_INSTRUCTIONS}}", ""
+            )
 
         # Inject external context (tool results, memories) before user's last message
         if self._injected_context:

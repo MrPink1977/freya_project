@@ -125,6 +125,17 @@ class OrchestrationCoordinator:
             channel_id="pc",  # Default PC channel
         )
 
+        # Create personality engine if enabled
+        personality_engine = None
+        if hasattr(config, "personality") and config.personality.get("enabled", False):
+            try:
+                from freya.personality import PersonalityEngine
+                
+                personality_engine = PersonalityEngine(config.personality)
+                logger.info("Personality engine enabled")
+            except Exception as exc:
+                logger.warning(f"Failed to initialize personality engine: {exc}")
+
         self._dialog_agent = DialogAgent(
             agent_id="dialog",
             bus=self.bus,
@@ -134,6 +145,7 @@ class OrchestrationCoordinator:
             reasoning_model=reasoning_model,
             code_model=code_model,
             enable_escalation=enable_escalation,
+            personality_engine=personality_engine,
         )
 
         # Agent list for lifecycle management
