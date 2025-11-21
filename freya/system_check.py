@@ -314,3 +314,99 @@ def run_system_check(
         wake_config,
         face_config,
     )
+
+
+def run_startup_checks(config) -> bool:
+    """
+    Run startup system checks with visual checkmarks.
+    
+    Args:
+        config: Full configuration object
+        
+    Returns:
+        bool: True if all checks passed, False otherwise
+    """
+    print(f"\n{Fore.CYAN if Fore else ''}System Checks:{Style.RESET_ALL if Style else ''}")
+    
+    checker = SystemCheck()
+    
+    # Determine TTS check based on engine
+    if config.tts.engine == "piper":
+        tts_check = checker._check_tts(config.tts.voice_path)
+    else:
+        tts_check = (True, f"{config.tts.engine} configured")
+    
+    checks = [
+        ("Ollama Connection", checker._check_ollama(config.ollama.host, config.ollama.model)),
+        ("Whisper STT Model", checker._check_whisper(config.stt.device)),
+        ("Microphone Access", checker._check_microphone()),
+        ("TTS Engine", tts_check),
+        ("Wake Word Detector", checker._check_wake_detector(config.wake_detector)),
+        ("Memory Store", checker._check_memory(config.memory.long_term)),
+    ]
+    
+    all_passed = True
+    for name, (passed, message) in checks:
+        symbol = "✓" if passed else "✗"
+        color = (Fore.GREEN if passed else Fore.RED) if Fore else ""
+        reset = Style.RESET_ALL if Style else ""
+        status = "OK" if passed else "FAIL"
+        
+        # Format with dots for alignment
+        dots = "." * (45 - len(name))
+        print(f"  {color}{symbol} {name}{dots} {status}{reset}")
+        
+        if message and not passed:
+            yellow = Fore.YELLOW if Fore else ""
+            print(f"    {yellow}└─ {message}{reset}")
+    
+    all_passed = all([passed for _, (passed, _) in checks])
+    
+    if all_passed:
+        green = Fore.GREEN if Fore else ""
+        reset = Style.RESET_ALL if Style else ""
+        print(f"\n{green}✓ All systems operational!{reset}")
+    
+    return all_passed
+
+
+def show_startup_menu(config):
+    """
+    Display startup menu with configuration and controls.
+    
+    Args:
+        config: Full configuration object
+    """
+    cyan = Fore.CYAN if Fore else ""
+    magenta = Fore.MAGENTA if Fore else ""
+    green = Fore.GREEN if Fore else ""
+    yellow = Fore.YELLOW if Fore else ""
+    reset = Style.RESET_ALL if Style else ""
+    
+    print(f"\n{magenta}{'='*70}")
+    print(f"{magenta}  FREYA - Voice AI Assistant")
+    print(f"{magenta}  Agent Architecture | Multi-Channel Audio | 9 Tools")
+    print(f"{magenta}{'='*70}{reset}\n")
+    
+    print(f"{cyan}Configuration:{reset}")
+    print(f"  • Mode: {green}{config.app.interaction_mode.upper()}{reset}")
+    print(f"  • LLM Model: {green}{config.ollama.model}{reset}")
+    print(f"  • TTS Engine: {green}{config.tts.engine}{reset}")
+    print(f"  • Wake Word: {green}'{config.app.wake_word}'{reset}")
+    
+    print(f"\n{cyan}Controls:{reset}")
+    print(f"  • {yellow}Ctrl+M{reset} - Mute/stop speech immediately")
+    print(f"  • {yellow}Escape{reset} - Emergency stop")
+    print(f"  • {yellow}Natural exit{reset} - Say 'be quiet', 'zip it', 'shut up'")
+
+
+def run_system_check_with_display(config):
+    """
+    Run complete system check with menu display (called with --check flag).
+    
+    Args:
+        config: Full configuration object
+    """
+    show_startup_menu(config)
+    run_startup_checks(config)
+    print("\n✓ System check complete!\n")

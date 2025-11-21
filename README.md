@@ -98,8 +98,18 @@ User: "Hey Freya, what time is it?"
 
 ### Interaction Modes
 - **Voice Mode**: Hands-free conversation with wake word detection
-- **Text Mode**: Terminal-based chat interface
-- **Hotkey Toggle**: Switch between modes on the fly
+- **Text Mode**: Terminal-based chat interface with colored output
+- **Natural Exit Commands**: Say "be quiet", "zip it", "shut up" to exit gracefully
+
+### Emergency Controls
+- **Ctrl+M**: Mute/stop current speech immediately
+- **Escape**: Emergency stop for when Freya won't stop talking
+- **Natural Language**: Say commands like "be quiet" or "shut up"
+
+### Visual Enhancements
+- **Colored Conversation**: User messages in cyan, Freya in magenta
+- **Startup System Checks**: Visual checkmarks for each component
+- **Formatted Output**: Box-style formatting for clear conversation flow
 
 ## Requirements
 
@@ -176,10 +186,55 @@ Key configuration sections:
 
 ## Usage
 
+### Quick Start
+```bash
+# Run with system checks and startup menu
+python main.py
+
+# Run system check only (verify setup)
+python main.py --check
+
+# Run in text mode (no voice)
+python main.py --mode text
+
+# Use specific config file
+python main.py --config config/my_config.yaml
+```
+
+### Startup Display
+When you launch Freya, you'll see:
+```
+======================================================================
+  FREYA - Voice AI Assistant
+  Agent Architecture | Multi-Channel Audio | 9 Tools
+======================================================================
+
+Configuration:
+  • Mode: VOICE
+  • LLM Model: llama3.2:3b
+  • TTS Engine: elevenlabs
+  • Wake Word: 'Hey, Freya'
+
+Controls:
+  • Ctrl+M - Mute/stop speech immediately
+  • Escape - Emergency stop
+  • Natural exit - Say 'be quiet', 'zip it', 'shut up'
+
+System Checks:
+  ✓ Ollama Connection............................ OK
+  ✓ Whisper STT Model............................ OK
+  ✓ Microphone Access............................ OK
+  ✓ TTS Engine................................... OK
+  ✓ Wake Word Detector........................... OK
+  ✓ Memory Store................................. OK
+
+✓ All systems operational!
+```
+
 ### Basic Usage
 ```bash
-# Run with agent architecture (recommended)
-python main.py --use-agents
+# Run with agent architecture (default)
+python main.py
 
 # Run with custom config
 python main.py --config config/my_config.yaml --use-agents

@@ -17,6 +17,12 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
+try:
+    from colorama import Fore, Style, init as colorama_init
+    colorama_init(autoreset=True)
+except ImportError:
+    Fore = Style = type('', (), {'GREEN': '', 'RED': '', 'CYAN': '', 'YELLOW': '', 'MAGENTA': '', 'RESET_ALL': ''})()
+
 from freya.config import load_settings
 from freya.coordination.orchestration_coordinator import create_coordinator_from_config
 from freya.logger import get_logger
@@ -104,23 +110,29 @@ async def main():
     if args.diagnostic:
         config = replace(config, app=replace(config.app, startup_mode="diagnostic"))
 
-    # Run system check if requested
+    # Run system check if requested (quick check mode)
     if args.check:
-        from freya.system_check import run_system_check
+        from freya.system_check import run_system_check_with_display
 
-        run_system_check(config)
+        run_system_check_with_display(config)
         return
 
-    # Banner
-    print("\n" + "=" * 60)
-    print("  FREYA - AI Assistant")
-    print("  Agent Architecture | Multi-Channel Audio | Tool Integration")
-    print("=" * 60)
-    print(f"  Mode: {config.app.interaction_mode.upper()}")
-    print(f"  TTS Engine: {config.tts.engine}")
-    print(f"  LLM Model: {config.ollama.model}")
-    print(f"  Wake Word: '{config.app.wake_word}'")
-    print("=" * 60 + "\n")
+    # Run interactive startup system (checks + menu + mode selection)
+    from freya.startup_system import run_interactive_startup
+    
+    selected_mode = run_interactive_startup(config)
+    
+    # User quit from menu
+    if selected_mode is None:
+        logger.info("User quit from startup menu")
+        return
+    
+    # Override config with user's mode selection
+    config = replace(config, app=replace(config.app, interaction_mode=selected_mode))
+    
+    print(f"\n{Fore.CYAN}{'='*70}{Style.RESET_ALL}")
+    print(f"{Fore.MAGENTA}Starting Freya in {selected_mode.upper()} mode...{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{'='*70}{Style.RESET_ALL}\n")
 
     # Run diagnostics if requested
     if config.app.startup_mode == "diagnostic":

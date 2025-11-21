@@ -1,0 +1,1572 @@
+﻿1
+
+
+
+
+Freya TUI Implementation Plan
+
+
+Executive Summary
+
+This plan outlines the implementation of a comprehensive Terminal User Interface (TUI) for the Freya voice assistant project using the Textual framework. The TUI will provide system checks, configuration management, live chat, logging, and integration testing capabilities.
+
+
+
+1. Current Project Analysis
+
+1.1 Project Architecture
+
+Agent-Based Event-Driven System:
+
+
+MessageBus (Core Event System)
+
+↓
+├── DialogAgent ├── MemoryAgent ├── WakeWordAgent
+├── ToolExecutorAgent
+├── SpeechAgent
+
+
+# LLM conversation with streaming # ChromaDB vector memory
+# Background wake word detection
+# 9+ tools (time, calc, files, web, etc.)
+# STT/TTS coordination
+
+└── OrchestrationCoordinator  # Lifecycle management
+
+
+Key Components:
+- Entry Point:   main.py - CLI argument parsing, config loading, coordinator initialization - Configuration: YAML-based ( config/default.yaml) with environment variable support - Core Infrastructure:
+-   MessageBus - Async pub/sub with priority queues
+-   BaseAgent - Abstract agent class with lifecycle management -   OrchestrationCoordinator - Agent orchestration layer
+- Tools: 9 built-in tools (datetime, calculator, files, web search, web scraper, system, performance) - Memory: ChromaDB vector store with semantic search
+- LLM: Ollama client with multi-model support (llama3.2:3b, dolphin-mixtral, deepseek-coder) - Voice: Whisper STT, Piper/ElevenLabs TTS
+2
+
+
+1.2 Project Structure
+
+
+freya_project/ ├── freya/
+│   ├── agents/	# Agent implementations │   │   ├── base_agent.py
+│   │   ├── dialog_agent.py │   │   ├── memory_agent.py
+│   │   ├── tool_executor_agent.py │   │   ├── wake_word_agent.py
+│   │   └── speech_agent.py │   ├── core/
+│   │   └── message_bus.py   # Event-driven communication │   ├── coordination/
+│   │   └── orchestration_coordinator.py
+│   ├── tools/	# Tool implementations │   │   ├── manager.py
+│   │   ├── calculator.py
+│   │   ├── datetime_tools.py │   │   ├── file_tools.py
+│   │   ├── web_search.py │   │   └── ...
+
+│   ├── config.py │   ├── memory.py │   ├── context.py
+│   ├── ollama_client.py │   ├── stt.py
+│   ├── tts.py
+│   └── logger.py
+
+# Configuration loader # ChromaDB interface
+# Conversation context # LLM client
+# Speech-to-text # Text-to-speech
+# Logging
+
+├── config/
+│   └── default.yaml	# Default configuration
+
+├── tests/ ├── main.py
+└── pyproject.toml
+
+# Test suite # Entry point
+# Dependencies
+
+
+
+1.3 Dependencies
+
+
+# Core Python 3.11+
+PyYAML, requests, colorama
+
+# Voice
+faster-whisper, piper-tts, elevenlabs, sounddevice, soundfile, pyaudio
+
+# AI/ML
+chromadb, sentence-transformers, numpy
+
+# Vision (Optional)
+opencv-python, face_recognition, dlib, onvif-zeep
+
+# Tools
+duckduckgo-search, keyboard
+
+# Dev
+pytest, ruff, mypy, pip-audit
+3
+
+
+1.4 Current CLI Interface
+
+
+
+python main.py
+python main.py --config config/my.yaml python main.py --mode text
+python main.py --mode voice python main.py --check python main.py --diagnostic
+python main.py --model llama3.2:3b
+python main.py --engine elevenlabs
+
+# Run with defaults # Custom config
+# Text mode # Voice mode
+# System check only # Diagnostic mode
+# Override model
+# Override TTS
+
+
+
+
+
+2. UI Design
+
+2.1 Overall Layout
+
+Main Screen Layout (using Textual):
+
+
+┌────────────────────────────────────────────────────────────┐ │ FREYA - Voice AI Assistant	[Status: ✓]  │ ├────────────────────────────────────────────────────────────┤
+│	│ │  [System Checks]  [Config]  [Chat]  [Logs]  [Tests]  [?]  │
+│	│ ├────────────────────────────────────────────────────────────┤
+│	│ │                      CONTENT AREA                                │ │	│ │	│ │	│ │	│ │	│ │	│ │	│ │	│ ├────────────────────────────────────────────────────────────┤
+│ F1: Help | F2: Config | F3: Chat | F4: Logs | F10: Quit    │ └────────────────────────────────────────────────────────────┘
+
+2.2 Screen Designs
+
+2.2.1 System Checks Screen
+
+Purpose: Verify all dependencies and components before starting Freya.
+4
+
+
+
+┌────────────────────────────────────────────────────────────┐ │	SYSTEM CHECKS	│ ├────────────────────────────────────────────────────────────┤
+
+│
+│  ✓ Python Version (3.11+)
+│  ✓ Ollama Connection (http://localhost:11434) │  ✓ Ollama Model (llama3.2:3b)
+│  ✓ Whisper STT Model (base) │  ✓ Audio Input Device
+│  ✓ Audio Output Device
+│  ✓ TTS Engine (elevenlabs) │  ✓ Wake Word Detector
+│  ✓ ChromaDB Memory Store │  ✓ Configuration File
+│  ⚠ GPU Acceleration (CUDA)
+│  ⨯ Face Recognition (optional) │
+│  Status: 10/10 required checks passed
+│	2 optional features unavailable
+│
+
+│ [ OK ]   │ [ OK ]   │ [ OK ]   │ [ OK ]   │ [ OK ]   │ [ OK ]   │ [ OK ]   │ [ OK ]   │ [ OK ]   │ [ OK ]   │ [WARN]   │ [SKIP]   │
+│ │
+│
+│
+
+│  [ Run All Checks ]  [ Fix Issues ]  [ Continue → ]	│ │                                                                     │ └────────────────────────────────────────────────────────────┘
+
+
+Features:
+- Real-time status indicators (✓, ⚠, ⨯) - Collapsible details for each check
+- “Run All Checks” button to recheck
+- “Fix Issues” button with suggestions - Auto-refresh every 5 seconds
+- Export report to file
+
+2.2.2 Configuration Menu
+
+Purpose: Edit configuration without touching YAML files.
+5
+
+
+
+┌────────────────────────────────────────────────────────────┐ │	CONFIGURATION	│ ├────────────────────────────────────────────────────────────┤ │  Profile: [default.yaml ▼]  [New] [Save] [Load]            │ ├────────────────────────────────────────────────────────────┤
+│	│ │  ┌──────────────────┬──────────────────────────────────┐   │ │  │ Categories       │ Settings                             │   │ │  ├──────────────────┼──────────────────────────────────┤   │ │  │ ► General         │  Interaction Mode:                 │   │
+│  │ ► LLM/Ollama     │    ○ Voice  ● Text                 │   │ │  │ ► Speech (STT)   │                                       │   │
+
+│  │ ► Speech (TTS) │  │ ► Memory
+│  │ ► Wake Word
+
+│  Wake Word: [Hey, Freya_______]   │   │ │                                       │   │
+│  Wake Sensitivity:	│   │
+
+│  │ ► Tools	│	[████████░░] 75%	│   │
+
+│  │ ► Vision
+│  │ ► Advanced
+│  │
+
+│                                       │   │ │  System Prompt:                     │   │
+│	[You are Freya, a voice-first  │   │
+
+│  │	│	AI assistant...____________]  │   │ │  │                    │                                       │   │ │  │                    │  Max History: [12___]	│   │ │  │                    │                                       │   │ │  └──────────────────┴──────────────────────────────────┘   │ │                                                                     │ │  [ Apply ]  [ Reset ]  [ Save & Restart ]                    │
+│	│ └────────────────────────────────────────────────────────────┘
+
+
+Categories & Settings:
+
+1. General:
+- Interaction mode (voice/text) - Wake word
+- Wake word sensitivity - Wake session duration - System prompt
+- Max history
+
+2. LLM/Ollama: - Host URL
+- Default model (dropdown) - Reasoning model
+- Code model
+- Temperature, top_k, top_p - Enable model escalation
+
+3. Speech (STT):
+- Model selection
+- Device (CPU/CUDA) - Sample rate
+- Silence threshold - Silence duration
+- Max record seconds
+6
+
+
+4. Speech (TTS):
+- Engine (Piper/ElevenLabs) - Voice selection
+- ElevenLabs API key - Voice ID
+- Stability, similarity, style
+
+5. Memory:
+- Short-term max history - Enable summarization - Long-term enabled
+- DB path
+- Recall limit
+- Min similarity
+
+6. Wake Word:
+- Model selection - Device
+- Chunk duration
+
+7. Tools:
+- Enable/disable each tool - Web search settings
+- File operation restrictions
+
+8. Vision:
+- Enable facial recognition - Known faces directory
+- Detection model - Tolerance
+
+2.2.3 Chat Interface
+
+Purpose: Interactive chat with Freya in text mode.
+7
+
+
+
+┌────────────────────────────────────────────────────────────┐ │  CHAT with Freya	[Model: llama3.2:3b ▼] │ ├────────────────────────────────────────────────────────────┤
+│	│ │  You: What's the weather like?                                 │ │  🔧 [Tool: web_search] Searching for "weather"...            │ │                                                                     │ │  Freya: According to recent search, it's 72°F and sunny    │ │          in your area today. Perfect weather!                  │ │          (Response time: 1.2s | Model: llama3.2:3b)           │ │	│ │  You: Remember that I like hiking                              │ │  💾 [Memory] Stored: "User likes hiking"                      │ │	│ │  Freya: Got it! I'll remember you enjoy hiking.              │
+│	(Response time: 0.8s)	│ │                                                                     │ │  You: _                                                            │ │                                                                     │ ├────────────────────────────────────────────────────────────┤
+│  [Send] Ctrl+Enter | [Clear] Ctrl+L | [Export] Ctrl+E	│ │  Memory: 6/12 | Tokens: ~2.5K                                  │ └────────────────────────────────────────────────────────────┘
+
+
+Features:
+- Scrollable chat history
+- Tool execution indicators
+- Memory storage notifications
+- Response time & model display - Token count display
+- Export conversation - Clear history
+- Model switching
+- Voice mode toggle
+- Streaming responses (live update)
+
+2.2.4 Log Viewer
+
+Purpose: Real-time monitoring of system logs.
+8
+
+
+
+┌────────────────────────────────────────────────────────────┐ │  LOGS	[Auto-scroll: ●] [Clear]   │ ├────────────────────────────────────────────────────────────┤ │  Level: [ALL ▼] [DEBUG] [INFO] [WARNING] [ERROR]	│ │  Agent: [ALL ▼] [Dialog] [Memory] [Wake] [Tool] [Speech]  │ ├────────────────────────────────────────────────────────────┤
+
+│
+│  [INFO
+│  [DEBUG
+
+│ ] 14:32:01 | coordinator | All agents started	│
+] 14:32:02 | message_bus | Published: wake.start  │
+
+│  [INFO   ] 14:32:02 | wake_word   | Listening for wake...  │ │  [DEBUG  ] 14:32:05 | wake_word   | Processing audio chunk │ │  [INFO   ] 14:32:06 | wake_word   | Wake detected!	│ │  [DEBUG  ] 14:32:06 | coordinator | Handling wake.detected │
+
+│  [INFO
+│  [DEBUG
+
+] 14:32:06 | memory
+] 14:32:06 | dialog
+
+| Querying memories...   │
+| Generating response	│
+
+│  [INFO   ] 14:32:07 | dialog	| Using model: llama3.2 │ │  [DEBUG  ] 14:32:08 | speech	| TTS request received   │ │  [WARNING] 14:32:10 | tool_exec   | Tool timeout: 5s	│
+
+│  [ERROR  ] 14:32:11 | ollama
+│
+
+| Connection refused	│
+│
+
+├────────────────────────────────────────────────────────────┤ │  [Export] [Filter] [Search] [Tail -f]                        │ └────────────────────────────────────────────────────────────┘
+
+
+Features:
+- Real-time log streaming
+- Filter by level (DEBUG, INFO, WARNING, ERROR) - Filter by agent
+- Search functionality - Auto-scroll toggle
+- Export logs to file - Color-coded levels - Tail -f mode
+
+2.2.5 Test Runner
+
+Purpose: Run integration tests and display results.
+9
+
+
+
+┌────────────────────────────────────────────────────────────┐ │  INTEGRATION TESTS	│ ├────────────────────────────────────────────────────────────┤ │  Suite: [All Tests ▼]  [ Run Selected ]  [ Run All ]      │ ├────────────────────────────────────────────────────────────┤
+
+│
+│  ☑ Agent Foundation
+│	✓ test_message_bus_pubsub │	✓ test_agent_lifecycle
+│	✓ test_base_agent_capabilities │
+│  ☑ Dialog Agent
+│    ✓ test_dialog_streaming │    ✓ test_model_escalation
+│	⨯ test_context_management
+│	AssertionError: Expected 10, got 9 │	File: test_dialog_agent.py:45
+│
+│  ☑ Memory Agent
+│	✓ test_chroma_store_retrieve │	✓ test_semantic_search
+│	⚠ test_memory_persistence │
+│  ☐ Tool Executor
+│  ☐ Wake Word Agent
+│
+
+│ │
+0.05s	│ 0.12s	│ 0.03s	│
+│ │
+1.23s	│ 2.45s	│ FAIL	│
+│ │
+│ │
+0.34s	│ 0.56s	│ SKIP	│
+│ [Collapsed]	│ [Collapsed]	│
+│
+
+├────────────────────────────────────────────────────────────┤ │  Results: 8 passed, 1 failed, 1 skipped | Total: 4.78s     │ │  [ View Report ]  [ Rerun Failed ]  [ Export ]              │ └────────────────────────────────────────────────────────────┘
+
+
+Features:
+- Run all or selected tests - Collapsible test suites
+- Real-time progress
+- Detailed failure information - Rerun failed tests
+- Export test report
+- Test coverage display
+
+2.2.6 Model Selection Dialog
+
+Purpose: Switch between Ollama models on-the-fly.
+10
+
+
+
+┌────────────────────────────────────────┐ │  SELECT MODEL	│ ├────────────────────────────────────────┤ │                                             │ │  Available Models:                        │ │                                             │ │  ● llama3.2:3b           [2.0 GB]	│ │	Fast, general purpose	│ │                                             │ │  ○ dolphin-mixtral:8x7b [26 GB]	│ │	Advanced reasoning	│ │                                             │ │  ○ deepseek-coder-v2    [10 GB]	│ │	Code generation	│ │                                             │ │  ○ llama3.1:70b          [40 GB]	│ │	Most capable (slow)	│ │                                             │ │  [ + Pull New Model ]	│ │                                             │ │  [ Apply ]  [ Cancel ]	│ │                                             │ └────────────────────────────────────────┘
+
+
+
+
+3. Implementation Plan
+
+3.1 File Structure
+
+Create new directory structure for UI:
+11
+
+
+
+freya_project/ ├── freya/
+
+│   └── ui/
+│	├── __init__.py │	├── app.py
+│	├── screens/
+
+# NEW: TUI components
+
+# Main Textual app
+# Screen implementations
+
+
+
+│	│   ├── __init__.py
+│	│   ├── main_screen.py
+│	│   ├── system_checks.py │	│   ├── config_screen.py │	│   ├── chat_screen.py
+│	│   ├── logs_screen.py
+│	│   └── tests_screen.py
+
+
+# Main dashboard
+# System checks screen # Configuration editor # Chat interface
+# Log viewer
+# Test runner
+
+│	├── widgets/	# Custom widgets
+
+│	│   ├── __init__.py
+│	│   ├── status_indicator.py │	│   ├── log_viewer.py
+│	│   ├── chat_bubble.py
+│	│   ├── config_editor.py
+│	│   └── progress_bar.py
+
+
+# Status LED widget # Log display widget
+# Chat message widget # Config form widget
+# Progress indicator
+
+│	├── themes/	# Color schemes
+
+│	│   ├── __init__.py │	│   ├── dark.tcss
+│	│   └── light.tcss
+
+
+# Dark theme
+# Light theme
+
+│	├── checks/	# System check modules │	│   ├── __init__.py
+│	│   ├── python_check.py │	│   ├── ollama_check.py │	│   ├── audio_check.py
+│	│   └── base_check.py	# Base check class
+
+│	└── utils/
+│	├── __init__.py
+│	├── log_handler.py
+│	└── async_helper.py
+
+# UI utilities
+
+# Custom log handler for UI
+# Async utilities
+
+
+
+├── main_ui.py
+└── requirements-ui.txt
+
+# NEW: UI entry point
+# NEW: UI-specific deps
+
+
+
+3.2 Implementation Steps Phase 1: Foundation (Days 1-2)
+Step 1.1: Install Textual and dependencies
+
+
+pip install textual rich
+
+
+Step 1.2: Create basic app structure
+
+File:   freya/ui/__init__.py
+
+
+"""Freya TUI package.""" from .app import FreyaApp
+
+__all__ = ["FreyaApp"]
+
+
+File:   freya/ui/app.py
+12
+
+
+
+"""Main Textual application for Freya."""
+
+from textual.app import App, ComposeResult from textual.binding import Binding
+from textual.widgets import Header, Footer
+
+from .screens.main_screen import MainScreen
+
+
+class FreyaApp(App):
+"""Freya TUI Application."""
+
+CSS_PATH = "themes/dark.tcss"
+
+BINDINGS = [
+Binding("f1", "help", "Help"), Binding("f2", "config", "Config"), Binding("f3", "chat", "Chat"), Binding("f4", "logs", "Logs"), Binding("f5", "tests", "Tests"), Binding("f10", "quit", "Quit"),
+Binding("ctrl+c", "quit", "Quit", show=False), ]
+
+def compose(self) -> ComposeResult: """Create child widgets.""" yield Header()
+yield MainScreen() yield Footer()
+
+def on_mount(self) -> None:
+"""Called when app is mounted.""" self.title = "Freya - Voice AI Assistant" self.sub_title = "Agent-Based Architecture"
+
+def action_help(self) -> None: """Show help screen.""" self.push_screen("help")
+
+def action_config(self) -> None: """Show config screen.""" self.push_screen("config")
+
+def action_chat(self) -> None: """Show chat screen.""" self.push_screen("chat")
+
+def action_logs(self) -> None: """Show logs screen.""" self.push_screen("logs")
+
+def action_tests(self) -> None: """Show tests screen.""" self.push_screen("tests")
+
+
+File:   main_ui.py
+13
+
+
+
+"""Entry point for Freya TUI."""
+
+import asyncio
+from pathlib import Path
+
+from freya.ui.app import FreyaApp
+from freya.config import load_settings
+
+
+def main():
+"""Run Freya TUI.""" # Load configuration
+config_path = Path("config/default.yaml") config = load_settings(config_path)
+
+# Create and run app app = FreyaApp()
+app.config = config  # Store config in app app.run()
+
+
+if __name__ == "__main__": main()
+
+
+Step 1.3: Create dark theme
+
+File:   freya/ui/themes/dark.tcss
+14
+
+
+
+/* Freya Dark Theme */
+
+Screen {
+background: $surface; }
+
+Header {
+background: $primary; color: $text;
+text-style: bold; }
+
+Footer {
+background: $panel; color: $text-muted;
+}
+
+Button {
+background: $primary; color: $text;
+border: solid $accent; }
+
+Button:hover {
+background: $primary-lighten-1; }
+
+Input {
+background: $surface; border: solid $accent;
+}
+
+Static {
+background: $surface; color: $text;
+}
+
+/* Custom status indicators */ .status-ok {
+color: $success; }
+
+.status-warning { color: $warning;
+}
+
+.status-error { color: $error;
+}
+
+/* Chat bubbles */ .chat-user {
+background: $primary; color: $text; padding: 1;
+margin: 1; }
+
+.chat-assistant { background: $accent; color: $text; padding: 1;
+15
+
+
+margin: 1; }
+
+/* Log levels */ .log-debug {
+color: $text-muted; }
+
+.log-info {
+color: $success; }
+
+.log-warning { color: $warning;
+}
+
+.log-error { color: $error;
+}
+
+
+Phase 2: System Checks Screen (Days 3-4)
+
+Step 2.1: Create base check class
+
+File:   freya/ui/checks/base_check.py
+16
+
+
+
+"""Base system check class."""
+
+from abc import ABC, abstractmethod from dataclasses import dataclass from enum import Enum
+from typing import Optional
+
+
+class CheckStatus(Enum):
+"""Status of a system check.""" PENDING = "pending"
+RUNNING = "running" PASSED = "passed" FAILED = "failed" WARNING = "warning" SKIPPED = "skipped"
+
+
+@dataclass
+class CheckResult:
+"""Result of a system check.""" status: CheckStatus
+message: str
+details: Optional[str] = None fix_suggestion: Optional[str] = None
+
+
+class BaseSystemCheck(ABC):
+"""Base class for system checks."""
+
+def __init__(self, name: str, description: str, required: bool = True): self.name = name
+self.description = description self.required = required self.status = CheckStatus.PENDING
+self.result: Optional[CheckResult] = None
+
+@abstractmethod
+async def run(self) -> CheckResult:
+"""Run the check and return result.""" pass
+
+async def execute(self) -> CheckResult: """Execute check with error handling.""" self.status = CheckStatus.RUNNING
+try:
+self.result = await self.run() self.status = self.result.status return self.result
+except Exception as e: self.result = CheckResult(
+status=CheckStatus.FAILED, message=f"Check failed: {e}", details=str(e),
+)
+self.status = CheckStatus.FAILED return self.result
+
+
+Step 2.2: Create specific checks
+
+File:   freya/ui/checks/ollama_check.py
+17
+
+
+
+"""Ollama connection check."""
+
+import httpx
+
+from .base_check import BaseSystemCheck, CheckResult, CheckStatus
+
+
+class OllamaCheck(BaseSystemCheck):
+"""Check Ollama connection and models."""
+
+def __init__(self, host: str, model: str): super().__init__(
+name="Ollama Connection",
+description=f"Check connection to Ollama at {host}", required=True,
+)
+self.host = host self.model = model
+
+async def run(self) -> CheckResult:
+"""Check Ollama connection and model availability.""" try:
+# Check connection
+async with httpx.AsyncClient() as client:
+response = await client.get(f"{self.host}/api/tags", timeout=5.0)
+
+if response.status_code != 200: return CheckResult(
+status=CheckStatus.FAILED,
+message=f"Ollama not responding (status: {response.status_code})", fix_suggestion="Ensure Ollama is running: 'ollama serve'",
+)
+
+# Check model availability
+models = response.json().get("models", []) model_names = [m["name"] for m in models]
+
+if self.model not in model_names: return CheckResult(
+status=CheckStatus.WARNING, message=f"Model '{self.model}' not found",
+details=f"Available models: {', '.join(model_names)}", fix_suggestion=f"Pull model: 'ollama pull {self.model}'",
+)
+
+return CheckResult( status=CheckStatus.PASSED,
+message=f"Connected to Ollama, model '{self.model}' available", )
+
+except httpx.ConnectError: return CheckResult(
+status=CheckStatus.FAILED, message="Cannot connect to Ollama",
+fix_suggestion="Start Ollama: 'ollama serve'", )
+except Exception as e: return CheckResult(
+status=CheckStatus.FAILED, message=f"Check failed: {e}",
+)
+18
+
+
+Step 2.3: Create system checks screen
+
+File:   freya/ui/screens/system_checks.py
+19
+
+
+
+"""System checks screen."""
+
+from textual.app import ComposeResult
+from textual.containers import Container, Vertical from textual.screen import Screen
+from textual.widgets import Button, Static, DataTable
+
+from ..checks.ollama_check import OllamaCheck from ..checks.audio_check import AudioCheck from ..checks.python_check import PythonCheck # ... import other checks
+
+
+class SystemChecksScreen(Screen):
+"""Screen for running system checks."""
+
+def __init__(self, config): super().__init__() self.config = config
+self.checks = self._create_checks()
+
+def _create_checks(self):
+"""Create all system checks.""" return [
+PythonCheck(), OllamaCheck(
+host=self.config.ollama.host, model=self.config.ollama.model,
+), AudioCheck(),
+# ... add more checks ]
+
+def compose(self) -> ComposeResult: """Create child widgets.""" with Vertical():
+yield Static("System Checks", classes="header") yield DataTable()
+with Container():
+yield Button("Run All Checks", id="run-checks") yield Button("Continue", id="continue")
+
+async def on_button_pressed(self, event: Button.Pressed) -> None: """Handle button press."""
+if event.button.id == "run-checks": await self.run_all_checks()
+elif event.button.id == "continue": self.app.pop_screen()
+
+async def run_all_checks(self) -> None: """Run all system checks."""
+table = self.query_one(DataTable) table.clear()
+
+for check in self.checks: # Update UI
+row_key = table.add_row( check.name, "Running...", check.description,
+)
+20
+
+
+# Run check
+result = await check.execute()
+
+# Update table
+status_icon = self._get_status_icon(result.status) table.update_cell(row_key, 1, status_icon)
+
+def _get_status_icon(self, status): """Get icon for status.""" icons = {
+"passed": "✓", "failed": "⨯", "warning": "⚠", "skipped": "⊘",
+}
+return icons.get(status.value, "?")
+
+
+Phase 3: Configuration Screen (Days 5-6)
+
+Step 3.1: Create config editor widget
+
+File:   freya/ui/widgets/config_editor.py
+21
+
+
+
+"""Configuration editor widget."""
+
+from textual.app import ComposeResult
+from textual.containers import Vertical, Horizontal
+from textual.widgets import Input, Select, Slider, TextArea, Static, Button
+
+
+class ConfigEditor(Vertical):
+"""Widget for editing configuration."""
+
+def __init__(self, config): super().__init__() self.config = config self.widgets = {}
+
+def compose(self) -> ComposeResult: """Create child widgets."""
+# General settings
+yield Static("General Settings", classes="section-header")
+
+yield Static("Interaction Mode:") yield Select(
+options=[("Voice", "voice"), ("Text", "text")], value=self.config.app.interaction_mode, id="interaction_mode",
+)
+
+yield Static("Wake Word:") yield Input(
+value=self.config.app.wake_word, id="wake_word",
+)
+
+yield Static("Wake Word Sensitivity:") yield Slider(
+min=0, max=100, step=1,
+value=int(self.config.app.wake_word_sensitivity * 100), id="wake_sensitivity",
+)
+
+# ... add more settings
+
+with Horizontal():
+yield Button("Apply", id="apply") yield Button("Reset", id="reset")
+yield Button("Save & Restart", id="save_restart")
+
+async def on_button_pressed(self, event: Button.Pressed) -> None: """Handle button press."""
+if event.button.id == "apply": await self.apply_changes()
+elif event.button.id == "reset": await self.reset_changes()
+elif event.button.id == "save_restart": await self.save_and_restart()
+
+async def apply_changes(self) -> None: """Apply configuration changes.""" # Gather values from widgets
+mode = self.query_one("#interaction_mode", Select).value
+22
+
+
+wake_word = self.query_one("#wake_word", Input).value # ... gather other values
+
+# Update config (in-memory)
+# self.config.app.interaction_mode = mode # ...
+
+self.notify("Configuration applied")
+
+async def save_and_restart(self) -> None: """Save config to file and restart Freya.""" await self.apply_changes()
+
+# Save to YAML file # ... save logic
+
+# Restart Freya
+# ... restart logic
+
+self.notify("Configuration saved. Restarting...")
+
+
+Step 3.2: Create config screen
+
+File:   freya/ui/screens/config_screen.py
+23
+
+
+
+"""Configuration screen."""
+
+from textual.app import ComposeResult
+from textual.containers import Container, Horizontal, Vertical from textual.screen import Screen
+from textual.widgets import Static, Tree, Button
+
+from ..widgets.config_editor import ConfigEditor
+
+
+class ConfigScreen(Screen):
+"""Screen for editing configuration."""
+
+def __init__(self, config): super().__init__() self.config = config
+
+def compose(self) -> ComposeResult: """Create child widgets.""" with Vertical():
+yield Static("Configuration", classes="header")
+
+with Horizontal():
+# Left sidebar with categories with Container(id="categories"):
+tree = Tree("Settings") tree.root.add("General") tree.root.add("LLM/Ollama") tree.root.add("Speech (STT)") tree.root.add("Speech (TTS)") tree.root.add("Memory") tree.root.add("Wake Word") tree.root.add("Tools") tree.root.add("Vision") tree.root.add("Advanced") yield tree
+
+# Right panel with settings with Container(id="settings"):
+yield ConfigEditor(self.config)
+
+async def on_tree_node_selected(self, event: Tree.NodeSelected) -> None: """Handle category selection."""
+category = event.node.label
+# Update settings panel based on category # ...
+
+Phase 4: Chat Interface (Days 7-8)
+
+Step 4.1: Create chat bubble widget
+
+File:   freya/ui/widgets/chat_bubble.py
+24
+
+
+
+"""Chat message bubble widget."""
+
+from textual.app import ComposeResult from textual.containers import Vertical from textual.widgets import Static
+
+
+class ChatBubble(Vertical):
+"""Widget for displaying a chat message."""
+
+def __init__(self, role: str, content: str, metadata: dict = None): super().__init__()
+self.role = role self.content = content
+self.metadata = metadata or {}
+
+def compose(self) -> ComposeResult: """Create child widgets."""
+# Role indicator
+role_display = "You" if self.role == "user" else "Freya"
+yield Static(f"{role_display}:", classes=f"chat-{self.role}-label")
+
+# Message content
+yield Static(self.content, classes=f"chat-{self.role}")
+
+# Metadata (response time, model, etc.) if self.metadata:
+meta_text = " | ".join([
+f"{k}: {v}" for k, v in self.metadata.items() ])
+yield Static(meta_text, classes="chat-metadata")
+
+
+Step 4.2: Create chat screen
+
+File:   freya/ui/screens/chat_screen.py
+25
+
+
+
+"""Chat interface screen."""
+
+from textual.app import ComposeResult
+from textual.containers import Container, Vertical, ScrollableContainer from textual.screen import Screen
+from textual.widgets import Input, Button, Static
+
+from ..widgets.chat_bubble import ChatBubble
+
+
+class ChatScreen(Screen):
+"""Screen for chatting with Freya."""
+
+def __init__(self, coordinator): super().__init__() self.coordinator = coordinator self.messages = []
+
+def compose(self) -> ComposeResult: """Create child widgets.""" with Vertical():
+yield Static("Chat with Freya", classes="header")
+
+# Chat history
+with ScrollableContainer(id="chat-history"): pass  # Messages added dynamically
+
+# Input area
+with Container(id="input-area"):
+yield Input(placeholder="Type your message...", id="message-input") yield Button("Send", id="send-button")
+
+async def on_button_pressed(self, event: Button.Pressed) -> None: """Handle send button."""
+if event.button.id == "send-button": await self.send_message()
+
+async def on_input_submitted(self, event: Input.Submitted) -> None: """Handle Enter key in input."""
+await self.send_message()
+
+async def send_message(self) -> None: """Send message to Freya."""
+input_widget = self.query_one("#message-input", Input) message = input_widget.value.strip()
+
+if not message: return
+
+# Clear input input_widget.value = ""
+
+# Add user message to chat
+await self.add_message("user", message)
+
+# Send to coordinator via MessageBus await self.coordinator.bus.publish(
+topic="dialog.request",
+payload={"text": message, "stream": True}, sender="ui",
+)
+26
+
+
+# Response will be received via event subscription
+
+async def add_message(self, role: str, content: str, metadata: dict = None): """Add message to chat history."""
+container = self.query_one("#chat-history") bubble = ChatBubble(role, content, metadata) await container.mount(bubble)
+
+# Scroll to bottom container.scroll_end(animate=False)
+
+async def on_mount(self) -> None: """Subscribe to dialog events."""
+# Subscribe to dialog.chunk for streaming self.coordinator.bus.subscribe("dialog.chunk", self._handle_dialog_chunk)
+
+# Subscribe to dialog.complete for metadata self.coordinator.bus.subscribe("dialog.complete", self._handle_dialog_complete
+)
+
+async def _handle_dialog_chunk(self, message) -> None: """Handle streaming dialog chunk."""
+# Update last message or create new one # ...
+
+async def _handle_dialog_complete(self, message) -> None: """Handle dialog completion."""
+# Add metadata to last message # ...
+
+Phase 5: Log Viewer (Days 9-10)
+
+Step 5.1: Create log handler
+
+File:   freya/ui/utils/log_handler.py
+
+
+"""Custom log handler for UI."""
+
+import logging
+from queue import Queue from typing import Callable
+
+
+class UILogHandler(logging.Handler):
+"""Log handler that forwards logs to UI."""
+
+def __init__(self, callback: Callable): super().__init__()
+self.callback = callback self.queue = Queue()
+
+def emit(self, record: logging.LogRecord) -> None: """Emit log record."""
+try:
+msg = self.format(record) self.callback(record.levelname, record.name, msg)
+except Exception: self.handleError(record)
+
+
+Step 5.2: Create log viewer screen
+27
+
+
+File:   freya/ui/screens/logs_screen.py
+28
+
+
+
+"""Log viewer screen."""
+
+from textual.app import ComposeResult
+from textual.containers import Container, Vertical from textual.screen import Screen
+from textual.widgets import Static, Select, Button, DataTable
+
+
+class LogsScreen(Screen): """Screen for viewing logs."""
+
+def __init__(self): super().__init__() self.logs = [] self.filter_level = "ALL" self.filter_agent = "ALL"
+
+def compose(self) -> ComposeResult: """Create child widgets.""" with Vertical():
+yield Static("Logs", classes="header")
+
+# Filters
+with Container(id="filters"): yield Select(
+options=[
+("All", "ALL"), ("DEBUG", "DEBUG"), ("INFO", "INFO"), ("WARNING", "WARNING"), ("ERROR", "ERROR"),
+], value="ALL",
+id="level-filter", )
+
+yield Select( options=[
+("All Agents", "ALL"), ("Dialog", "dialog"), ("Memory", "memory"), ("Wake Word", "wake_word"),
+("Tool Executor", "tool_executor"), ("Speech", "speech"),
+], value="ALL",
+id="agent-filter", )
+
+yield Button("Clear", id="clear-logs") yield Button("Export", id="export-logs")
+
+# Log table
+yield DataTable(id="log-table")
+
+async def on_mount(self) -> None: """Setup log table."""
+table = self.query_one("#log-table", DataTable) table.add_columns("Time", "Level", "Agent", "Message")
+
+# Add log handler
+from ..utils.log_handler import UILogHandler
+29
+
+
+handler = UILogHandler(self.add_log)
+
+import logging
+logger = logging.getLogger("freya") logger.addHandler(handler)
+
+def add_log(self, level: str, agent: str, message: str): """Add log entry."""
+from datetime import datetime
+
+# Apply filters
+if self.filter_level != "ALL" and level != self.filter_level: return
+if self.filter_agent != "ALL" and agent != self.filter_agent: return
+
+# Add to table
+table = self.query_one("#log-table", DataTable) time_str = datetime.now().strftime("%H:%M:%S")
+
+table.add_row( time_str, level, agent, message,
+key=f"log-{len(self.logs)}", )
+
+self.logs.append({ "time": time_str, "level": level, "agent": agent, "message": message,
+})
+
+async def on_select_changed(self, event: Select.Changed) -> None: """Handle filter change."""
+if event.select.id == "level-filter": self.filter_level = event.value
+elif event.select.id == "agent-filter": self.filter_agent = event.value
+
+await self.refresh_logs()
+
+async def refresh_logs(self) -> None:
+"""Refresh log display with current filters.""" table = self.query_one("#log-table", DataTable) table.clear()
+
+for log in self.logs:
+if self.filter_level != "ALL" and log["level"] != self.filter_level: continue
+if self.filter_agent != "ALL" and log["agent"] != self.filter_agent: continue
+
+table.add_row( log["time"], log["level"], log["agent"], log["message"],
+)
+30
+
+
+Phase 6: Test Runner (Days 11-12)
+
+Step 6.1: Create test runner screen
+
+File:   freya/ui/screens/tests_screen.py
+31
+
+
+
+"""Test runner screen."""
+
+import subprocess
+from pathlib import Path
+
+from textual.app import ComposeResult
+from textual.containers import Container, Vertical from textual.screen import Screen
+from textual.widgets import Static, Button, Tree, ProgressBar
+
+
+class TestsScreen(Screen): """Screen for running tests."""
+
+def __init__(self): super().__init__() self.test_results = {}
+
+def compose(self) -> ComposeResult: """Create child widgets.""" with Vertical():
+yield Static("Integration Tests", classes="header")
+
+# Controls
+with Container(id="controls"):
+yield Button("Run All", id="run-all")
+yield Button("Run Selected", id="run-selected") yield Button("Rerun Failed", id="rerun-failed")
+
+# Progress
+yield ProgressBar(total=100, id="test-progress")
+
+# Test tree
+yield Tree("Test Suites", id="test-tree")
+
+# Results
+yield Static("", id="test-results")
+
+async def on_mount(self) -> None: """Setup test tree."""
+tree = self.query_one("#test-tree", Tree)
+
+# Discover test files
+test_files = list(Path("tests").glob("test_*.py"))
+
+for test_file in test_files:
+suite_name = test_file.stem.replace("test_", "").replace("_", " ").title() node = tree.root.add(suite_name)
+node.data = {"file": test_file}
+
+async def on_button_pressed(self, event: Button.Pressed) -> None: """Handle button press."""
+if event.button.id == "run-all": await self.run_all_tests()
+elif event.button.id == "run-selected": await self.run_selected_tests()
+elif event.button.id == "rerun-failed": await self.rerun_failed_tests()
+
+async def run_all_tests(self) -> None: """Run all tests."""
+progress = self.query_one("#test-progress", ProgressBar)
+32
+
+
+results_widget = self.query_one("#test-results", Static)
+
+# Run pytest
+proc = subprocess.Popen(
+["pytest", "-v", "--tb=short"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+)
+
+# Update progress
+output, errors = proc.communicate()
+
+# Parse results results_widget.update(output)
+
+# Update tree with results
+# ... parse pytest output and update tree
+
+
+Phase 7: Integration & Polish (Days 13-14)
+
+Step 7.1: Integrate with existing Freya code
+
+Update   main_ui.py to properly initialize Freya components:
+
+
+"""Entry point for Freya TUI."""
+
+import asyncio
+from pathlib import Path
+
+from freya.ui.app import FreyaApp
+from freya.config import load_settings
+from freya.coordination.orchestration_coordinator import cre‐ ate_coordinator_from_config
+
+
+async def main_async():
+"""Run Freya TUI with coordinator.""" # Load configuration
+config_path = Path("config/default.yaml") config = load_settings(config_path)
+
+# Create coordinator (but don't start yet) coordinator = create_coordinator_from_config(config)
+
+# Create and run app app = FreyaApp() app.config = config
+app.coordinator = coordinator
+
+# Run app (coordinator will be started from UI) await app.run_async()
+
+
+def main():
+"""Main entry point.""" asyncio.run(main_async())
+
+
+if __name__ == "__main__": main()
+33
+
+
+Step 7.2: Add keyboard shortcuts
+
+Update   freya/ui/app.py with comprehensive bindings:
+
+
+BINDINGS = [
+Binding("f1", "push_screen('help')", "Help"), Binding("f2", "push_screen('config')", "Config"), Binding("f3", "push_screen('chat')", "Chat"), Binding("f4", "push_screen('logs')", "Logs"), Binding("f5", "push_screen('tests')", "Tests"), Binding("f6", "push_screen('system_checks')", "Checks"), Binding("f10", "quit", "Quit"),
+Binding("ctrl+c", "quit", "Quit", show=False), Binding("ctrl+l", "clear_logs", "Clear Logs"), Binding("ctrl+r", "restart_freya", "Restart"),
+]
+
+
+Step 7.3: Add status bar
+
+Create status bar widget showing: - Freya status (running/stopped)
+- Current model - Memory usage - Active agents - Last error
+
+Step 7.4: Error handling
+
+Add global error handler to display errors in UI instead of crashing.
+
+
+
+4. Technical Decisions
+
+4.1 Why Textual?
+
+Advantages:
+- Modern, actively maintained TUI framework
+- Rich widget library (input, buttons, tables, trees, etc.) - CSS-like styling
+- Async/await support (perfect for Freya’s event-driven architecture) - Cross-platform (Windows, Linux, macOS)
+- Good documentation and examples - Mouse support
+- Beautiful rendering
+
+Alternatives Considered:
+-   curses - Too low-level, complex -   urwid - Older, less maintained
+-   blessed - Limited widget support
+-   prompt_toolkit - More for CLI prompts than full TUI
+34
+
+
+4.2 Color Scheme
+
+Dark Theme (Primary):
+- Background:   #1e1e2e (dark gray) - Primary:   #89b4fa (blue)
+- Accent:   #f5c2e7 (pink/magenta) - Success:   #a6e3a1 (green)
+- Warning:   #f9e2af (yellow) - Error:   #f38ba8 (red)
+- Text:   #cdd6f4 (light gray)
+- Text Muted:   #6c7086 (medium gray)
+
+Light Theme (Optional):
+- Background:   #eff1f5 (light gray) - Primary:   #1e66f5 (blue)
+- Accent:   #ea76cb (pink)
+- Success:   #40a02b (green)
+- Warning:   #df8e1d (orange) - Error:   #d20f39 (red)
+- Text:   #4c4f69 (dark gray)
+
+4.3 Keyboard Shortcuts
+
+Global:
+-   F1 - Help
+-   F2 - Configuration -   F3 - Chat
+-   F4 - Logs -   F5 - Tests
+-   F6 - System Checks -   F10 /   Ctrl+C - Quit
+-   Ctrl+R - Restart Freya
+
+Chat Screen:
+-   Enter - Send message -   Ctrl+L - Clear chat
+-   Ctrl+E - Export conversation
+-   Ctrl+M - Toggle voice/text mode
+
+Log Screen:
+-   Ctrl+L - Clear logs
+-   Ctrl+F - Search logs -   Ctrl+E - Export logs
+
+4.4 Screen Navigation Flow
+
+
+Main Screen
+├→ System Checks → [Pass] → Main Screen ├→ Configuration → [Apply] → Main Screen ├→ Chat → [Active Session]
+├→ Logs → [Real-time View]
+└→ Tests → [Run Tests] → [Results]
+35
+
+
+4.5 Async Integration
+
+Challenge: Textual runs its own async event loop, and Freya’s coordinator also uses asyncio.
+
+Solution:
+1. Run coordinator in background task
+2. Use   asyncio.create_task() to run coordinator alongside Textual 3. Subscribe to MessageBus events from UI
+4. Use   call_from_thread() to update UI from coordinator callbacks
+
+Implementation:
+
+
+async def on_mount(self) -> None:
+"""Start coordinator when app mounts.""" # Start coordinator in background
+self.coordinator_task = asyncio.create_task( self.coordinator.run()
+)
+
+# Subscribe to events self.coordinator.bus.subscribe(
+"dialog.chunk", self._handle_dialog_chunk
+)
+
+
+
+
+5. Next Steps
+
+5.1 Immediate Actions (Day 1)
+
+1. Install Textual: bash
+pip install textual rich
+
+2. Create directory structure: bash
+mkdir -p freya/ui/{screens,widgets,themes,checks,utils} touch freya/ui/__init__.py
+touch freya/ui/app.py touch main_ui.py
+
+3. Create basic app skeleton:
+- Implement   FreyaApp class in   freya/ui/app.py - Create   main_ui.py entry point
+- Test basic app launch
+
+4. Create dark theme:
+- Implement   freya/ui/themes/dark.tcss - Apply to app
+
+5.2 Implementation Order
+
+Week 1:
+- Days 1-2: Foundation (basic app, theming)
+36
+
+
+- Days 3-4: System checks screen - Days 5-6: Configuration screen
+
+Week 2:
+- Days 7-8: Chat interface - Days 9-10: Log viewer
+- Days 11-12: Test runner
+- Days 13-14: Integration & polish
+
+5.3 Testing Strategy
+
+Unit Tests:
+- Test each widget independently - Test check classes
+- Test configuration editor
+
+Integration Tests:
+- Test screen navigation
+- Test coordinator integration
+- Test MessageBus event handling
+
+Manual Testing:
+- Test all keyboard shortcuts - Test responsiveness
+- Test error handling
+- Test on different terminal sizes
+
+5.4 Documentation
+
+User Guide:
+- Screenshot each screen
+- Document all keyboard shortcuts - Provide usage examples
+
+Developer Guide:
+- Explain architecture
+- Document custom widgets - Provide widget examples
+
+
+
+6. Future Enhancements
+
+6.1 Phase 2 Features
+
+1. Voice Visualizer:
+- Waveform display during recording - Audio level meter
+- Voice activity indicator
+
+2. Memory Browser:
+- Browse ChromaDB memories - Search memories
+- Delete/edit memories
+37
+
+
+3. Tool Manager:
+- Enable/disable tools
+- Configure tool parameters - View tool usage statistics
+
+4. Agent Monitor:
+- Real-time agent status
+- Agent performance metrics - Agent communication graph
+
+5. Plugin Manager:
+- Install community plugins
+- Browse plugin marketplace - Configure plugins
+
+6.2 Advanced Features
+
+1. Multi-User Support: - User profiles
+- Per-user memory - User switching
+
+2. Recording & Playback: - Record conversations - Replay conversations
+- Export to audio
+
+3. Analytics Dashboard: - Response time graphs - Token usage charts
+- Model comparison stats
+
+4. Remote Control: - Web interface
+- Mobile app - REST API
+38
+
+
+7. Code Examples
+
+7.1 Complete Widget Example
+
+
+"""Example: Status indicator widget."""
+
+from textual.app import ComposeResult from textual.widgets import Static from textual.reactive import reactive
+
+
+class StatusIndicator(Static):
+"""Widget showing system status with color indicator."""
+
+status = reactive("unknown")
+
+STATUS_COLORS = { "ok": "green",
+"warning": "yellow", "error": "red", "unknown": "gray",
+}
+
+STATUS_ICONS = { "ok": "✓", "warning": "⚠", "error": "⨯", "unknown": "?",
+}
+
+def __init__(self, label: str, initial_status: str = "unknown"): super().__init__()
+self.label = label self.status = initial_status
+
+def render(self) -> str: """Render the widget."""
+icon = self.STATUS_ICONS[self.status] color = self.STATUS_COLORS[self.status]
+return f"[{color}]{icon}[/{color}] {self.label}"
+
+def set_status(self, status: str) -> None: """Update status."""
+if status in self.STATUS_COLORS: self.status = status self.refresh()
+39
+
+
+7.2 Complete Screen Example
+
+
+"""Example: Help screen."""
+
+from textual.app import ComposeResult
+from textual.containers import Container, Vertical from textual.screen import Screen
+from textual.widgets import Static, Button, Markdown
+
+
+class HelpScreen(Screen):
+"""Help screen with keyboard shortcuts and usage guide."""
+
+HELP_TEXT = """ # Freya TUI Help
+
+## Keyboard Shortcuts
+
+### Global
+- **F1**: Help (this screen) - **F2**: Configuration
+- **F3**: Chat interface - **F4**: Log viewer
+- **F5**: Test runner
+- **F6**: System checks
+- **F10**: Quit application
+
+### Chat Screen
+- **Enter**: Send message
+- **Ctrl+L**: Clear chat history - **Ctrl+E**: Export conversation
+- **Ctrl+M**: Toggle voice/text mode
+
+### Log Screen
+- **Ctrl+L**: Clear logs - **Ctrl+F**: Search logs
+- **Ctrl+E**: Export logs to file
+
+## Getting Started
+
+1. Run system checks (F6) to verify setup 2. Configure Freya settings (F2)
+3. Start chatting (F3)
+4. Monitor logs (F4) if issues occur
+
+## Support
+
+Visit: https://github.com/MrPink1977/freya_project """
+
+def compose(self) -> ComposeResult: """Create child widgets.""" with Vertical():
+yield Static("Help", classes="header") yield Markdown(self.HELP_TEXT)
+yield Button("Close", id="close")
+
+async def on_button_pressed(self, event: Button.Pressed) -> None: """Handle close button."""
+if event.button.id == "close": self.app.pop_screen()
+40
+
+
+
+8. Troubleshooting Guide
+
+8.1 Common Issues
+
+Issue: Textual app won’t start - Check Python version (3.11+)
+- Verify Textual installation:   pip show textual - Check terminal compatibility
+
+Issue: Coordinator not responding in UI - Verify MessageBus is started
+- Check event subscriptions - Enable debug logging
+
+Issue: UI freezes during LLM response - Ensure coordinator runs in separate task
+- Use   asyncio.create_task() for long operations - Don’t block UI thread
+
+Issue: Chat messages not appearing - Verify MessageBus subscriptions
+- Check topic names match - Enable event logging
+
+8.2 Debug Mode
+
+Enable debug mode:
+
+
+python main_ui.py --debug
+
+
+This will:
+- Enable verbose logging
+- Show MessageBus events - Display widget boundaries - Log all keyboard events
+
+
+
+9. Conclusion
+
+This plan provides a comprehensive roadmap for building a production-ready TUI for Freya. The implementation is structured in phases, with clear deliverables at each stage.
+
+Key Success Factors:
+1. Start with system checks to ensure solid foundation 2. Build configuration editor early for easy testing
+3. Integrate with MessageBus for real-time updates 4. Test incrementally at each phase
+5. Polish UI/UX before adding advanced features
+
+Timeline: 2 weeks for core features, 1 week for polish and testing.
+41
+
+
+Outcome: A beautiful, functional TUI that makes Freya accessible to users who prefer visual inter‐ faces over CLI, while maintaining all the power of the agent-based architecture.
+
+
+
+Appendix A: File Checklist
+
+Required Files
+
+• [ ]   freya/ui/__init__.py • [ ]   freya/ui/app.py
+• [ ]   freya/ui/screens/__init__.py
+• [ ]   freya/ui/screens/main_screen.py
+• [ ]   freya/ui/screens/system_checks.py • [ ]   freya/ui/screens/config_screen.py • [ ]   freya/ui/screens/chat_screen.py
+• [ ]   freya/ui/screens/logs_screen.py • [ ]   freya/ui/screens/tests_screen.py • [ ]   freya/ui/widgets/__init__.py
+• [ ]   freya/ui/widgets/status_indicator.py • [ ]   freya/ui/widgets/log_viewer.py
+• [ ]   freya/ui/widgets/chat_bubble.py
+• [ ]   freya/ui/widgets/config_editor.py • [ ]   freya/ui/themes/dark.tcss
+• [ ]   freya/ui/themes/light.tcss • [ ]   freya/ui/checks/__init__.py
+• [ ]   freya/ui/checks/base_check.py
+• [ ]   freya/ui/checks/python_check.py • [ ]   freya/ui/checks/ollama_check.py • [ ]   freya/ui/checks/audio_check.py • [ ]   freya/ui/utils/__init__.py
+• [ ]   freya/ui/utils/log_handler.py • [ ]   freya/ui/utils/async_helper.py • [ ]   main_ui.py
+• [ ]   requirements-ui.txt
+
+Optional Files
+
+• [ ]   freya/ui/screens/help_screen.py • [ ]   freya/ui/screens/model_select.py
+• [ ]   freya/ui/screens/memory_browser.py • [ ]   freya/ui/widgets/progress_bar.py
+• [ ]   freya/ui/widgets/voice_visualizer.py • [ ]   freya/ui/themes/catppuccin.tcss
+
+
+
+End of Implementation Plan

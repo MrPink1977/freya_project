@@ -26,6 +26,11 @@ from freya.stt import SpeechToText
 from freya.tools import ToolManager
 from freya.tts import TextToSpeech
 from freya.wake import WakeWordDetector
+import keyboard
+from colorama import Fore, Style, init as colorama_init
+
+# Initialize colorama for Windows console colors
+colorama_init(autoreset=True)
 
 logger = get_logger("coordinator")
 
@@ -160,6 +165,14 @@ class OrchestrationCoordinator:
         # State
         self._running = False
         self._text_mode_task: Optional[asyncio.Task] = None
+        
+        # Hotkey state
+        self._escape_pressed = False
+        self._hotkeys_registered = False
+        
+        # Response accumulation for colored output
+        self._response_buffer = ""
+        self._response_started = False
 
     async def run(self) -> None:
         """Main entry point - start agents and run event loop."""
@@ -169,6 +182,9 @@ class OrchestrationCoordinator:
 
             # Subscribe to key events
             await self._subscribe_to_events()
+            
+            # Register hotkeys
+            self._register_hotkeys()
 
             # Announce startup
             await self._announce_startup()
@@ -182,6 +198,7 @@ class OrchestrationCoordinator:
         except KeyboardInterrupt:
             self._output("\n[Interrupted] Shutting down Freya. Goodbye!")
         finally:
+            self._unregister_hotkeys()
             await self._stop_agents()
 
     async def _start_agents(self) -> None:
@@ -239,13 +256,119 @@ class OrchestrationCoordinator:
 
         logger.debug("Coordinator subscribed to events")
 
+    def _register_hotkeys(self) -> None:
+        """Register emergency hotkeys for speech control."""
+        try:
+            # Ctrl+M: Mute/Stop current speech
+            keyboard.add_hotkey('ctrl+m', self._on_mute_hotkey)
+            
+            # Escape: Emergency stop
+            keyboard.on_press_key('esc', self._on_escape_press)
+            keyboard.on_release_key('esc', self._on_escape_release)
+            
+            self._hotkeys_registered = True
+            logger.info("Hotkeys registered: Ctrl+M (mute), Escape (emergency stop)")
+            self._output("[Hotkeys] Ctrl+M=Mute speech, Escape=Emergency stop")
+        except Exception as e:
+            logger.warning(f"Failed to register hotkeys: {e}")
+
+    def _unregister_hotkeys(self) -> None:
+        """Unregister all hotkeys."""
+        if self._hotkeys_registered:
+            try:
+                keyboard.unhook_all()
+                self._hotkeys_registered = False
+                logger.info("Hotkeys unregistered")
+            except Exception as e:
+                logger.warning(f"Failed to unregister hotkeys: {e}")
+
+    def _on_mute_hotkey(self) -> None:
+        """Handle Ctrl+M hotkey - stop current speech."""
+        logger.info("Ctrl+M pressed - muting speech")
+        self._output("\n[MUTED] Stopping speech...")
+        
+        # Cancel speech by publishing stop request
+        asyncio.create_task(self.bus.publish(
+            topic="speech.stop",
+            payload={"channel_id": "pc"},
+            sender="coordinator",
+            priority=MessagePriority.URGENT,
+        ))
+
+    def _on_escape_press(self, event) -> None:
+        """Handle Escape key press."""
+        if not self._escape_pressed:
+            self._escape_pressed = True
+            logger.info("Escape pressed - emergency stop initiated")
+            self._output("\n[EMERGENCY STOP] Cancelling all speech...")
+            
+            # Stop speech immediately
+            asyncio.create_task(self.bus.publish(
+                topic="speech.stop",
+                payload={"channel_id": "pc", "force": True},
+                sender="coordinator",
+                priority=MessagePriority.URGENT,
+            ))
+
+    def _on_escape_release(self, event) -> None:
+        """Handle Escape key release."""
+        self._escape_pressed = False
+
+    def _is_exit_command(self, text: str) -> bool:
+        """Check if text contains a natural exit command."""
+        text_lower = text.lower().strip()
+        
+        # Direct exit words
+        if text_lower in {"exit", "quit", "goodbye", "bye", "stop"}:
+            return True
+        
+        # Natural language exit phrases
+        exit_phrases = [
+            "be quiet",
+            "zip it",
+            "shut up",
+            "be silent",
+            "stop talking",
+            "go away",
+            "leave me alone",
+            "that's enough",
+            "i'm done",
+            "we're done",
+            "that'll do",
+            "silence",
+            "hush",
+            "shh",
+        ]
+        
+        return any(phrase in text_lower for phrase in exit_phrases)
+
+    def _print_user(self, text: str) -> None:
+        """Print user message with cyan color and formatting."""
+        print(f"\n{Fore.CYAN}┌─ You:{Style.RESET_ALL}")
+        lines = text.split('\n')
+        for line in lines:
+            print(f"{Fore.CYAN}│ {line}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}└{'─' * 60}{Style.RESET_ALL}")
+
+    def _print_freya(self, text: str) -> None:
+        """Print Freya's response with magenta color and formatting."""
+        print(f"\n{Fore.MAGENTA}┌─ Freya:{Style.RESET_ALL}")
+        lines = text.split('\n')
+        for line in lines:
+            print(f"{Fore.MAGENTA}│ {line}{Style.RESET_ALL}")
+        print(f"{Fore.MAGENTA}└{'─' * 60}{Style.RESET_ALL}")
+
     async def _announce_startup(self) -> None:
         """Announce startup and mode."""
         if self._mode == "voice":
-            self._output(
-                "Freya: Voice mode active. Say 'Hey, Freya' followed by your message. "
-                "Say 'exit' or 'quit' to stop."
-            )
+            print(f"\n{Fore.GREEN}{'='*70}")
+            print(f"{Fore.GREEN}  FREYA - Voice Mode Active{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}{'='*70}")
+            print(f"{Fore.YELLOW}  • Say 'Hey, Freya' followed by your message")
+            print(f"{Fore.YELLOW}  • Natural exit: 'Freya, be quiet' or 'zip it'")
+            print(f"{Fore.YELLOW}  • Hotkeys: Ctrl+M (mute), Escape (emergency stop)")
+            print(f"{Fore.GREEN}{'='*70}{Style.RESET_ALL}\n")
+            
             # Speak ready prompt via SpeechAgent
             print("[DEBUG] Coordinator: Publishing speech.speak_request...")
             await self.bus.publish(
@@ -256,10 +379,13 @@ class OrchestrationCoordinator:
             )
             print("[DEBUG] Coordinator: Published speech.speak_request")
         else:
-            self._output(
-                "Freya: Text mode active. Type your message and press Enter. "
-                "Type 'exit' or 'quit' to stop."
-            )
+            print(f"\n{Fore.GREEN}{'='*70}")
+            print(f"{Fore.GREEN}  FREYA - Text Mode Active{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}{'='*70}")
+            print(f"{Fore.YELLOW}  • Type your message and press Enter")
+            print(f"{Fore.YELLOW}  • Exit: type 'exit', 'quit', or 'be quiet'")
+            print(f"{Fore.YELLOW}  • Hotkeys: Ctrl+M (mute), Escape (emergency stop)")
+            print(f"{Fore.GREEN}{'='*70}{Style.RESET_ALL}\n")
 
     async def _run_voice_mode(self) -> None:
         """Run voice interaction mode with wake word detection."""
@@ -297,19 +423,20 @@ class OrchestrationCoordinator:
 
         while self._running:
             try:
-                # Read input in executor to avoid blocking
-                user_input = await loop.run_in_executor(None, lambda: input("> ").strip())
+                # Read input in executor to avoid blocking with colored prompt
+                prompt = f"{Fore.CYAN}> {Style.RESET_ALL}"
+                user_input = await loop.run_in_executor(None, lambda: input(prompt).strip())
 
                 if not user_input:
                     continue
 
-                # Check for exit
+                # Check for exit (redundant now but kept for direct exit words)
                 if user_input.lower() in {"exit", "quit", "goodbye"}:
-                    self._output("Freya: Goodbye!")
+                    self._print_freya("Goodbye!")
                     self._running = False
                     break
 
-                # Send to dialog agent
+                # Send to dialog agent (will check for natural language exits)
                 await self._handle_user_input(user_input)
 
             except EOFError:
@@ -345,6 +472,23 @@ class OrchestrationCoordinator:
 
     async def _handle_user_input(self, user_text: str, channel_id: str = "pc") -> None:
         """Process user input through dialog agent."""
+        # Print user input with color
+        self._print_user(user_text)
+        
+        # Check for natural language exit commands
+        if self._is_exit_command(user_text):
+            self._print_freya("Okay, shutting down. Goodbye!")
+            if self._mode == "voice":
+                await self.bus.publish(
+                    topic="speech.speak_request",
+                    payload={"text": "Okay, shutting down. Goodbye!", "channel_id": channel_id},
+                    sender="coordinator",
+                    priority=MessagePriority.NORMAL,
+                )
+                await asyncio.sleep(2)  # Let TTS finish
+            self._running = False
+            return
+        
         # Store user message in memory
         await self.bus.publish(
             topic="memory.store",
@@ -371,6 +515,9 @@ class OrchestrationCoordinator:
 
         # Forward to SpeechAgent in voice mode
         if self._mode == "voice":
+            # Accumulate for final colored print
+            self._response_buffer += text
+            
             await self.bus.publish(
                 topic="speech.speak_request",
                 payload={"text": text, "channel_id": channel_id},
@@ -379,8 +526,15 @@ class OrchestrationCoordinator:
                 correlation_id=message.correlation_id,
             )
         else:
-            # In text mode, print chunks as they arrive
-            print(text, end="", flush=True)
+            # In text mode, accumulate and print with color
+            if not self._response_started:
+                # Print header on first chunk
+                print(f"{Fore.MAGENTA}┌─ Freya:{Style.RESET_ALL}")
+                print(f"{Fore.MAGENTA}│ {Style.RESET_ALL}", end="", flush=True)
+                self._response_started = True
+            
+            self._response_buffer += text
+            print(f"{Fore.MAGENTA}{text}{Style.RESET_ALL}", end="", flush=True)
 
     async def _handle_dialog_complete(self, message: Message) -> None:
         """Handle dialog completion - store response in memory."""
@@ -393,9 +547,18 @@ class OrchestrationCoordinator:
 
         logger.info(f"Dialog complete: model={model}, duration={duration_ms}ms")
 
-        # Print newline in text mode
+        # Print colored output based on mode
         if self._mode == "text":
-            print()  # End the streaming output
+            # Close the text mode streaming output
+            print(f"\n{Fore.MAGENTA}└{'─' * 60}{Style.RESET_ALL}")
+            self._response_started = False
+        else:
+            # Voice mode - print complete response with color
+            if self._response_buffer:
+                self._print_freya(self._response_buffer)
+        
+        # Clear response buffer
+        self._response_buffer = ""
 
         # Store assistant response
         await self.bus.publish(

@@ -119,6 +119,7 @@ class SpeechAgent(BaseAgent):
         self.bus.subscribe("dialog.chunk", self._handle_dialog_chunk)
         self.bus.subscribe("speech.mute_channel", self._handle_mute_channel)
         self.bus.subscribe("speech.unmute_channel", self._handle_unmute_channel)
+        self.bus.subscribe("speech.stop", self._handle_stop_speech)
         print("[DEBUG] SpeechAgent: Subscribed to all topics")
 
         logger.info("SpeechAgent started")
@@ -392,6 +393,37 @@ class SpeechAgent(BaseAgent):
         channel_id = message.payload.get("channel_id", "")
         if channel_id:
             await self.unmute_channel(channel_id)
+
+    async def _handle_stop_speech(self, message: Message) -> None:
+        """Handle emergency stop of current speech."""
+        channel_id = message.payload.get("channel_id", "pc")
+        force = message.payload.get("force", False)
+        
+        logger.info(f"Stop speech requested for channel {channel_id} (force={force})")
+        
+        # Stop TTS playback immediately
+        if self.tts and hasattr(self.tts, "stop_speaking"):
+            self.tts.stop_speaking()
+            logger.debug("TTS stop signal sent")
+        
+        # Cancel TTS task if running
+        if self._tts_task and not self._tts_task.done():
+            self._tts_task.cancel()
+            logger.debug("TTS task cancelled")
+        
+        # Clear buffer
+        self._tts_buffer.clear()
+        
+        # Release channel lock if held
+        if self._active_channel == channel_id:
+            self._active_channel = None
+        
+        # Notify speech stopped
+        await self.publish(
+            "speech.speech_stopped",
+            {"channel_id": channel_id, "forced": force},
+            priority=MessagePriority.URGENT,
+        )
 
     def get_active_channel(self) -> Optional[str]:
         """Get the currently active channel."""
