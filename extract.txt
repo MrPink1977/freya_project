@@ -1,0 +1,15 @@
+# Extract
+tar -xzf freya_refactored.tar.gz
+cd freya_refactored
+
+# Install
+python3.11 -m venv venv
+source venv/bin/activate
+pip install -e .
+
+# Configure
+cp config/default.yaml config/my_config.yaml
+# Edit my_config.yaml with your settings
+
+# Run
+python -m freya.main
