@@ -1,0 +1,117 @@
+FREYA TESTING CHECKLIST - UPDATED
+Phase 1: Infrastructure & Setup ✅ COMPLETE
+ pytest installed - pytest 9.0.1 with asyncio plugin
+ conftest.py created - 294 lines with 15+ fixtures
+ Environment variables - OLLAMA_HOST set correctly
+ Config fixes - All config.dialog → config.ollama fixed
+ Ollama running - GPU mode (RTX 5060 Ti, 14.7GB)
+Phase 2: Core Functionality 🔄 IN PROGRESS
+Tool Execution:
+
+ Time tool - ✅ WORKING (returns accurate time)
+ Date tool - ✅ WORKING (Saturday, November 22, 2025)
+ Calculator - ⚠️ MOSTLY WORKING (some accuracy issues: 238×483 wrong)
+ Web search - ⚠️ WORKING but LOW QUALITY (DuckDuckGo returns spam links)
+[❌] File listing - ❌ HALLUCINATING (tool executes, LLM ignores actual output)
+[❌] Read file - ❌ NOT TESTED
+[❌] Write file - ❌ NOT TESTED
+[❌] Web scraper - ❌ NOT IMPLEMENTED (returns "I cannot scrape")
+[❌] System info - ❌ NOT TESTED
+[❌] Performance monitor - ❌ NOT TESTED
+Memory System:
+
+ Memory storage - ✅ WORKING (ChromaDB persisting data)
+ Fact extraction - ✅ WORKING (name=Tommy, birthday, favorites stored)
+ Fact recall - ✅ FIXED! Returns facts directly instead of conversation history
+"what's my name?" → [FACT] name: Tommy ✅
+"my birthday?" → [FACT] birthday: March 21, 1977 ✅
+"favorite food?" → [FACT] favorite_food: penut butter ✅
+ Fact prioritization - ✅ WORKING (facts shown before conversation history)
+ Question filtering - ✅ WORKING (filters out old questions from results)
+Message Flow:
+
+ user.query → ToolExecutorAgent - ✅ WORKING (tool detection happening)
+ tool.result → DialogAgent - ✅ WORKING (context injection happening)
+ tool.not_found → DialogAgent - ✅ WORKING (fallback to conversation)
+ Personality injection - ✅ WORKING (emojis, conversational tone, empathy)
+Phase 3: User Interface ✅ MOSTLY COMPLETE
+Startup System:
+
+ Startup menu - ✅ WORKING (all 8 options functional)
+ System checks - ✅ WORKING (6/7 passing, only CUDA warning)
+ Model selection - ✅ WORKING (dynamic Ollama model list from API)
+ Model persistence - ✅ WORKING (saves to .last_model, loads on startup)
+ Text mode - ✅ WORKING (interactive text chat)
+[❌] Voice mode - ❌ NOT TESTED
+ Option 4 controls view - ✅ WORKING (shows all hotkeys including Ctrl+T)
+[⚠️] Option 3 config view - ⚠️ PARTIAL (crashes on STT section: 'SpeechToTextConfig' has no 'model_id')
+Hotkeys:
+
+ Ctrl+M (Mute) - ✅ IMPLEMENTED (stops speech, sends speech.stop message)
+ Ctrl+T (Toggle mode) - ✅ IMPLEMENTED (switches voice ↔ text)
+ Escape (Emergency stop) - ✅ REGISTERED but ❌ NOT TESTED
+Phase 4: Known Issues 🚨
+CRITICAL:
+
+❌ File listing hallucination - Tool executes correctly, context injected, but LLM makes up files instead of using tool output
+❌ Web scraper not implemented - Returns "I cannot scrape" error message
+❌ Option 3 config display crash - 'SpeechToTextConfig' object has no attribute 'model_id'
+MODERATE:
+4. ⚠️ Web search quality - DuckDuckGo API returning spam/SEO sites instead of real content
+5. ⚠️ Calculator accuracy - "238×483" returned 116,854 (correct: 115,054)
+6. ❌ Debug logging invisible - INFO/DEBUG logs not appearing in console (level too high)
+7. ❌ LLM hallucinating tool results - When tools fail, LLM makes up plausible-sounding data
+
+MINOR:
+8. ⚠️ Large model timeouts - deepseek-coder-v2:16b exceeds 10s streaming timeout
+9. ⚠️ CUDA warning - Whisper STT falls back to CPU (slower but functional)
+10. ⚠️ Hotkey registration message - Shows "Ctrl+M, Escape" but not "Ctrl+T" in startup
+
+Phase 5: Not Tested ❌
+Voice Mode:
+
+ Voice mode activation (option 1)
+ Wake word detection ("Hey Freya")
+ STT transcription accuracy
+ ElevenLabs TTS playback
+ Voice command processing
+ Natural language exit phrases in voice mode
+Advanced Features:
+
+ Escape emergency stop functionality
+ Facial recognition toggle (option 7)
+ Read file tool (read file X)
+ Write file tool (write to file X)
+ System info tool (system info)
+ Performance monitor tool (cpu usage, memory usage)
+ Context transfer to long-term memory (when context full)
+ Multi-channel audio support (Reolink camera integration)
+Persistence & Recovery:
+
+ ChromaDB memory integrity after restart
+ Config changes persistence
+ Crash recovery
+ Long conversation handling (context window limits)
+Phase 6: Test Results Summary 📊
+Total Tests: 42 items
+
+✅ Working: 24 (57%)
+⚠️ Partial/Issues: 7 (17%)
+❌ Not Working/Tested: 11 (26%)
+Key Achievements Today:
+
+✅ Memory fact recall completely fixed
+✅ Dynamic model selection with persistence
+✅ Ctrl+T mode toggle hotkey added
+✅ Message flow and tool execution working
+✅ Time/Date tools functional
+✅ Fact extraction and storage working
+Top Priorities Remaining:
+
+Fix file listing tool output injection
+Test voice mode end-to-end
+Fix web scraper implementation
+Fix option 3 config display
+Improve web search quality
+Test file read/write operations
+Status: Ready for voice mode testing or continue fixing text mode issues?

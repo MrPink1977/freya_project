@@ -344,7 +344,6 @@ class MemoryAgent(BaseAgent):
                 await self.publish(
                     topic="memory.fact.store",
                     payload={"category": "name", "key": "name", "value": name, "confidence": 1.0},
-                    sender=self.agent_id,
                 )
                 return
 
@@ -364,11 +363,10 @@ class MemoryAgent(BaseAgent):
                         "value": birthday,
                         "confidence": 1.0,
                     },
-                    sender=self.agent_id,
                 )
                 return
 
-        # Extract favorites
+        # Extract favorites ("favorite X is Y" or "my favorite X is Y")
         match = self._fact_patterns["favorite"].search(user_text)
         if match:
             category = match.group(1).strip().lower()
@@ -381,7 +379,22 @@ class MemoryAgent(BaseAgent):
                     "value": value,
                     "confidence": 1.0,
                 },
-                sender=self.agent_id,
+            )
+            return
+        
+        # Try alternate pattern: "my favorite X is Y"
+        alt_match = re.search(r"my favorite\s+(\w+)\s+is\s+(.+)", user_text, re.IGNORECASE)
+        if alt_match:
+            category = alt_match.group(1).strip().lower()
+            value = alt_match.group(2).strip()
+            await self.publish(
+                topic="memory.fact.store",
+                payload={
+                    "category": "preference",
+                    "key": f"favorite_{category}",
+                    "value": value,
+                    "confidence": 1.0,
+                },
             )
             return
 
@@ -399,7 +412,6 @@ class MemoryAgent(BaseAgent):
                         "value": value,
                         "confidence": 0.8 if "like" in pattern_name else 1.0,
                     },
-                    sender=self.agent_id,
                 )
                 return
 
@@ -417,6 +429,5 @@ class MemoryAgent(BaseAgent):
                         "value": value,
                         "confidence": 0.8 if "dislike" in pattern_name else 1.0,
                     },
-                    sender=self.agent_id,
                 )
                 return

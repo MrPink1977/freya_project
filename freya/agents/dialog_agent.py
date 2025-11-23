@@ -471,7 +471,9 @@ class DialogAgent(BaseAgent):
         """Inject external context (tool results, memories)."""
         if context and context.strip():
             self._injected_context.append(context.strip())
-            self.logger.debug(f"Injected context: {context[:100]}...")
+            print(f"\n[DIALOG DEBUG] Injected context ({len(context)} chars):")
+            print(context)
+            print("[DIALOG DEBUG] End of injected context\n")
 
     def _partition_speakable(self, buffer: str) -> tuple[list[str], str]:
         """Split buffer into speakable chunks at sentence boundaries."""

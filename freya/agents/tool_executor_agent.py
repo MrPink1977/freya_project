@@ -98,14 +98,18 @@ class ToolExecutorAgent(BaseAgent):
         Args:
             message: Message containing user query
         """
+        self.logger.info(f"[TOOL] Received message with topic: {message.topic}")
         if message.topic != "user.query":
+            self.logger.info(f"[TOOL] Ignoring non-user.query topic: {message.topic}")
             return
 
         # Validate payload
+        self.logger.info(f"[TOOL] Validating payload: {message.payload}")
         try:
             payload = validate_message_payload(message.payload, UserQueryPayload, self.agent_id)
+            self.logger.info(f"[TOOL] Payload validated successfully: text='{payload.text}'")
         except AgentMessageError as exc:
-            self.logger.error("Invalid user query: %s", exc)
+            self.logger.error(f"[TOOL] Invalid user query: {exc}")
             await self.publish(
                 topic="tool.not_found",
                 payload={"query": "", "error": str(exc)},
@@ -152,20 +156,26 @@ class ToolExecutorAgent(BaseAgent):
         Returns:
             Tool result dict if tool was executed, None otherwise
         """
+        self.logger.debug(f"Checking query for tool patterns: '{query}'")
+        
         # Check time query
         if self._tool_patterns["time"].search(query):
+            self.logger.info("Time tool detected")
             return await self._execute_time_tool(query)
 
         # Check date query
         if self._tool_patterns["date"].search(query):
+            self.logger.info("Date tool detected")
             return await self._execute_date_tool()
 
         # Check calculation
         if self._tool_patterns["calculate"].search(query):
+            self.logger.info("Calculator tool detected")
             return await self._execute_calculator_tool(query)
 
         # Check file operations
         if self._tool_patterns["files"].search(query):
+            self.logger.info("List files tool detected")
             return await self._execute_list_files_tool(query)
 
         if self._tool_patterns["read_file"].search(query):
@@ -239,9 +249,16 @@ class ToolExecutorAgent(BaseAgent):
         """Execute list files tool with path extraction."""
         # Try to extract path from query
         path_match = re.search(r"in\s+['\"]?([^\s'\"]+)", query, re.IGNORECASE)
-        directory = path_match.group(1) if path_match else "."
-
-        result = self.tool_manager.execute_tool("list_files", directory=directory)
+        path = path_match.group(1) if path_match else "."
+        
+        print(f"\n[TOOL DEBUG] Executing list_files with path: '{path}'")
+        result = self.tool_manager.execute_tool("list_files", path=path)
+        print(f"[TOOL DEBUG] list_files result: success={result.success}")
+        if result.success and result.output:
+            print(f"[TOOL DEBUG] list_files output ({len(result.output)} chars):")
+            print(result.output)
+            print("[TOOL DEBUG] End of output\n")
+        
         return {
             "tool_name": "list_files",
             "success": result.success,

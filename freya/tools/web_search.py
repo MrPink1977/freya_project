@@ -9,7 +9,7 @@ import time
 from typing import Optional
 
 try:
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS
 except ImportError:
     DDGS = None
 
@@ -143,7 +143,7 @@ async def search_web_async(
         RateLimitError: If rate limit exceeded and timeout expires
     """
     if DDGS is None:
-        raise WebSearchError("duckduckgo-search not installed. Run: pip install duckduckgo-search")
+        raise WebSearchError("ddgs not installed. Run: pip install ddgs")
 
     if not query or not query.strip():
         return "No search query provided."
@@ -239,9 +239,49 @@ def search_web(query: str, max_results: int = 5, use_cache: bool = True) -> str:
         ).result()
 
 
+from .base import FreyaTool, ToolResult
+
+
+class WebSearchTool(FreyaTool):
+    """Search the web using DuckDuckGo."""
+
+    @property
+    def name(self) -> str:
+        return "web_search"
+
+    @property
+    def description(self) -> str:
+        return "Search the web for information using DuckDuckGo. Returns up to 5 results with titles, snippets, and URLs."
+
+    def execute(self, query: str, max_results: int = 5) -> ToolResult:
+        """Execute web search.
+
+        Args:
+            query: Search query string
+            max_results: Maximum number of results (1-10, default 5)
+
+        Returns:
+            ToolResult with search results
+        """
+        try:
+            output = search_web(query, max_results=max_results, use_cache=True)
+            return ToolResult(
+                success=True,
+                output=output,
+                metadata={"query": query, "max_results": max_results}
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Web search failed: {e}"
+            )
+
+
 __all__ = [
     "search_web",
     "search_web_async",
+    "WebSearchTool",
     "WebSearchError",
     "clear_search_cache",
     "get_cache_stats",

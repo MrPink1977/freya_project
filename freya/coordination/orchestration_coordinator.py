@@ -113,6 +113,9 @@ class OrchestrationCoordinator:
             memory_store=memory_store,
             auto_extract_facts=True,
         )
+        
+        # Keep reference to memory store for fact queries
+        self._memory_store = memory_store
 
         # Create temporary STT for wake word (until we have multi-channel STT)
         from freya.stt import SpeechToText
@@ -250,6 +253,9 @@ class OrchestrationCoordinator:
 
         # Tool result → inject into dialog context
         self.bus.subscribe("tool.result", self._handle_tool_result)
+        
+        # Tool not found → send to dialog agent
+        self.bus.subscribe("tool.not_found", self._handle_tool_not_found)
 
         # Speech transcription → process as user input
         self.bus.subscribe("speech.transcription", self._handle_transcription)
@@ -262,13 +268,16 @@ class OrchestrationCoordinator:
             # Ctrl+M: Mute/Stop current speech
             keyboard.add_hotkey('ctrl+m', self._on_mute_hotkey)
             
+            # Ctrl+T: Toggle between voice and text mode
+            keyboard.add_hotkey('ctrl+t', self._on_mode_toggle_hotkey)
+            
             # Escape: Emergency stop
             keyboard.on_press_key('esc', self._on_escape_press)
             keyboard.on_release_key('esc', self._on_escape_release)
             
             self._hotkeys_registered = True
-            logger.info("Hotkeys registered: Ctrl+M (mute), Escape (emergency stop)")
-            self._output("[Hotkeys] Ctrl+M=Mute speech, Escape=Emergency stop")
+            logger.info("Hotkeys registered: Ctrl+M (mute), Ctrl+T (toggle mode), Escape (emergency stop)")
+            self._output("[Hotkeys] Ctrl+M=Mute speech, Ctrl+T=Toggle mode, Escape=Emergency stop")
         except Exception as e:
             logger.warning(f"Failed to register hotkeys: {e}")
 
@@ -294,6 +303,13 @@ class OrchestrationCoordinator:
             sender="coordinator",
             priority=MessagePriority.URGENT,
         ))
+    
+    def _on_mode_toggle_hotkey(self) -> None:
+        """Handle Ctrl+T hotkey - toggle between voice and text mode."""
+        new_mode = "text" if self._mode == "voice" else "voice"
+        logger.info(f"Mode toggle: {self._mode} -> {new_mode}")
+        self._mode = new_mode
+        self._output(f"\n[Mode switched to: {new_mode.upper()}]\n")
 
     def _on_escape_press(self, event) -> None:
         """Handle Escape key press."""
@@ -475,6 +491,18 @@ class OrchestrationCoordinator:
         # Print user input with color
         self._print_user(user_text)
         
+        # Query memory for relevant context
+        memories_text = await self._query_relevant_memories(user_text)
+
+        # Inject memories into dialog context if found
+        if memories_text:
+            await self.bus.publish(
+                topic="dialog.inject_context",
+                payload={"context": memories_text},
+                sender="coordinator",
+                priority=MessagePriority.NORMAL,
+            )
+        
         # Check for natural language exit commands
         if self._is_exit_command(user_text):
             self._print_freya("Okay, shutting down. Goodbye!")
@@ -497,10 +525,10 @@ class OrchestrationCoordinator:
             priority=MessagePriority.NORMAL,
         )
 
-        # Send to dialog agent with channel context
+        # Send to tool executor FIRST to check for tool needs
         await self.bus.publish(
-            topic="dialog.request",
-            payload={"text": user_text, "stream": True},  # Removed channel_id (not in DialogRequestPayload schema)
+            topic="user.query",
+            payload={"text": user_text, "channel_id": channel_id},
             sender="coordinator",
             priority=MessagePriority.HIGH,
         )
@@ -569,17 +597,64 @@ class OrchestrationCoordinator:
         )
 
     async def _handle_tool_result(self, message: Message) -> None:
-        """Handle tool execution result - inject into dialog context."""
-        tool_name = message.payload.get("tool", "unknown")
-        result = message.payload.get("result", "")
+        """Handle tool execution result - inject into dialog context and request response."""
+        query = message.payload.get("query", "")
+        tool_name = message.payload.get("tool_name", "unknown")
+        success = message.payload.get("success", False)
+        output = message.payload.get("output", "")
+        error = message.payload.get("error")
 
-        if result:
-            context_text = f"Tool '{tool_name}' result: {result}"
+        if success and output:
+            # Format tool result for injection
+            context_text = f"TOOL RESULT: ({tool_name})\n{output}"
+            
+            # Inject tool result into dialog context
             await self.bus.publish(
                 topic="dialog.inject_context",
                 payload={"context": context_text},
                 sender="coordinator",
                 priority=MessagePriority.NORMAL,
+            )
+            
+            # Request dialog response with injected context
+            await self.bus.publish(
+                topic="dialog.request",
+                payload={"text": query, "stream": True},
+                sender="coordinator",
+                priority=MessagePriority.HIGH,
+                correlation_id=message.correlation_id,
+            )
+        else:
+            # Tool failed - send error to dialog
+            error_context = f"Tool '{tool_name}' failed: {error or 'Unknown error'}"
+            await self.bus.publish(
+                topic="dialog.inject_context",
+                payload={"context": error_context},
+                sender="coordinator",
+                priority=MessagePriority.NORMAL,
+            )
+            
+            # Request dialog response
+            await self.bus.publish(
+                topic="dialog.request",
+                payload={"text": query, "stream": True},
+                sender="coordinator",
+                priority=MessagePriority.HIGH,
+                correlation_id=message.correlation_id,
+            )
+
+    async def _handle_tool_not_found(self, message: Message) -> None:
+        """Handle case where no tool was detected - send directly to dialog."""
+        query = message.payload.get("query", "")
+        
+        if query:
+            # No tool needed, send directly to dialog agent
+            await self.bus.publish(
+                topic="dialog.request",
+                payload={"text": query, "stream": True},
+                sender="coordinator",
+                priority=MessagePriority.HIGH,
+                correlation_id=message.correlation_id,
             )
 
     async def _handle_transcription(self, message: Message) -> None:
@@ -595,6 +670,39 @@ class OrchestrationCoordinator:
 
     async def _query_relevant_memories(self, query: str, limit: int = 3) -> str:
         """Query memory agent for relevant context."""
+        # Check if query is asking for facts first
+        query_lower = query.lower()
+        fact_keywords = {
+            "name": ["my name", "who am i", "what's my name", "whats my name", "i'm ", "i am ", "call me"],
+            "birthday": ["my birthday", "when was i born", "born on", "birth"],
+            "favorite": ["favorite", "favourite", "fav "],
+            "like": ["do i like", "what do i like", "i like", "i love"],
+            "dislike": ["do i hate", "what do i hate", "i hate", "i dislike"],
+        }
+        
+        # Question indicators to filter out from memory results
+        question_indicators = ["what's", "whats", "who am", "when was", "do i", "can you", "tell me"]
+        
+        # Try to get specific facts first
+        fact_context = []
+        found_fact_category = None
+        for category, keywords in fact_keywords.items():
+            if any(kw in query_lower for kw in keywords):
+                facts = self._memory_store.get_all_facts()
+                matching_facts = [f for f in facts if category in f.category or category in f.key]
+                if matching_facts:
+                    found_fact_category = category
+                    for fact in matching_facts[:2]:  # Limit to 2 facts per category
+                        fact_context.append(f"[FACT] {fact.key}: {fact.value}")
+        
+        # If we found facts for a direct question, skip conversation history search
+        # (avoids returning "what's my name?" when we have "name: Tommy")
+        if fact_context and found_fact_category:
+            context_lines = ["Relevant facts:"]
+            context_lines.extend(fact_context)
+            return "\n".join(context_lines)
+        
+        # Otherwise, do full semantic search for conversation context
         # Create correlation ID for tracking
         correlation_id = f"memory_query_{time.time()}"
 
@@ -625,15 +733,36 @@ class OrchestrationCoordinator:
 
         # Format memories as context
         memories = results_container["results"]
-        if not memories:
+        
+        # Filter out questions from memories if we're asking a question
+        is_user_asking_question = any(indicator in query_lower for indicator in question_indicators)
+        if is_user_asking_question and memories:
+            # Remove memories that are also questions (avoid "what's my name?" → "what's my name?")
+            filtered_memories = []
+            for mem in memories:
+                content = mem.get("content", "").lower()
+                role = mem.get("role", "")
+                # Skip if it's a user question
+                if role == "user" and any(indicator in content for indicator in question_indicators):
+                    continue
+                filtered_memories.append(mem)
+            memories = filtered_memories
+        
+        # Combine facts and memories
+        all_context = []
+        if fact_context:
+            all_context.extend(fact_context)
+        if memories:
+            for mem in memories:
+                content = mem.get("content", "")
+                role = mem.get("role", "")
+                all_context.append(f"- [{role}] {content}")
+        
+        if not all_context:
             return ""
 
         context_lines = ["Relevant memories:"]
-        for mem in memories:
-            content = mem.get("content", "")
-            role = mem.get("role", "")
-            context_lines.append(f"- [{role}] {content}")
-
+        context_lines.extend(all_context)
         return "\n".join(context_lines)
 
 

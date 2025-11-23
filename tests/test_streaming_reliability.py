@@ -282,7 +282,7 @@ class TestStreamingChunkValidation:
         assert "Chunk 3" in response
 
 
-class TestStreamingTimeout Configuration:
+class TestStreamingTimeoutConfiguration:
     """Test streaming timeout configuration."""
 
     def test_chunk_timeout_constant(self):

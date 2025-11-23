@@ -32,6 +32,7 @@ class ToolManager:
         from .performance_tools import PerformanceMonitorTool
         from .system_tools import ExecuteCommandTool, SystemInfoTool
         from .web_scraper import WebScraperTool
+        from .web_search import WebSearchTool
 
         default_tools: List[Type[FreyaTool]] = [
             # Time/Date

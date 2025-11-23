@@ -28,6 +28,8 @@ class StartupSystem:
         self.checker = SystemCheck()
         self.test_log: list[str] = []
         self.start_time = datetime.now()
+        self._last_model_file = Path("data/.last_model")
+        self._load_last_model()
         
     def log_test(self, message: str, level: str = "INFO"):
         """Log test messages with timestamp."""
@@ -65,8 +67,8 @@ class StartupSystem:
         # Check 1: Ollama
         self.print_colored("\n[1/7] Checking Ollama connection...", Fore.YELLOW)
         checks['ollama'] = self.checker._check_ollama(
-            self.config.dialog.host,
-            self.config.dialog.model
+            self.config.ollama.host,
+            self.config.ollama.model
         )
         self._print_check_result("Ollama", checks['ollama'])
         
@@ -82,7 +84,7 @@ class StartupSystem:
         
         # Check 4: TTS Engine
         self.print_colored("\n[4/7] Checking TTS engine...", Fore.YELLOW)
-        checks['tts'] = self.checker._check_tts(self.config.tts)
+        checks['tts'] = self.checker._check_tts(self.config.tts.voice_path)
         self._print_check_result("TTS Engine", checks['tts'])
         
         # Check 5: Wake Word Detector
@@ -92,7 +94,7 @@ class StartupSystem:
         
         # Check 6: Memory Store
         self.print_colored("\n[6/7] Checking memory store...", Fore.YELLOW)
-        checks['memory'] = self.checker._check_memory(self.config.long_term_memory)
+        checks['memory'] = self.checker._check_memory(self.config.memory.long_term)
         self._print_check_result("Memory Store", checks['memory'])
         
         # Check 7: Color Display Test
@@ -146,9 +148,10 @@ class StartupSystem:
         self.print_box("CURRENT CONFIGURATION", Fore.CYAN, 70)
         
         print(f"{Fore.YELLOW}Dialog Model:{Style.RESET_ALL}")
-        print(f"  Host: {self.config.dialog.host}")
-        print(f"  Model: {self.config.dialog.model}")
-        print(f"  Temperature: {self.config.dialog.temperature}")
+        print(f"  Host: {self.config.ollama.host}")
+        print(f"  Model: {self.config.ollama.model}")
+        if 'temperature' in self.config.ollama.options:
+            print(f"  Temperature: {self.config.ollama.options['temperature']}")
         
         print(f"\n{Fore.YELLOW}Speech Recognition:{Style.RESET_ALL}")
         print(f"  Model: {self.config.stt.model_id}")
@@ -172,6 +175,7 @@ class StartupSystem:
         
         print(f"{Fore.GREEN}Emergency Controls:{Style.RESET_ALL}")
         print(f"  Ctrl+M           - Mute/Unmute Freya")
+        print(f"  Ctrl+T           - Toggle between Voice and Text mode")
         print(f"  Escape (hold)    - Emergency stop (releases all locks)")
         
         print(f"\n{Fore.GREEN}Natural Exit Phrases:{Style.RESET_ALL}")
@@ -261,7 +265,43 @@ class StartupSystem:
         """Show model selection submenu."""
         self.print_box("CHANGE DIALOG MODEL", Fore.CYAN, 70)
         
-        print(f"{Fore.YELLOW}Current model:{Style.RESET_ALL} {self.config.dialog.model}\n")
+        print(f"{Fore.YELLOW}Current model:{Style.RESET_ALL} {self.config.ollama.model}\n")
+        
+        # Fetch available models from Ollama
+        try:
+            import requests
+            response = requests.get(f"{self.config.ollama.host}/api/tags", timeout=5)
+            if response.status_code == 200:
+                models = response.json().get("models", [])
+                if models:
+                    print(f"{Fore.GREEN}Available models from Ollama:{Style.RESET_ALL}")
+                    for idx, model in enumerate(models, 1):
+                        model_name = model.get("name", "unknown")
+                        size = model.get("size", 0) / (1024**3)  # Convert to GB
+                        print(f"  {idx} - {model_name} ({size:.1f} GB)")
+                    print(f"  {len(models) + 1} - Custom (type model name)")
+                    print()
+                    
+                    choice = input(f"{Fore.YELLOW}Select model: {Style.RESET_ALL}").strip()
+                    
+                    if choice.isdigit():
+                        choice_num = int(choice)
+                        if 1 <= choice_num <= len(models):
+                            object.__setattr__(self.config.ollama, 'model', models[choice_num - 1].get("name"))
+                        elif choice_num == len(models) + 1:
+                            model = input(f"{Fore.YELLOW}Enter model name: {Style.RESET_ALL}").strip()
+                            if model:
+                                object.__setattr__(self.config.ollama, 'model', model)
+                    
+                    self.print_colored(f"\n✓ Model set to: {self.config.ollama.model}\n", Fore.GREEN)
+                    self.log_test(f"Model changed to: {self.config.ollama.model}")
+                    self._save_last_model(self.config.ollama.model)
+                    return
+        except Exception as e:
+            self.print_colored(f"⚠ Could not fetch models from Ollama: {e}", Fore.YELLOW)
+            print()
+        
+        # Fallback to static list
         print("Common models:")
         print("  1 - llama3.2:3b")
         print("  2 - llama3.2:1b")
@@ -272,18 +312,20 @@ class StartupSystem:
         choice = input(f"{Fore.YELLOW}Select model: {Style.RESET_ALL}").strip()
         
         if choice == "1":
-            self.config.dialog.model = "llama3.2:3b"
+            object.__setattr__(self.config.ollama, 'model', "llama3.2:3b")
         elif choice == "2":
-            self.config.dialog.model = "llama3.2:1b"
+            object.__setattr__(self.config.ollama, 'model', "llama3.2:1b")
         elif choice == "3":
-            self.config.dialog.model = "mistral"
+            object.__setattr__(self.config.ollama, 'model', "mistral")
         elif choice == "4":
             model = input(f"{Fore.YELLOW}Enter model name: {Style.RESET_ALL}").strip()
             if model:
-                self.config.dialog.model = model
-        
-        self.print_colored(f"\n✓ Model set to: {self.config.dialog.model}\n", Fore.GREEN)
-        self.log_test(f"Model changed to: {self.config.dialog.model}")
+                object.__setattr__(self.config.ollama, 'model', model)
+
+        self.print_colored(f"\n✓ Model set to: {self.config.ollama.model}\n", Fore.GREEN)
+        self.log_test(f"Model changed to: {self.config.ollama.model}")
+        self._save_last_model(self.config.ollama.model)
+        self._save_last_model(self.config.ollama.model)
     
     def _toggle_facial_recognition(self):
         """Toggle facial recognition on/off."""
@@ -331,6 +373,26 @@ class StartupSystem:
         except Exception as e:
             self.print_colored(f"✗ Failed to save test log: {e}", Fore.RED)
             logger.error(f"Failed to save test log: {e}")
+    
+    def _load_last_model(self):
+        """Load last used model from file."""
+        if self._last_model_file.exists():
+            try:
+                last_model = self._last_model_file.read_text().strip()
+                if last_model:
+                    object.__setattr__(self.config.ollama, 'model', last_model)
+                    logger.info(f"Loaded last used model: {last_model}")
+            except Exception as e:
+                logger.warning(f"Could not load last model: {e}")
+    
+    def _save_last_model(self, model: str):
+        """Save last used model to file."""
+        try:
+            self._last_model_file.parent.mkdir(exist_ok=True)
+            self._last_model_file.write_text(model)
+            logger.info(f"Saved last model: {model}")
+        except Exception as e:
+            logger.warning(f"Could not save last model: {e}")
 
 
 def run_interactive_startup(config: Settings) -> Optional[str]:
