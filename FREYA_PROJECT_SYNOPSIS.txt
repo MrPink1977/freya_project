@@ -1,0 +1,664 @@
+═══════════════════════════════════════════════════════════════════════════
+                    FREYA VOICE ASSISTANT - PROJECT SYNOPSIS
+═══════════════════════════════════════════════════════════════════════════
+
+                        "Your JARVIS-Style AI Companion"
+
+                        Version: 2.0 (Agent Architecture)
+                        Status: Production Ready
+                        Created: 2024
+
+═══════════════════════════════════════════════════════════════════════════
+
+
+╔═══════════════════════════════════════════════════════════════════════╗
+║                          PROJECT OVERVIEW                              ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+FREYA is a sophisticated, JARVIS-style voice-enabled AI assistant built
+with a modern event-driven agent architecture. She's designed as a
+local-first, privacy-respecting conversational AI that combines:
+
+  ✓ Voice Interaction      - Always-listening wake word detection
+  ✓ Text Mode              - Terminal-based chat interface
+  ✓ Multi-Agent System     - Event-driven microservices architecture
+  ✓ Computer Vision        - Facial recognition & IP camera integration
+  ✓ Smart Memory           - ChromaDB semantic search with auto-summarization
+  ✓ Tool Integration       - 9 built-in tools (web, files, calc, system)
+  ✓ Adaptive Personality   - Emotional intelligence with mood responses
+  ✓ Clean Architecture     - Domain-driven design with clear layers
+  ✓ Comprehensive Testing  - 494 test functions with CI/CD pipeline
+
+
+═══════════════════════════════════════════════════════════════════════════
+                          WHAT FREYA CAN DO
+═══════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ VOICE INTERACTION                                                   │
+└─────────────────────────────────────────────────────────────────────┘
+
+  • Wake Word Detection
+    - Say "Hey, Freya" to activate (always listening in background)
+    - Configurable sensitivity (0-1 scale)
+    - 8-second session window after wake word
+    - Fuzzy matching for natural variations
+
+  • Speech-to-Text (STT)
+    - Engine: Faster Whisper with GPU acceleration
+    - Models: tiny/base/small/medium/large
+    - Silent detection with configurable threshold
+    - 30-second max recording with automatic cutoff
+    - 16kHz sample rate for optimal quality
+
+  • Text-to-Speech (TTS)
+    - Local: Piper TTS (fast, on-device, free)
+    - Cloud: ElevenLabs (high-quality, custom voice)
+    - Pre-loaded phrases for instant response
+    - Streaming synthesis during generation
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ MEMORY & LEARNING                                                   │
+└─────────────────────────────────────────────────────────────────────┘
+
+  • Short-Term Memory
+    - Rolling 12-turn conversation history
+    - Automatic summarization at 80% capacity
+    - Context-aware responses
+    - Seamless multi-turn conversations
+
+  • Long-Term Memory (ChromaDB)
+    - Vector embeddings for semantic search
+    - Embedding model: nomic-embed-text:latest (768-dim)
+    - HNSW indexing for O(log n) retrieval speed
+    - Persistent across sessions
+    - Automatic storage of:
+      * Names and birthdays
+      * Likes and dislikes
+      * Preferences and habits
+      * Important facts and events
+
+  • Memory Features
+    - Importance levels (1-5 scale)
+    - Metadata filtering
+    - Corruption recovery
+    - Top-3 similar memory recall
+    - Auto-transfer from short to long-term at 75% capacity
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ TOOLS & CAPABILITIES (9 Built-in Tools)                            │
+└─────────────────────────────────────────────────────────────────────┘
+
+  1. TIME & DATE
+     • get_current_time - Current time in any timezone
+     • get_current_date - Today's date (various formats)
+     • calculate_time_until - Countdown to any date
+
+  2. CALCULATIONS
+     • calculator - Math expressions with scientific functions
+       (supports sqrt, sin, cos, log, exp, factorial, etc.)
+
+  3. FILE OPERATIONS
+     • list_files - Directory listing with pattern matching
+     • read_file - Read text files (with line limits)
+     • write_file - Create/append to files
+
+  4. WEB ACCESS
+     • web_search - DuckDuckGo search with caching
+     • web_scraper - Extract content from websites
+       (text, titles, links, headings, custom selectors)
+
+  5. SYSTEM INFO
+     • system_info - OS, Python, disk usage, uptime
+     • execute_command - Safe shell commands (whitelist only)
+
+  Tool Features:
+    ✓ Automatic detection via pattern matching
+    ✓ 1-hour caching for web searches
+    ✓ Rate limiting (10 req/min, burst 3)
+    ✓ Circuit breaker for resilience
+    ✓ Security whitelisting for sensitive operations
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ PERSONALITY & EMOTIONAL INTELLIGENCE                                │
+└─────────────────────────────────────────────────────────────────────┘
+
+  Freya has a genuine personality with 8 customizable traits:
+
+  • Directness (0.8)     - Blunt and honest, not overly diplomatic
+  • Humor Level (0.7)    - Witty with friendly sarcasm
+  • Empathy (0.7)        - Reads emotions and responds appropriately
+  • Formality (0.2)      - Very casual and conversational
+  • Verbosity (0.3)      - Concise by default (voice-optimized)
+  • Curiosity (0.5)      - Balanced inquisitiveness
+  • Sassiness (0.6)      - Playful sarcasm when fitting
+  • Patience (0.8)       - Very patient and understanding
+
+  Emotional Adaptation:
+    → Detects user mood (happy, sad, frustrated, confused)
+    → Matches energy level (excited → enthusiastic)
+    → Adapts style (task-focused → efficient)
+    → Shows genuine emotion (excitement, empathy, curiosity)
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ VISION & CAMERA (Computer Vision)                                  │
+└─────────────────────────────────────────────────────────────────────┘
+
+  • Facial Recognition
+    - Detection: HOG (CPU) or CNN (GPU)
+    - Encoding: 5-point or 68-point landmarks
+    - Storage: Directory-based known faces
+    - Recognition tolerance: 0.5 (configurable)
+    - Debouncing: 5-second minimum between recognitions
+
+  • RTSP Camera Integration
+    - Support: Reolink IP cameras + generic RTSP
+    - ONVIF protocol for camera control
+    - Multi-channel support
+    - Real-time streaming
+    - PTZ control capability
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ WEB SEARCH                                                          │
+└─────────────────────────────────────────────────────────────────────┘
+
+  • Engine: DuckDuckGo (privacy-focused)
+  • 1-hour result caching for efficiency
+  • Rate limiting: 10 requests/minute
+  • Trigger keywords:
+    - search, google, look up, find
+    - what is, who is, when did, how much
+    - weather, news, latest, current
+  • Configurable max results (default 5)
+
+
+═══════════════════════════════════════════════════════════════════════════
+                          TECHNICAL ARCHITECTURE
+═══════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ EVENT-DRIVEN AGENT SYSTEM                                           │
+└─────────────────────────────────────────────────────────────────────┘
+
+  Freya uses a MessageBus pub/sub architecture with specialized agents:
+
+       ┌─────────────────────────────────────────┐
+       │   MessageBus (Async Pub/Sub System)     │
+       │   • Priority queuing                    │
+       │   • Backpressure handling               │
+       │   • Event routing                       │
+       └─────────────────────────────────────────┘
+              │         │         │
+              ▼         ▼         ▼
+       ┌──────────┐ ┌──────────┐ ┌──────────┐
+       │   Wake   │ │  Dialog  │ │  Memory  │
+       │   Word   │ │  Agent   │ │  Agent   │
+       │  Agent   │ │          │ │          │
+       └──────────┘ └──────────┘ └──────────┘
+              │         │         │
+              ▼         ▼         ▼
+       ┌──────────┐ ┌──────────┐ ┌──────────┐
+       │  Speech  │ │   Tool   │ │  Coord-  │
+       │  Agent   │ │ Executor │ │ inator   │
+       │          │ │  Agent   │ │          │
+       └──────────┘ └──────────┘ └──────────┘
+
+
+  Agent Communication Flow:
+
+    1. WakeWordAgent → Detects "Hey, Freya" → Publishes wake.detected
+    2. SpeechAgent → Captures audio → Publishes speech.transcription
+    3. ToolExecutorAgent → Detects tool needs → Executes tools
+    4. MemoryAgent → Retrieves context → Returns relevant memories
+    5. DialogAgent → Processes with LLM → Streams response
+    6. SpeechAgent → Synthesizes speech → Plays audio
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ CLEAN ARCHITECTURE LAYERS                                           │
+└─────────────────────────────────────────────────────────────────────┘
+
+  1. DOMAIN LAYER (freya/domain/)
+     - Pure business logic (no external dependencies)
+     - Entities: Memory, Fact, MemoryQuery
+     - Interfaces: Agent, LLMClient, MemoryStore, MessageBus
+     - Custom exceptions (20+ types)
+
+  2. APPLICATION LAYER (freya/application/)
+     - Use cases and coordinators
+     - DTOs and event handlers
+     - Business workflows
+
+  3. INFRASTRUCTURE LAYER (freya/infrastructure/)
+     - Model management (16GB VRAM optimization)
+     - Memory system (ChromaDB + Nomic embeddings)
+     - Agent implementations
+     - Speech coordination (STT/TTS)
+     - Tools and messaging
+
+  4. PRESENTATION LAYER (freya/presentation/)
+     - CLI interface (terminal UI)
+     - Web UI (planned)
+
+  5. SHARED LAYER (freya/shared/)
+     - Structured logging with context
+     - Resilience patterns (retry, circuit breaker)
+     - Monitoring and observability
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ TECHNICAL STACK                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+  LLM & AI Models:
+    • Main Model: dolphin3:8b (Ollama)
+    • Reasoning: dolphin-mixtral:8x7b (complex queries)
+    • Code: deepseek-coder-v2:16b-lite
+    • Embeddings: nomic-embed-text:latest (768-dim)
+    • Wake Detection: Whisper tiny
+    • STT: Faster Whisper (base/small/medium)
+
+  Speech & Audio:
+    • STT: faster-whisper + ctranslate2
+    • TTS Local: piper-tts
+    • TTS Cloud: elevenlabs
+    • Audio I/O: sounddevice, PyAudio
+
+  Memory & Storage:
+    • Vector DB: ChromaDB (HNSW indexing)
+    • Embeddings: sentence-transformers
+    • Optional: SQLite for debugging
+
+  Core Python:
+    • Python 3.11+
+    • Async/await with asyncio
+    • Type hints with pydantic
+    • YAML configuration
+
+  Tools & Utilities:
+    • Web: requests, beautifulsoup4, ddgs
+    • Vision: opencv-python, face-recognition
+    • Camera: onvif-zeep
+    • Testing: pytest (494 test functions)
+
+
+═══════════════════════════════════════════════════════════════════════════
+                          CONFIGURATION & SETUP
+═══════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ KEY CONFIGURATION (config/default.yaml)                             │
+└─────────────────────────────────────────────────────────────────────┘
+
+  Models:
+    ollama.model: "dolphin3:8b"
+    memory.long_term.embedding_model: "nomic-embed-text:latest"
+    wake_detector.model: "tiny"
+    stt.model: "base"
+
+  Voice Settings:
+    app.wake_word: "Hey, Freya"
+    app.wake_word_sensitivity: 0.75
+    app.wake_session_seconds: 8.0
+    tts.engine: "elevenlabs"  # or "piper"
+
+  Memory:
+    memory.short_term.max_history: 12
+    memory.long_term.enabled: true
+    memory.long_term.store_type: "chroma"
+    memory.long_term.persist_directory: "data/memory"
+    memory.long_term.recall_limit: 3
+
+  Audio:
+    stt.device: "cuda"  # GPU acceleration
+    stt.sample_rate: 16000
+    stt.silence_threshold: 0.02
+    stt.silence_duration: 1.2
+
+  Personality Traits (0-1 scale):
+    personality.traits.directness: 0.8
+    personality.traits.humor_level: 0.7
+    personality.traits.empathy: 0.7
+    personality.traits.formality: 0.2
+    personality.traits.verbosity: 0.3
+    personality.traits.sassiness: 0.6
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ ENVIRONMENT VARIABLES (.env)                                        │
+└─────────────────────────────────────────────────────────────────────┘
+
+  ELEVENLABS_API_KEY=sk_...           # ElevenLabs API key
+  OLLAMA_HOST=http://localhost:11434  # Ollama server override
+  EMBEDDING_MODEL=nomic-embed-text     # Embedding model override
+  MEMORY_PERSIST_DIR=data/memory       # Memory storage location
+  REOLINK_CAM_USER=admin               # Camera credentials
+  REOLINK_CAM_PASS=password
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ RUNNING FREYA                                                       │
+└─────────────────────────────────────────────────────────────────────┘
+
+  # Default (voice mode with wake word)
+  python main.py
+
+  # Text mode (no voice)
+  python main.py --mode text
+
+  # Use Piper instead of ElevenLabs
+  python main.py --engine piper
+
+  # Override model
+  python main.py --model llama3.2:3b
+
+  # Custom config file
+  python main.py --config config/custom.yaml
+
+  # System checks only
+  python main.py --check
+
+  # Diagnostic mode (verbose)
+  python main.py --diagnostic
+
+
+═══════════════════════════════════════════════════════════════════════════
+                          FUTURE ROADMAP & PLANS
+═══════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ PHASE 2: ENHANCED SENSORY LAYER                                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+  • Unified SpeechAgent (replacing legacy STT/TTS components)
+  • VisionAgent with YOLO object detection
+  • Vision-Language models (LLaVA integration)
+  • Real-time video processing
+  • Multi-camera fusion
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ PHASE 3: INTELLIGENCE LAYER                                         │
+└─────────────────────────────────────────────────────────────────────┘
+
+  • ContextAnalyzerAgent
+    - Intent detection
+    - Entity extraction
+    - Emotion analysis
+    - Sentiment tracking
+
+  • LearningAgent
+    - Pattern learning from conversations
+    - User preference adaptation
+    - Behavior prediction
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ PHASE 4: CONTROL & AUTOMATION                                       │
+└─────────────────────────────────────────────────────────────────────┘
+
+  • IoTAgent
+    - Home Assistant integration
+    - Philips Hue control
+    - Smart device coordination
+
+  • AutomationAgent
+    - Scheduled tasks
+    - Routines and workflows
+    - Reminders and notifications
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ PHASE 5: ADVANCED CAPABILITIES                                      │
+└─────────────────────────────────────────────────────────────────────┘
+
+  • ResearchAgent - Multi-step web research with fact-checking
+  • CodeAgent - Code generation, debugging, sandbox execution
+  • PersonalityAgent - Advanced mood-based adaptation
+  • MultimodalAgent - Vision + voice + gesture fusion
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ TECHNICAL IMPROVEMENTS                                              │
+└─────────────────────────────────────────────────────────────────────┘
+
+  Performance:
+    • GPU acceleration (CUDA/ROCm optimization)
+    • Model quantization (4-bit/8-bit)
+    • Parallel agent execution
+    • Streaming optimizations
+
+  Memory:
+    • Episodic memory (event sequences)
+    • Working memory (Redis backend)
+    • Memory consolidation (sleep-like processing)
+    • Multi-user context isolation
+
+  Multimodal:
+    • Screen reading and analysis
+    • Gesture recognition
+    • Spatial audio awareness
+    • Haptic feedback integration
+
+  Scalability:
+    • Distributed agent architecture
+    • Hot-reloading for development
+    • Kubernetes deployment
+    • Horizontal scaling
+
+  DevEx:
+    • Web UI for monitoring and control
+    • Visual agent editor
+    • Plugin system for custom tools
+    • Better documentation and tutorials
+
+
+═══════════════════════════════════════════════════════════════════════════
+                          TESTING & QUALITY
+═══════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ TEST COVERAGE                                                       │
+└─────────────────────────────────────────────────────────────────────┘
+
+  Total Test Functions: 494 across 31 test files
+  Test Framework: pytest with async support
+  CI/CD: GitHub Actions pipeline
+
+  Test Categories:
+    ✓ Agent Foundation (6 files) - BaseAgent, lifecycle, health
+    ✓ Agents (6 files) - Dialog, Memory, Tool, Wake Word
+    ✓ Memory (3 files) - ChromaDB, facts, reliability
+    ✓ Tools (4 files) - All 9 tools + execution + security
+    ✓ Integration (5 files) - End-to-end workflows
+    ✓ Resilience (4 files) - Backpressure, circuit breaker
+    ✓ Architecture (3 files) - Persistence, health, exceptions
+
+  Running Tests:
+    pytest                       # Run all tests
+    pytest -v                    # Verbose output
+    pytest --cov=freya           # With coverage report
+    pytest tests/test_dialog_agent.py    # Specific file
+
+  CI/CD Pipeline:
+    1. Linting (ruff) - Code style checking
+    2. Type Checking (mypy) - Static type verification
+    3. Testing (pytest) - Unit and integration tests
+    4. Security Audit (pip-audit) - Dependency scanning
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ QUALITY & RESILIENCE                                                │
+└─────────────────────────────────────────────────────────────────────┘
+
+  Resilience Features:
+    • Retry Logic - Exponential backoff with tenacity
+    • Circuit Breaker - Failure threshold + recovery timeout
+    • Rate Limiting - Token bucket algorithm
+    • Backpressure - DROP_OLDEST or DROP_NEWEST strategies
+    • Health Monitoring - 30-second heartbeat per agent
+    • Auto-Recovery - Graceful degradation on failures
+
+  Security:
+    • Safe calculator (whitelist only)
+    • Path validation for file operations
+    • Command execution whitelist
+    • Web scraper content limits (5KB max)
+    • Rate limiting on web requests
+    • API key management via .env
+
+
+═══════════════════════════════════════════════════════════════════════════
+                          KEY PROJECT FILES
+═══════════════════════════════════════════════════════════════════════════
+
+  Entry Points:
+    main.py                                      - CLI entry point
+    freya/coordination/orchestration_coordinator.py  - Agent orchestrator
+
+  Agent Implementations:
+    freya/agents/base_agent.py                   - Base agent class
+    freya/agents/dialog_agent.py                 - LLM conversation
+    freya/agents/memory_agent.py                 - Long-term memory
+    freya/agents/tool_executor_agent.py          - Tool execution
+    freya/agents/wake_word_agent.py              - Wake detection
+    freya/agents/speech_agent.py                 - STT/TTS coordination
+
+  Core Systems:
+    freya/core/message_bus.py                    - Async pub/sub
+    freya/memory_chroma.py                       - Vector memory
+    freya/context.py                             - Short-term context
+    freya/ollama_client.py                       - LLM client
+
+  Configuration & Tools:
+    config/default.yaml                          - Main config
+    freya/tools/manager.py                       - Tool registry
+    freya/tools/                                 - 9 tool implementations
+
+  Testing:
+    tests/                                       - 31 test files
+
+
+═══════════════════════════════════════════════════════════════════════════
+                          PROJECT VISION & GOALS
+═══════════════════════════════════════════════════════════════════════════
+
+Freya aims to be your personal JARVIS - a truly intelligent, voice-first
+AI assistant that:
+
+  🎯 Understands Context - Remembers conversations and adapts over time
+  🎯 Has Personality - Genuine emotional responses, not robotic replies
+  🎯 Respects Privacy - Runs entirely locally, your data stays yours
+  🎯 Actually Useful - Real tools that get things done
+  🎯 Learns & Adapts - Remembers your preferences and improves
+  🎯 Feels Natural - Voice-first design, conversational interaction
+  🎯 Extensible - Clean architecture for easy customization
+
+This isn't just another chatbot. Freya is designed to be a true AI companion
+that grows with you, understands your needs, and genuinely helps make your
+life easier - all while keeping your privacy intact.
+
+
+═══════════════════════════════════════════════════════════════════════════
+                          DEVELOPMENT STATUS
+═══════════════════════════════════════════════════════════════════════════
+
+  ✅ MessageBus event system
+  ✅ Agent foundation (BaseAgent with lifecycle management)
+  ✅ ToolExecutorAgent (9 tools with security)
+  ✅ MemoryAgent (ChromaDB semantic search)
+  ✅ WakeWordAgent (background detection)
+  ✅ DialogAgent (streaming LLM with model escalation)
+  ✅ OrchestrationCoordinator
+  ✅ Personality system (trait-based adaptation)
+  ✅ Resilience (health monitoring, backpressure, circuit breaker)
+  ✅ Comprehensive testing (494 tests)
+  ✅ CI/CD pipeline (GitHub Actions)
+  ⬜ SpeechAgent (in progress)
+  ⬜ VisionAgent (planned)
+  ⬜ IoTAgent (planned)
+  ⬜ Auto-restart unhealthy agents (planned)
+  ⬜ Web UI dashboard (planned)
+
+
+═══════════════════════════════════════════════════════════════════════════
+                          QUICK START GUIDE
+═══════════════════════════════════════════════════════════════════════════
+
+  1. Install Ollama
+     https://ollama.com/download
+
+  2. Pull Required Models
+     ollama pull dolphin3:8b
+     ollama pull nomic-embed-text:latest
+
+  3. Install Python Dependencies
+     pip install -r requirements.txt
+
+  4. Configure (Optional)
+     Edit config/default.yaml to customize
+     Create .env for ElevenLabs API key (optional)
+
+  5. Run System Checks
+     python main.py --check
+
+  6. Start Freya
+     python main.py                 # Voice mode
+     python main.py --mode text     # Text mode
+
+  7. Wake Freya (Voice Mode)
+     Say: "Hey, Freya"
+     Then ask your question
+
+  8. Test Features
+     - "What time is it?"
+     - "Search for Python tutorials"
+     - "Remember my birthday is January 1st"
+     - "Calculate 2^8 + sqrt(144)"
+     - "List files in the current directory"
+
+
+═══════════════════════════════════════════════════════════════════════════
+                          SUMMARY
+═══════════════════════════════════════════════════════════════════════════
+
+  Freya is a PRODUCTION-READY, WELL-ARCHITECTED voice assistant featuring:
+
+    • Event-driven agent architecture with clean separation of concerns
+    • 9 powerful tools for real-world tasks
+    • Smart memory system with semantic search
+    • Adaptive personality with emotional intelligence
+    • Comprehensive testing (494 test functions)
+    • CI/CD pipeline for quality assurance
+    • Clear roadmap for future capabilities
+
+  This is not a prototype or experiment - Freya is a fully functional AI
+  assistant ready for daily use, with a solid foundation for future growth.
+
+  The agent-based architecture makes it easy to extend without modifying
+  existing code. Want to add a new capability? Just create a new agent and
+  wire it into the MessageBus.
+
+  Built with love, powered by open source, and designed to be YOUR personal
+  AI companion.
+
+
+═══════════════════════════════════════════════════════════════════════════
+                          END OF SYNOPSIS
+═══════════════════════════════════════════════════════════════════════════
+
+For more information, see:
+  • README.md - Getting started guide
+  • docs/ARCHITECTURE_IMPROVEMENTS.md - Architecture details
+  • docs/MODEL_ARCHITECTURE_V2.md - Model management
+  • TESTING_GUIDE.md - Testing procedures
+  • tests/ - Example code and test cases
+
+Questions? Check the documentation or open an issue on GitHub.
+
+═══════════════════════════════════════════════════════════════════════════
