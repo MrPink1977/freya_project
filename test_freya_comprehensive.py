@@ -124,20 +124,30 @@ except Exception as e:
 print("\nTest 6: Memory System")
 print("-" * 80)
 try:
+    import asyncio
     import os
     import tempfile
 
     from freya.memory import PersistentMemoryStore
 
-    # Create temporary DB
+    # Create temporary DB path
     temp_db = os.path.join(tempfile.gettempdir(), "test_freya_memory.db")
+
+    # Remove if exists
+    try:
+        os.remove(temp_db)
+    except OSError:
+        pass
 
     store = PersistentMemoryStore(temp_db)
 
-    # Add a test memory
-    store.add_memory("user", "My name is Test User", importance=5)
+    # Add a test memory (async)
+    async def test_memory():
+        await store.store_memory("user", "My name is Test User", importance=5)
 
-    # Search for it
+    asyncio.run(test_memory())
+
+    # Search for it (sync)
     results = store.find_similar_memories("what is my name", limit=5)
 
     if results:
