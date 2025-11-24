@@ -92,7 +92,7 @@ class StartupSystem:
         
         # Check 6: Memory Store
         self.print_colored("\n[6/7] Checking memory store...", Fore.YELLOW)
-        checks['memory'] = self.checker._check_memory(self.config.long_term_memory)
+        checks['memory'] = self.checker._check_memory(self.config.memory.long_term)
         self._print_check_result("Memory Store", checks['memory'])
         
         # Check 7: Color Display Test

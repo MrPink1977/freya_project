@@ -51,7 +51,7 @@ class SystemChecksScreen(Screen):
             MicrophoneCheck(),
             SpeakerCheck(),
             TTSCheck(engine=self.config.tts.engine),
-            MemoryCheck(db_path=self.config.long_term_memory.persist_directory),
+            MemoryCheck(db_path=self.config.memory.long_term.db_path),
         ]
 
     def compose(self) -> ComposeResult:
