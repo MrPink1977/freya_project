@@ -108,7 +108,7 @@ try:
     ]
 
     print(f"Connecting to Ollama at {settings.ollama.host}...")
-    response = client.chat(messages, stream=False)
+    response = client.chat(messages)
 
     if response:
         print("✓ Ollama responding")
