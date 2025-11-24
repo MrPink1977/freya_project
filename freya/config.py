@@ -104,7 +104,7 @@ class ShortTermMemoryConfig:
 class LongTermMemoryConfig:
     enabled: bool
     store_type: str
-    db_path: str
+    persist_directory: str
     recall_limit: int
     min_similarity: float
     auto_store_keywords: Tuple[str, ...]
@@ -261,16 +261,16 @@ def load_settings(path: Optional[Path] = None) -> Settings:
     # Validate long-term memory configuration
     lt_recall_limit = int(long_term_raw.get("recall_limit", 3))
     lt_min_similarity = float(long_term_raw.get("min_similarity", 0.15))
-    lt_store_type = str(long_term_raw.get("store_type", "sqlite"))
+    lt_store_type = str(long_term_raw.get("store_type", "chroma"))
 
     _validate_positive(lt_recall_limit, "recall_limit", "memory.long_term")
     _validate_range(lt_min_similarity, 0.0, 1.0, "min_similarity", "memory.long_term")
-    _validate_choice(lt_store_type, ["sqlite"], "store_type", "memory.long_term")
+    _validate_choice(lt_store_type, ["chroma", "sqlite"], "store_type", "memory.long_term")
 
     long_term_config = LongTermMemoryConfig(
         enabled=bool(long_term_raw.get("enabled", False)),
         store_type=lt_store_type,
-        db_path=str(os.getenv("MEMORY_DB_PATH") or long_term_raw.get("db_path", "freya_memory.db")),
+        persist_directory=str(os.getenv("MEMORY_PERSIST_DIR") or long_term_raw.get("persist_directory", "data/memory")),
         recall_limit=lt_recall_limit,
         min_similarity=lt_min_similarity,
         auto_store_keywords=auto_store_keywords,

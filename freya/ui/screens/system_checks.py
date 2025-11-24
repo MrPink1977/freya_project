@@ -45,13 +45,13 @@ class SystemChecksScreen(Screen):
                 model=self.config.ollama.model,
             ),
             WhisperCheck(
-                model=self.config.stt.model_id,
+                model=self.config.stt.model,
                 device=self.config.stt.device,
             ),
             MicrophoneCheck(),
             SpeakerCheck(),
             TTSCheck(engine=self.config.tts.engine),
-            MemoryCheck(db_path=self.config.memory.long_term.db_path),
+            MemoryCheck(db_path=self.config.memory.long_term.persist_directory),
         ]
 
     def compose(self) -> ComposeResult:
