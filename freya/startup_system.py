@@ -82,7 +82,7 @@ class StartupSystem:
         
         # Check 4: TTS Engine
         self.print_colored("\n[4/7] Checking TTS engine...", Fore.YELLOW)
-        checks['tts'] = self.checker._check_tts(self.config.tts)
+        checks['tts'] = self.checker._check_tts(self.config.tts.voice_path)
         self._print_check_result("TTS Engine", checks['tts'])
         
         # Check 5: Wake Word Detector
