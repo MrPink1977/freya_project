@@ -105,6 +105,7 @@ class LongTermMemoryConfig:
     enabled: bool
     store_type: str
     persist_directory: str
+    embedding_model: str
     recall_limit: int
     min_similarity: float
     auto_store_keywords: Tuple[str, ...]
@@ -271,6 +272,7 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         enabled=bool(long_term_raw.get("enabled", False)),
         store_type=lt_store_type,
         persist_directory=str(os.getenv("MEMORY_PERSIST_DIR") or long_term_raw.get("persist_directory", "data/memory")),
+        embedding_model=str(os.getenv("EMBEDDING_MODEL") or long_term_raw.get("embedding_model", "nomic-embed-text:latest")),
         recall_limit=lt_recall_limit,
         min_similarity=lt_min_similarity,
         auto_store_keywords=auto_store_keywords,
