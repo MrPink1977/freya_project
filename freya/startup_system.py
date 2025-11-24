@@ -65,8 +65,8 @@ class StartupSystem:
         # Check 1: Ollama
         self.print_colored("\n[1/7] Checking Ollama connection...", Fore.YELLOW)
         checks['ollama'] = self.checker._check_ollama(
-            self.config.dialog.host,
-            self.config.dialog.model
+            self.config.ollama.host,
+            self.config.ollama.model
         )
         self._print_check_result("Ollama", checks['ollama'])
         
@@ -146,9 +146,9 @@ class StartupSystem:
         self.print_box("CURRENT CONFIGURATION", Fore.CYAN, 70)
         
         print(f"{Fore.YELLOW}Dialog Model:{Style.RESET_ALL}")
-        print(f"  Host: {self.config.dialog.host}")
-        print(f"  Model: {self.config.dialog.model}")
-        print(f"  Temperature: {self.config.dialog.temperature}")
+        print(f"  Host: {self.config.ollama.host}")
+        print(f"  Model: {self.config.ollama.model}")
+        print(f"  Temperature: {self.config.ollama.options.get('temperature', 0.7)}")
         
         print(f"\n{Fore.YELLOW}Speech Recognition:{Style.RESET_ALL}")
         print(f"  Model: {self.config.stt.model_id}")
@@ -261,7 +261,7 @@ class StartupSystem:
         """Show model selection submenu."""
         self.print_box("CHANGE DIALOG MODEL", Fore.CYAN, 70)
         
-        print(f"{Fore.YELLOW}Current model:{Style.RESET_ALL} {self.config.dialog.model}\n")
+        print(f"{Fore.YELLOW}Current model:{Style.RESET_ALL} {self.config.ollama.model}\n")
         print("Common models:")
         print("  1 - llama3.2:3b")
         print("  2 - llama3.2:1b")
@@ -272,18 +272,18 @@ class StartupSystem:
         choice = input(f"{Fore.YELLOW}Select model: {Style.RESET_ALL}").strip()
         
         if choice == "1":
-            self.config.dialog.model = "llama3.2:3b"
+            self.config.ollama.model = "llama3.2:3b"
         elif choice == "2":
-            self.config.dialog.model = "llama3.2:1b"
+            self.config.ollama.model = "llama3.2:1b"
         elif choice == "3":
-            self.config.dialog.model = "mistral"
+            self.config.ollama.model = "mistral"
         elif choice == "4":
             model = input(f"{Fore.YELLOW}Enter model name: {Style.RESET_ALL}").strip()
             if model:
-                self.config.dialog.model = model
+                self.config.ollama.model = model
         
-        self.print_colored(f"\n✓ Model set to: {self.config.dialog.model}\n", Fore.GREEN)
-        self.log_test(f"Model changed to: {self.config.dialog.model}")
+        self.print_colored(f"\n✓ Model set to: {self.config.ollama.model}\n", Fore.GREEN)
+        self.log_test(f"Model changed to: {self.config.ollama.model}")
     
     def _toggle_facial_recognition(self):
         """Toggle facial recognition on/off."""

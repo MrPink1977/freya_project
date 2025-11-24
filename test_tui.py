@@ -17,7 +17,7 @@ try:
         config = load_settings(config_path)
         print(f"   ✓ Config loaded successfully")
         print(f"   - Interaction mode: {config.app.interaction_mode}")
-        print(f"   - Dialog model: {config.dialog.model}")
+        print(f"   - Dialog model: {config.ollama.model}")
     else:
         print(f"   ✗ Config file NOT found: {config_path}")
         sys.exit(1)
