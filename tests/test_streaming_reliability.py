@@ -1,20 +1,20 @@
 """Tests for streaming timeout and validation."""
 
 import asyncio
-import pytest
 import time
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock
+
+import pytest
 
 from freya.agents.dialog_agent import (
-    DialogAgent,
-    StreamTimeoutError,
     STREAM_CHUNK_TIMEOUT,
     STREAM_TOTAL_TIMEOUT,
+    DialogAgent,
+    StreamTimeoutError,
 )
-from freya.ollama_client import OllamaClient, OllamaError
-from freya.config import OllamaConfig
 from freya.context import ConversationContext
-from freya.core.message_bus import MessageBus, Message
+from freya.core.message_bus import Message, MessageBus
+from freya.ollama_client import OllamaClient, OllamaError
 
 
 @pytest.fixture
@@ -59,13 +59,13 @@ class TestStreamingTimeouts:
             "world",
             "!"
         ])
-        
+
         response, tokens = await dialog_agent._generate_streaming(
             messages=[{"role": "user", "content": "test"}],
             model="test-model",
             correlation_id="test-123"
         )
-        
+
         assert response == "Hello world!"
 
     @pytest.mark.asyncio
@@ -76,22 +76,22 @@ class TestStreamingTimeouts:
             yield "First chunk"
             await asyncio.sleep(STREAM_CHUNK_TIMEOUT + 1)
             yield "Second chunk"
-        
+
         # Create synchronous generator that simulates slow streaming
         def slow_sync_stream():
             yield "First chunk"
             time.sleep(STREAM_CHUNK_TIMEOUT + 1)
             yield "Second chunk"
-        
+
         mock_ollama.chat_stream.return_value = slow_sync_stream()
-        
+
         with pytest.raises(StreamTimeoutError) as exc_info:
             await dialog_agent._generate_streaming(
                 messages=[{"role": "user", "content": "test"}],
                 model="test-model",
                 correlation_id="test-123"
             )
-        
+
         assert "No chunk received" in str(exc_info.value)
 
     @pytest.mark.asyncio
@@ -103,16 +103,16 @@ class TestStreamingTimeouts:
             while time.time() - start < STREAM_TOTAL_TIMEOUT + 5:
                 yield "chunk "
                 time.sleep(0.1)
-        
+
         mock_ollama.chat_stream.return_value = infinite_stream()
-        
+
         with pytest.raises(StreamTimeoutError) as exc_info:
             await dialog_agent._generate_streaming(
                 messages=[{"role": "user", "content": "test"}],
                 model="test-model",
                 correlation_id="test-123"
             )
-        
+
         assert "total timeout" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
@@ -124,13 +124,13 @@ class TestStreamingTimeouts:
             "",    # Empty
             "Another valid chunk"
         ])
-        
+
         response, tokens = await dialog_agent._generate_streaming(
             messages=[{"role": "user", "content": "test"}],
             model="test-model",
             correlation_id="test-123"
         )
-        
+
         # Should only include valid chunks
         assert "Valid chunk" in response
         assert "Another valid chunk" in response
@@ -144,13 +144,13 @@ class TestStreamingTimeouts:
             "",     # Empty
             "End"
         ])
-        
+
         response, tokens = await dialog_agent._generate_streaming(
             messages=[{"role": "user", "content": "test"}],
             model="test-model",
             correlation_id="test-123"
         )
-        
+
         assert "Start" in response
         assert "End" in response
 
@@ -165,38 +165,39 @@ class TestStreamingFallback:
         mock_context = Mock(spec=ConversationContext)
         mock_context.build_prompt.return_value = [{"role": "user", "content": "test"}]
         mock_context.estimate_tokens.return_value = 100
-        
+
         agent = DialogAgent(
             agent_id="test_dialog",
             bus=mock_bus,
             ollama_client=mock_ollama,
             context_manager=mock_context,
         )
-        
+
         # Initialize agent
         await agent.initialize()
-        
+
         # Mock streaming to timeout
         def timeout_stream():
             yield "First"
             time.sleep(STREAM_CHUNK_TIMEOUT + 1)
             yield "Second"
-        
+
         mock_ollama.chat_stream.return_value = timeout_stream()
-        
+
         # Mock non-streaming fallback
         mock_ollama.chat.return_value = "Fallback response"
-        
+
         # Create message
         message = Message(
             topic="dialog.request",
             payload={"user_input": "test", "stream": True},
+            sender="test",
             correlation_id="test-123"
         )
-        
+
         # Should fall back without error
         await agent._handle_conversation(message)
-        
+
         # Non-streaming should have been called
         mock_ollama.chat.assert_called_once()
 
@@ -207,31 +208,32 @@ class TestStreamingFallback:
         mock_context = Mock(spec=ConversationContext)
         mock_context.build_prompt.return_value = [{"role": "user", "content": "test"}]
         mock_context.estimate_tokens.return_value = 100
-        
+
         agent = DialogAgent(
             agent_id="test_dialog",
             bus=mock_bus,
             ollama_client=mock_ollama,
             context_manager=mock_context,
         )
-        
+
         await agent.initialize()
-        
+
         # Mock streaming to raise error
         mock_ollama.chat_stream.side_effect = OllamaError("Stream failed")
-        
+
         # Mock non-streaming fallback
         mock_ollama.chat.return_value = "Fallback response"
-        
+
         message = Message(
             topic="dialog.request",
             payload={"user_input": "test", "stream": True},
+            sender="test",
             correlation_id="test-123"
         )
-        
+
         # Should fall back without error
         await agent._handle_conversation(message)
-        
+
         # Non-streaming should have been called
         mock_ollama.chat.assert_called_once()
 
@@ -248,13 +250,13 @@ class TestStreamingChunkValidation:
             {"data": "dict"},  # Invalid type
             "Another valid string"
         ])
-        
+
         response, tokens = await dialog_agent._generate_streaming(
             messages=[{"role": "user", "content": "test"}],
             model="test-model",
             correlation_id="test-123"
         )
-        
+
         assert "Valid string" in response
         assert "Another valid string" in response
         assert "123" not in response
@@ -269,13 +271,13 @@ class TestStreamingChunkValidation:
             "",
             "Chunk 3"
         ])
-        
+
         response, tokens = await dialog_agent._generate_streaming(
             messages=[{"role": "user", "content": "test"}],
             model="test-model",
             correlation_id="test-123"
         )
-        
+
         # Should have processed 3 valid chunks
         assert "Chunk 1" in response
         assert "Chunk 2" in response
@@ -297,21 +299,21 @@ class TestStreamingTimeoutConfiguration:
     async def test_chunk_timeout_prevents_hang(self, dialog_agent, mock_ollama):
         """Chunk timeout prevents indefinite hang."""
         start_time = time.time()
-        
+
         def hanging_stream():
             yield "First chunk"
             time.sleep(STREAM_CHUNK_TIMEOUT + 2)
             yield "Never reached"
-        
+
         mock_ollama.chat_stream.return_value = hanging_stream()
-        
+
         with pytest.raises(StreamTimeoutError):
             await dialog_agent._generate_streaming(
                 messages=[{"role": "user", "content": "test"}],
                 model="test-model",
                 correlation_id="test-123"
             )
-        
+
         elapsed = time.time() - start_time
         # Should timeout after STREAM_CHUNK_TIMEOUT, not hang forever
         assert elapsed < STREAM_CHUNK_TIMEOUT + 5

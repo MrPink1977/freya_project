@@ -1,6 +1,5 @@
 """Simple TTS test - just speaks immediately."""
 
-import sys
 from pathlib import Path
 
 from freya.config import load_settings

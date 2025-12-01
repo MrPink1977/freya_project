@@ -6,11 +6,9 @@ import asyncio
 
 import pytest
 
-from freya.coordination.orchestration_coordinator import OrchestrationCoordinator
 from freya.context import ConversationContext
-from freya.core.message_bus import Message, MessageBus, MessagePriority
+from freya.coordination.orchestration_coordinator import OrchestrationCoordinator
 from freya.memory import ChromaMemoryStore
-from freya.ollama_client import OllamaClient
 from freya.tools import ToolManager
 
 

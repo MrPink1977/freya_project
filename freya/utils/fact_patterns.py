@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import Dict, List
 
-
 # Extraction patterns for user statements
 EXTRACTION_PATTERNS = {
     "name_is": re.compile(r"my name(?:'s| is) (\w+(?:\s+\w+)?)", re.IGNORECASE),

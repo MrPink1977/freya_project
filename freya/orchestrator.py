@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import queue
 import re
-import string
 import threading
 import time
-from difflib import SequenceMatcher
 from enum import Enum
-from typing import Callable, List, Optional, Sequence
+from typing import TYPE_CHECKING, Callable, List, Optional, Sequence
+
+if TYPE_CHECKING:
+    from freya.personality.engine import PersonalityEngine
 
 try:  # pragma: no cover - optional dependency for colored output
     from colorama import Fore, Style
@@ -31,9 +32,6 @@ from requests import RequestException
 from .config import LongTermMemoryConfig
 from .context import ConversationContext
 from .exceptions import (
-    HotkeyRegistrationError,
-    HotkeyUnregistrationError,
-    MemoryQueryError,
     MemoryStorageError,
     ToolExecutionError,
     ToolInputError,
@@ -49,7 +47,7 @@ from .ollama_client import (
 )
 from .stt import SpeechToText, SpeechToTextError
 from .tools import ToolManager
-from .tools.web_search import WebSearchError, search_web
+from .tools.web_search import search_web
 from .tts import TextToSpeech, TextToSpeechError
 from .utils.fact_patterns import get_query_phrases
 from .wake import WakeWordDetector, WakeWordDetectorError
@@ -1208,7 +1206,7 @@ class Orchestrator:
         if self._personality_engine:
             try:
                 from .personality.engine import get_time_of_day
-                
+
                 personality_instructions = self._personality_engine.analyze_and_adapt(
                     user_text, time_of_day=get_time_of_day()
                 )

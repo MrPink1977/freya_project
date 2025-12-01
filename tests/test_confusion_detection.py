@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from freya.utils.confusion_detection import detect_confusion
 
 
@@ -229,15 +227,15 @@ class TestThresholdAdjustment:
     def test_lower_threshold_more_sensitive(self):
         """Lower threshold makes detection more sensitive."""
         response = "That's unclear to me."  # Medium confidence 0.70
-        
+
         # Threshold 0.75 - should not trigger
         is_confused_high, _, _ = detect_confusion(response, threshold=0.75)
         assert is_confused_high is False
-        
+
         # Threshold 0.7 - should trigger (matches exactly)
         is_confused_mid, _, _ = detect_confusion(response, threshold=0.7)
         assert is_confused_mid is True
-        
+
         # Lower threshold 0.5 - should trigger
         is_confused_low, _, _ = detect_confusion(response, threshold=0.5)
         assert is_confused_low is True
@@ -245,11 +243,11 @@ class TestThresholdAdjustment:
     def test_higher_threshold_less_sensitive(self):
         """Higher threshold requires stronger signals."""
         response = "I apologize, but I don't know."  # Medium-high ~0.75
-        
+
         # Low threshold - should trigger
         is_confused_low, _, _ = detect_confusion(response, threshold=0.6)
         assert is_confused_low is True
-        
+
         # Very high threshold - might not trigger
         is_confused_high, _, _ = detect_confusion(response, threshold=0.9)
         # Result depends on exact confidence score

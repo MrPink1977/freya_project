@@ -5,9 +5,9 @@ Provides emotion detection, intent classification, and adaptive personality
 without complex async agent architecture.
 """
 
-from freya.personality.engine import PersonalityEngine
 from freya.personality.analyzer import ContextAnalyzer
-from freya.personality.traits import PersonalityTraits, EmotionalState, PersonalityMode
+from freya.personality.engine import PersonalityEngine
+from freya.personality.traits import EmotionalState, PersonalityMode, PersonalityTraits
 
 __all__ = [
     "PersonalityEngine",

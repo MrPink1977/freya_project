@@ -90,6 +90,18 @@ test_camera_audio*
 *.code-workspace
 .continue/
 
+# -----------------------------
+# Build artifacts
+# -----------------------------
+*.egg-info/
+dist/
+build/
+
+# -----------------------------
+# Test data
+# -----------------------------
+data/test_chroma_memory/
+
 ########################################
 # END OF GITIGNORE
 ########################################

@@ -9,11 +9,11 @@ from typing import Iterable, Iterator, Optional
 import requests
 from requests import HTTPError, RequestException, Response, Session
 from tenacity import (
+    before_sleep_log,
     retry,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    before_sleep_log,
 )
 
 from .config import OllamaConfig
@@ -59,21 +59,21 @@ class OllamaClient:
     def _should_retry_exception(self, exc: Exception) -> bool:
         """
         Determine if exception should trigger retry.
-        
+
         Don't retry:
         - OllamaModelNotFoundError (model not installed)
         - 4xx errors except 429 (client errors)
         """
         if isinstance(exc, OllamaModelNotFoundError):
             return False
-        
+
         if isinstance(exc, HTTPError):
             if exc.response is not None:
                 status = exc.response.status_code
                 # Don't retry client errors except rate limiting
                 if 400 <= status < 500 and status != 429:
                     return False
-        
+
         return True
 
     @retry(
@@ -126,10 +126,10 @@ class OllamaClient:
     def chat(self, messages: Iterable[dict]) -> str:
         """Send chat messages and return the assistant response."""
         import asyncio
-        
+
         async def _chat_with_breaker():
             return await self._circuit_breaker.call(self._chat_impl, messages)
-        
+
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
@@ -142,7 +142,7 @@ class OllamaClient:
                 return loop.run_until_complete(_chat_with_breaker())
         except RuntimeError:
             return asyncio.run(_chat_with_breaker())
-    
+
     def _chat_impl(self, messages: Iterable[dict]) -> str:
         """Implementation of chat without circuit breaker."""
         payload = {

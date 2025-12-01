@@ -43,7 +43,6 @@ Exception Hierarchy:
 
 from __future__ import annotations
 
-
 # =============================================================================
 # Base Exception
 # =============================================================================
@@ -51,14 +50,14 @@ from __future__ import annotations
 
 class FreyaError(Exception):
     """Base exception for all Freya-specific errors.
-    
+
     All custom exceptions in Freya should inherit from this class to enable
     systematic error handling and logging.
     """
 
     def __init__(self, message: str, *args, **kwargs):
         """Initialize FreyaError with message and optional context.
-        
+
         Args:
             message: Human-readable error description
             *args: Additional positional arguments for Exception
@@ -114,7 +113,7 @@ class ServiceTimeoutError(FreyaServiceError):
 
 class AgentError(FreyaError):
     """Base exception for agent-related errors.
-    
+
     Agents are the core components of Freya's architecture. This exception
     hierarchy enables the coordinator to implement smart retry and fallback
     strategies based on error type.
@@ -123,7 +122,7 @@ class AgentError(FreyaError):
 
 class AgentInitializationError(AgentError):
     """Agent failed to initialize or start.
-    
+
     This typically indicates a fatal error that prevents the agent from
     operating. The coordinator should not retry automatically.
     """
@@ -131,7 +130,7 @@ class AgentInitializationError(AgentError):
 
 class AgentCommunicationError(AgentError):
     """Agent failed to communicate via MessageBus.
-    
+
     This may be transient (message queue full) or permanent (bus shutdown).
     Coordinator may retry with exponential backoff.
     """
@@ -139,7 +138,7 @@ class AgentCommunicationError(AgentError):
 
 class AgentMessageError(AgentError):
     """Agent failed to process a message.
-    
+
     This indicates an error in message handling logic. The message should be
     logged and potentially moved to a dead-letter queue.
     """
@@ -147,7 +146,7 @@ class AgentMessageError(AgentError):
 
 class AgentCleanupError(AgentError):
     """Agent failed to clean up resources during shutdown.
-    
+
     This is typically logged but not re-raised, as shutdown is already in
     progress and we want to attempt cleanup of other agents.
     """
@@ -160,7 +159,7 @@ class AgentCleanupError(AgentError):
 
 class ToolError(FreyaError):
     """Base exception for tool execution errors.
-    
+
     Tools are functions the AI can execute. This exception hierarchy allows
     the dialog agent to provide helpful error messages to users and decide
     whether to retry operations.
@@ -169,7 +168,7 @@ class ToolError(FreyaError):
 
 class ToolNotFoundError(ToolError):
     """Requested tool does not exist.
-    
+
     This usually indicates a bug in the LLM's tool selection or the tool
     manager's registration logic.
     """
@@ -177,7 +176,7 @@ class ToolNotFoundError(ToolError):
 
 class ToolExecutionError(ToolError):
     """Tool execution failed.
-    
+
     Generic tool execution failure. More specific subclasses should be used
     when the failure type is known.
     """
@@ -185,7 +184,7 @@ class ToolExecutionError(ToolError):
 
 class ToolPermissionError(ToolError):
     """Tool execution denied due to insufficient permissions.
-    
+
     Common for file operations, system commands, and network requests.
     Should not be retried without addressing permission issue.
     """
@@ -193,7 +192,7 @@ class ToolPermissionError(ToolError):
 
 class ToolNetworkError(ToolError):
     """Tool execution failed due to network issues.
-    
+
     Common for web search, web scraping, and API calls. May be transient,
     retry with exponential backoff.
     """
@@ -201,7 +200,7 @@ class ToolNetworkError(ToolError):
 
 class ToolInputError(ToolError):
     """Tool execution failed due to invalid input.
-    
+
     The AI provided arguments that don't match the tool's requirements.
     Should not retry without fixing input.
     """
@@ -214,7 +213,7 @@ class ToolInputError(ToolError):
 
 class FreyaMemoryError(FreyaError):
     """Base exception for memory system errors.
-    
+
     Note: Named FreyaMemoryError to avoid shadowing builtin MemoryError.
     The memory system uses ChromaDB for vector storage and SQLite for
     structured data. These exceptions help distinguish storage vs query
@@ -224,7 +223,7 @@ class FreyaMemoryError(FreyaError):
 
 class MemoryStorageError(FreyaMemoryError):
     """Failed to store data in memory system.
-    
+
     This could indicate database corruption, disk full, or ChromaDB issues.
     Should log detailed context and potentially alert operators.
     """
@@ -232,7 +231,7 @@ class MemoryStorageError(FreyaMemoryError):
 
 class MemoryQueryError(FreyaMemoryError):
     """Failed to query data from memory system.
-    
+
     This could indicate corrupted indices, invalid query parameters, or
     embedding generation failures. May be transient.
     """
@@ -240,7 +239,7 @@ class MemoryQueryError(FreyaMemoryError):
 
 class MemoryConnectionError(FreyaMemoryError):
     """Failed to connect to memory backend.
-    
+
     ChromaDB or SQLite is unavailable. Check database paths and permissions.
     """
 
@@ -252,7 +251,7 @@ class MemoryConnectionError(FreyaMemoryError):
 
 class TTSError(FreyaError):
     """Base exception for text-to-speech errors.
-    
+
     TTS failures can stem from backend issues (Piper, ElevenLabs), hardware
     problems (audio device), or API issues (rate limits, invalid keys).
     """
@@ -268,7 +267,7 @@ class TTSHardwareError(TTSError):
 
 class TTSAPIError(TTSError):
     """TTS API (ElevenLabs) returned an error.
-    
+
     Common causes: invalid API key, rate limit exceeded, quota exhausted.
     """
 
@@ -284,7 +283,7 @@ class TTSVoiceNotFoundError(TTSError):
 
 class STTError(FreyaError):
     """Base exception for speech-to-text errors.
-    
+
     STT failures typically involve microphone access, audio processing, or
     Whisper model issues.
     """
@@ -313,7 +312,7 @@ class HotkeyError(FreyaError):
 
 class HotkeyRegistrationError(HotkeyError):
     """Failed to register a keyboard hotkey.
-    
+
     Common causes: hotkey already in use, insufficient permissions.
     """
 

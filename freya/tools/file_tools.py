@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import os
 import mimetypes
 from pathlib import Path
 from typing import Optional
 
 from .base import FreyaTool, ToolResult
-
 
 # File size limits (in bytes)
 MAX_READ_SIZE = 1024 * 1024  # 1 MB - max file size to read
@@ -155,22 +153,22 @@ def validate_file_type(file_path: Path) -> tuple[Optional[str], Optional[str]]:
         # Check magic bytes first (fast rejection of binary files)
         with open(file_path, "rb") as f:
             header = f.read(16)
-        
+
         for magic_bytes, file_type in BINARY_MAGIC_BYTES.items():
             if header.startswith(magic_bytes):
                 return None, f"Cannot read binary file: {file_type} detected"
-        
+
         # Try MIME type detection
         mime_type, _ = mimetypes.guess_type(str(file_path))
-        
+
         if mime_type and mime_type in ALLOWED_MIME_TYPES:
             return mime_type, None
-        
+
         # Fallback to extension checking
         extension = file_path.suffix.lower()
         if extension in ALLOWED_EXTENSIONS:
             return mime_type or f"text/plain (extension: {extension})", None
-        
+
         # Reject unknown types
         if mime_type:
             return None, (
@@ -182,7 +180,7 @@ def validate_file_type(file_path: Path) -> tuple[Optional[str], Optional[str]]:
                 f"Unknown file type with extension {extension or '(none)'}\n"
                 f"Allowed extensions: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
             )
-    
+
     except Exception as e:
         return None, f"Failed to validate file type: {e}"
 
@@ -388,7 +386,7 @@ class WriteFileTool(FreyaTool):
             content_size = len(content.encode("utf-8"))
             content_size_mb = content_size / (1024 * 1024)
             limit_mb = MAX_WRITE_SIZE / (1024 * 1024)
-            
+
             if content_size > MAX_WRITE_SIZE:
                 return ToolResult(
                     success=False,

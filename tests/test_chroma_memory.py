@@ -27,14 +27,14 @@ def test_store_and_retrieve():
     store.store_memory(content="I work as a software engineer", role="user", importance=4)
     store.store_memory(content="The weather is nice today", role="user", importance=1)
 
-    print(f"Stored 5 memories\n")
+    print("Stored 5 memories\n")
 
     # Test similarity search
     print("Testing similarity search:\n")
 
     # Query 1: Should find "My name is Tommy"
     results = store.find_similar_memories("What's my name?", limit=3)
-    print(f"Query: 'What's my name?'")
+    print("Query: 'What's my name?'")
     for r in results:
         print(f"  - {r.content} (score: {r.score:.3f})")
     assert any("Tommy" in r.content for r in results), "Should find name"
@@ -42,7 +42,7 @@ def test_store_and_retrieve():
 
     # Query 2: Should find "I love pizza"
     results = store.find_similar_memories("What food do I like?", limit=3)
-    print(f"Query: 'What food do I like?'")
+    print("Query: 'What food do I like?'")
     for r in results:
         print(f"  - {r.content} (score: {r.score:.3f})")
     assert any("pizza" in r.content for r in results), "Should find pizza"
@@ -50,7 +50,7 @@ def test_store_and_retrieve():
 
     # Query 3: Should find "I work as a software engineer"
     results = store.find_similar_memories("What's my job?", limit=3)
-    print(f"Query: 'What's my job?'")
+    print("Query: 'What's my job?'")
     for r in results:
         print(f"  - {r.content} (score: {r.score:.3f})")
     assert any("engineer" in r.content for r in results), "Should find job"
@@ -79,7 +79,7 @@ def test_facts():
     print("\nQuerying facts:\n")
 
     results = store.query_facts("What's my favorite color?", limit=2)
-    print(f"Query: 'What's my favorite color?'")
+    print("Query: 'What's my favorite color?'")
     for f in results:
         print(f"  - {f.category}/{f.key}: {f.value} (confidence: {f.confidence})")
     assert any(f.value == "blue" for f in results)

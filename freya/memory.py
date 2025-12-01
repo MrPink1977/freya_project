@@ -7,8 +7,6 @@ Migration from SQLite to ChromaDB for better performance and scalability.
 from __future__ import annotations
 
 import asyncio
-import json
-import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -76,7 +74,7 @@ class ChromaMemoryStore:
     ) -> None:
         """
         Initialize ChromaDB memory store.
-        
+
         Note: ChromaDB client initialization is synchronous but may block briefly.
         For async initialization, use: await asyncio.to_thread(ChromaMemoryStore, db_path)
 
@@ -143,7 +141,7 @@ class ChromaMemoryStore:
     ) -> str:
         """
         Store a memory entry (async to prevent blocking event loop).
-        
+
         Note: ChromaDB write operations are wrapped in asyncio.to_thread() to prevent
         blocking the event loop during disk I/O and embedding generation.
 
@@ -306,7 +304,7 @@ class ChromaMemoryStore:
     ) -> str:
         """
         Store a structured fact (async to prevent blocking event loop).
-        
+
         Note: ChromaDB write operations are wrapped in asyncio.to_thread() to prevent
         blocking the event loop during disk I/O and embedding generation.
 
@@ -410,7 +408,7 @@ class ChromaMemoryStore:
         # Filter by relevance score (distances)
         facts = []
         distances = results.get("distances", [[]])[0] if "distances" in results else []
-        
+
         for idx, (fact_id, meta) in enumerate(zip(results["ids"][0], results["metadatas"][0])):
             # Calculate relevance score (lower distance = higher relevance)
             # ChromaDB uses cosine distance, so 0 = perfect match, 2 = opposite
@@ -419,7 +417,7 @@ class ChromaMemoryStore:
                 distance = distances[idx]
                 # Convert distance to similarity score (0-1 range)
                 relevance = max(0.0, 1.0 - (distance / 2.0))
-            
+
             # Skip results below relevance threshold
             if relevance < min_relevance_score:
                 logger.debug(
@@ -427,7 +425,7 @@ class ChromaMemoryStore:
                     fact_id, relevance, min_relevance_score
                 )
                 continue
-            
+
             facts.append(
                 Fact(
                     id=fact_id,

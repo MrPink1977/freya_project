@@ -1,8 +1,6 @@
 """Comprehensive security tests for Freya vulnerability fixes."""
 
-import ast
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -185,7 +183,7 @@ class TestPathTraversalSecurity:
         docs = Path.home() / "Documents"
         if not docs.exists():
             pytest.skip("Documents folder doesn't exist")
-        
+
         # Create test file
         test_file = docs / "freya_security_test.txt"
         try:
@@ -204,7 +202,7 @@ class TestPathTraversalSecurity:
         data_dir = Path("data")
         if not data_dir.exists():
             data_dir.mkdir(parents=True)
-        
+
         test_file = data_dir / "security_test.txt"
         try:
             test_file.write_text("test content")
@@ -299,16 +297,16 @@ class TestFrozenDataclassSecurity:
     def test_frozen_dataclass_immutability(self):
         """Verify config dataclasses are frozen and cannot be mutated directly."""
         from freya.config import load_settings
-        
+
         config = load_settings()
-        
+
         # Attempt to modify frozen dataclass should raise AttributeError
         with pytest.raises(AttributeError):
             config.app.interaction_mode = "malicious_mode"
-        
+
         with pytest.raises(AttributeError):
             config.tts.engine = "malicious_engine"
-        
+
         with pytest.raises(AttributeError):
             config.ollama.model = "malicious_model"
 
@@ -319,26 +317,27 @@ class TestEnvironmentVariableSecurity:
     def test_env_override_works(self, monkeypatch):
         """Verify ELEVENLABS_API_KEY can be overridden via environment."""
         from freya.config import load_settings
-        
+
         # Set test API key
         test_key = "sk_test_security_key_12345"
         monkeypatch.setenv("ELEVENLABS_API_KEY", test_key)
-        
+
         # Load config
         config = load_settings()
-        
+
         # Verify override worked - tts.elevenlabs.api_key
         assert config.tts.elevenlabs.api_key == test_key
 
     def test_no_hardcoded_secrets(self):
         """Verify no hardcoded API keys in default config."""
         from pathlib import Path
+
         import yaml
-        
+
         config_path = Path(__file__).parent.parent / "config" / "default.yaml"
         with open(config_path) as f:
             config_data = yaml.safe_load(f)
-        
+
         # Check ElevenLabs API key is empty
         api_key = config_data.get("tts_elevenlabs", {}).get("api_key", "")
         assert api_key == "" or api_key is None, "Hardcoded API key found in config!"

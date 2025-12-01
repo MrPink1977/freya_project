@@ -6,7 +6,6 @@ Or: python tests/test_agent_foundation.py
 """
 
 import asyncio
-from typing import Any
 
 from freya.agents import AgentCapability, BaseAgent
 from freya.core import Message, MessageBus, MessagePriority

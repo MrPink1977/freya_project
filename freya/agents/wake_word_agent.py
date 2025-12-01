@@ -12,7 +12,6 @@ from typing import Optional
 
 from freya.agents.base_agent import AgentCapability, BaseAgent
 from freya.core.message_bus import Message, MessageBus, MessagePriority
-from freya.logger import get_logger
 from freya.stt import SpeechToText
 from freya.wake import WakeWordDetector
 from freya.wake_word_matcher import WakeWordMatcher

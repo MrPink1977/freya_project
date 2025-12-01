@@ -16,15 +16,15 @@ except ImportError:
     BeautifulSoup = None
 
 from tenacity import (
+    before_sleep_log,
     retry,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    before_sleep_log,
 )
 
-from .base import FreyaTool, ToolResult
 from ..logger import get_logger
+from .base import FreyaTool, ToolResult
 
 logger = get_logger("web_scraper")
 
@@ -74,7 +74,7 @@ class WebScraperTool(FreyaTool):
         except Exception as exc:
             logger.exception("Web scraping failed for %s: %s", url, exc)
             return ToolResult(success=False, output="", error=f"Scraping failed: {exc}")
-    
+
     @retry(
         retry=retry_if_exception_type((requests.RequestException, ConnectionError, TimeoutError)),
         stop=stop_after_attempt(2),
