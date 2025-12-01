@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-import pytest
 import time
-from freya.utils.rate_limiter import TokenBucketRateLimiter, RateLimitError
+
+import pytest
+
+from freya.utils.rate_limiter import RateLimitError, TokenBucketRateLimiter
 
 
 class TestTokenBucketRateLimiter:

@@ -7,16 +7,14 @@ All specialized agents inherit from BaseAgent.
 from __future__ import annotations
 
 import asyncio
-import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from freya.core.message_bus import Message, MessageBus, MessagePriority
 from freya.core.health_monitor import HealthMonitor
+from freya.core.message_bus import Message, MessageBus, MessagePriority
 from freya.exceptions import (
-    AgentCleanupError,
     AgentInitializationError,
     AgentMessageError,
 )
@@ -112,14 +110,14 @@ class BaseAgent(ABC):
 
         try:
             self.state = AgentState.INITIALIZING
-            
+
             # Register with health monitor if available
             if self.health_monitor:
                 await self.health_monitor.register_agent(
-                    self.agent_id, 
+                    self.agent_id,
                     state=self.state.value
                 )
-            
+
             await self.initialize()
 
             # Subscribe to input topics
@@ -140,11 +138,11 @@ class BaseAgent(ABC):
         except Exception as exc:
             self.state = AgentState.ERROR
             self.logger.exception(f"Failed to start agent {self.agent_id}: {exc}")
-            
+
             # Record error in health monitor
             if self.health_monitor:
                 await self.health_monitor.record_error(self.agent_id, str(exc))
-            
+
             raise AgentInitializationError(
                 f"Agent {self.agent_id} failed to initialize: {exc}",
                 agent_id=self.agent_id,
@@ -179,7 +177,7 @@ class BaseAgent(ABC):
             for task in self._tasks:
                 if not task.done():
                     task.cancel()
-            
+
             # Wait for all tasks to complete cancellation
             await asyncio.gather(*self._tasks, return_exceptions=True)
             self._tasks.clear()
@@ -203,7 +201,7 @@ class BaseAgent(ABC):
     def _cleanup_completed_tasks(self) -> None:
         """
         Remove completed tasks from the task set (prevents memory leak).
-        
+
         Called on-demand when task count exceeds threshold to balance
         memory usage vs cleanup overhead.
         """
@@ -229,26 +227,26 @@ class BaseAgent(ABC):
         Useful for recovering from errors or applying configuration changes.
         """
         self.logger.info(f"Restarting agent {self.agent_id}")
-        
+
         try:
             # Stop the agent
             await self.stop()
-            
+
             # Brief pause to ensure cleanup
             await asyncio.sleep(0.5)
-            
+
             # Restart the agent
             await self.start()
-            
+
             self.logger.info(f"Agent {self.agent_id} restarted successfully")
-            
+
         except Exception as exc:
             self.logger.exception(f"Failed to restart agent {self.agent_id}: {exc}")
             self.state = AgentState.ERROR
-            
+
             if self.health_monitor:
                 await self.health_monitor.record_error(self.agent_id, f"Restart failed: {exc}")
-            
+
             raise
 
     async def _heartbeat_loop(self) -> None:
@@ -258,7 +256,7 @@ class BaseAgent(ABC):
         Runs every 30 seconds while agent is active.
         """
         self.logger.debug(f"Heartbeat loop started for {self.agent_id}")
-        
+
         while self.state != AgentState.STOPPED:
             try:
                 if self.health_monitor:
@@ -267,10 +265,10 @@ class BaseAgent(ABC):
                         state=self.state.value,
                         metadata=self._get_heartbeat_metadata(),
                     )
-                
+
                 # Wait 30 seconds before next heartbeat
                 await asyncio.sleep(30.0)
-                
+
             except asyncio.CancelledError:
                 self.logger.debug(f"Heartbeat loop cancelled for {self.agent_id}")
                 break
@@ -313,7 +311,7 @@ class BaseAgent(ABC):
             await self.process_message(message)
 
             self.state = prev_state
-            
+
             # Record successful message processing
             if self.health_monitor:
                 await self.health_monitor.record_message(self.agent_id)
@@ -321,11 +319,11 @@ class BaseAgent(ABC):
         except Exception as exc:
             self.logger.exception(f"Error processing message on topic {message.topic}: {exc}")
             self.state = AgentState.ERROR
-            
+
             # Record error in health monitor
             if self.health_monitor:
                 await self.health_monitor.record_error(self.agent_id, str(exc))
-            
+
             # Publish error event
             error = AgentMessageError(
                 f"Agent {self.agent_id} failed to process message on {message.topic}: {exc}",
@@ -371,7 +369,7 @@ class BaseAgent(ABC):
             correlation_id=correlation_id,
         )
         self.logger.debug(f"Published to {topic}")
-        
+
         # Cleanup completed tasks periodically to prevent memory leak
         self._cleanup_completed_tasks()
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -159,7 +159,7 @@ class AudioChannelManager:
             return
 
         activity = self.channels[channel_id]
-        rule = self.rules[channel_id]
+        _rule = self.rules[channel_id]  # noqa: F841 - Reserved for future use
 
         # Update activity
         activity.last_wake_time = datetime.now()

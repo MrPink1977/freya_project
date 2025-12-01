@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Optional
 
 from ..config import Settings
-from ..core.message_bus import Message, MessageBus, MessagePriority
+from ..core.message_bus import Message, MessageBus
 from ..logger import get_logger
 from ..stt import SpeechToText
 from ..tts import TextToSpeech
@@ -323,7 +323,7 @@ class SpeechAgent(BaseAgent):
         """Handle streaming dialog chunks for real-time TTS."""
         chunk = message.payload.get("chunk", "")
         channel_id = message.payload.get("channel_id", "pc")
-        is_final = message.payload.get("is_final", False)
+        _is_final = message.payload.get("is_final", False)  # noqa: F841
 
         if chunk:
             self._tts_buffer.append(chunk)

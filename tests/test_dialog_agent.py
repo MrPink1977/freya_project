@@ -3,7 +3,6 @@ Tests for DialogAgent - LLM conversation management.
 """
 
 import asyncio
-from unittest.mock import Mock
 
 import pytest
 
@@ -92,11 +91,10 @@ async def test_streaming_response():
 
     # Send conversation request
     await bus.publish(
-        Message(
-            topic="dialog.request",
-            payload={"text": "What is the answer?", "stream": True},
-            priority=MessagePriority.HIGH,
-        )
+        "dialog.request",
+        {"text": "What is the answer?", "stream": True},
+        "test",
+        MessagePriority.HIGH,
     )
 
     # Wait for processing
@@ -153,11 +151,10 @@ async def test_confusion_escalation():
     await agent.start()
 
     await bus.publish(
-        Message(
-            topic="dialog.request",
-            payload={"text": "What is the answer?", "stream": True},
-            priority=MessagePriority.HIGH,
-        )
+        "dialog.request",
+        {"text": "What is the answer?", "stream": True},
+        "test",
+        MessagePriority.HIGH,
     )
 
     await asyncio.sleep(0.4)
@@ -205,11 +202,10 @@ async def test_context_transfer():
 
     # Trigger context check
     await bus.publish(
-        Message(
-            topic="dialog.request",
-            payload={"text": "Final question", "stream": True},
-            priority=MessagePriority.HIGH,
-        )
+        "dialog.request",
+        {"text": "Final question", "stream": True},
+        "test",
+        MessagePriority.HIGH,
     )
 
     await asyncio.sleep(0.3)
@@ -240,22 +236,20 @@ async def test_context_injection():
 
     # Inject context
     await bus.publish(
-        Message(
-            topic="dialog.inject_context",
-            payload={"context": "Tool result: User's birthday is March 15th"},
-            priority=MessagePriority.NORMAL,
-        )
+        "dialog.inject_context",
+        {"context": "Tool result: User's birthday is March 15th"},
+        "test",
+        MessagePriority.NORMAL,
     )
 
     await asyncio.sleep(0.1)
 
     # Send conversation request
     await bus.publish(
-        Message(
-            topic="dialog.request",
-            payload={"text": "When is my birthday?", "stream": True},
-            priority=MessagePriority.HIGH,
-        )
+        "dialog.request",
+        {"text": "When is my birthday?", "stream": True},
+        "test",
+        MessagePriority.HIGH,
     )
 
     await asyncio.sleep(0.3)
@@ -292,11 +286,10 @@ async def test_clear_context():
 
     # Clear context
     await bus.publish(
-        Message(
-            topic="dialog.clear_context",
-            payload={},
-            priority=MessagePriority.NORMAL,
-        )
+        "dialog.clear_context",
+        {},
+        "test",
+        MessagePriority.NORMAL,
     )
 
     await asyncio.sleep(0.1)

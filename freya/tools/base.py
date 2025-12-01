@@ -6,8 +6,7 @@ import asyncio
 import signal
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from ..logger import get_logger
 
@@ -21,7 +20,7 @@ T = TypeVar('T')
 
 class ToolTimeoutError(TimeoutError):
     """Raised when tool execution exceeds timeout."""
-    
+
     def __init__(self, tool_name: str, timeout: float):
         super().__init__(f"Tool '{tool_name}' execution exceeded timeout of {timeout}s")
         self.tool_name = tool_name
@@ -89,22 +88,22 @@ class FreyaTool(ABC):
             ToolResult with output or error
         """
         pass
-    
+
     def execute_with_timeout(self, timeout: float | None = None, **kwargs) -> ToolResult:
         """Execute tool with timeout protection.
-        
+
         Args:
             timeout: Maximum execution time in seconds (default: DEFAULT_TOOL_TIMEOUT)
             **kwargs: Tool-specific parameters
-        
+
         Returns:
             ToolResult with output or error
-        
+
         Raises:
             ToolTimeoutError: If execution exceeds timeout
         """
         timeout = timeout or DEFAULT_TOOL_TIMEOUT
-        
+
         # Check if execute is async
         import inspect
         if inspect.iscoroutinefunction(self.execute):
@@ -139,21 +138,21 @@ class FreyaTool(ABC):
                 import threading
                 result = []
                 exception = []
-                
+
                 def target():
                     try:
                         result.append(self.execute(**kwargs))
                     except Exception as exc:
                         exception.append(exc)
-                
+
                 thread = threading.Thread(target=target, daemon=True)
                 thread.start()
                 thread.join(timeout=timeout)
-                
+
                 if thread.is_alive():
                     logger.error("Tool '%s' execution timed out after %.1fs", self.name, timeout)
                     raise ToolTimeoutError(self.name, timeout)
-                
+
                 if exception:
                     raise exception[0]
                 if result:
@@ -163,10 +162,10 @@ class FreyaTool(ABC):
                 # Unix-like: use signal.alarm
                 def timeout_handler(signum, frame):
                     raise ToolTimeoutError(self.name, timeout)
-                
+
                 old_handler = signal.signal(signal.SIGALRM, timeout_handler)
                 signal.alarm(int(timeout))
-                
+
                 try:
                     result = self.execute(**kwargs)
                     signal.alarm(0)  # Cancel alarm

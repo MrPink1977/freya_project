@@ -7,11 +7,9 @@ Provides simple 30s heartbeat monitoring for debugging.
 import asyncio
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Dict, Optional
 
 from freya.logger import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -142,7 +140,7 @@ class HealthMonitor:
         # Check if agent exists (without holding lock for auto-register)
         async with self._lock:
             agent_exists = agent_id in self._agents
-        
+
         # Auto-register if not found (outside lock to avoid deadlock)
         if not agent_exists:
             await self.register_agent(agent_id, state=state or "unknown", metadata=metadata)

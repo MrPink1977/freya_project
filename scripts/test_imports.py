@@ -8,12 +8,10 @@ print("=" * 60)
 
 try:
     print("\n1. Importing argparse...")
-    import argparse
 
     print("   ✓")
 
     print("2. Importing asyncio...")
-    import asyncio
 
     print("   ✓")
 
@@ -33,7 +31,6 @@ try:
     print("   ✓")
 
     print("6. Importing freya.logger...")
-    from freya.logger import get_logger
 
     print("   ✓")
 

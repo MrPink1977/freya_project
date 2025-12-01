@@ -8,13 +8,13 @@ This module provides centralized validation schemas for:
 """
 from freya.schemas.messages import (
     DialogRequestPayload,
-    MemoryStorePayload,
-    MemoryQueryPayload,
-    FactStorePayload,
     FactQueryPayload,
-    UserQueryPayload,
-    SpeakRequestPayload,
+    FactStorePayload,
     ListenRequestPayload,
+    MemoryQueryPayload,
+    MemoryStorePayload,
+    SpeakRequestPayload,
+    UserQueryPayload,
 )
 
 __all__ = [

@@ -6,15 +6,12 @@ Wraps ChromaMemoryStore for async, event-driven memory operations.
 
 from __future__ import annotations
 
-import re
-from typing import Optional
-
 from freya.agents.base_agent import AgentCapability, BaseAgent
-from freya.core.message_bus import Message, MessageBus, MessagePriority
+from freya.core.message_bus import Message, MessageBus
 from freya.exceptions import AgentMessageError, MemoryQueryError, MemoryStorageError
 from freya.logger import get_logger
 from freya.memory import ChromaMemoryStore
-from freya.schemas.messages import MemoryStorePayload, MemoryQueryPayload, FactStorePayload, FactQueryPayload
+from freya.schemas.messages import FactQueryPayload, FactStorePayload, MemoryQueryPayload, MemoryStorePayload
 from freya.schemas.validation import validate_message_payload
 from freya.utils.fact_patterns import get_extraction_patterns, is_question
 
@@ -115,7 +112,7 @@ class MemoryAgent(BaseAgent):
             self.logger.error("Invalid memory store request: %s", exc)
             await self.publish_error(message, exc)
             return
-        
+
         # Use validated data
         content = payload.content
         role = payload.role
@@ -162,7 +159,7 @@ class MemoryAgent(BaseAgent):
                 correlation_id=message.correlation_id,
             )
             return
-        
+
         # Use validated data
         query = payload.query
         limit = payload.limit
@@ -215,7 +212,7 @@ class MemoryAgent(BaseAgent):
             self.logger.error("Invalid fact store request: %s", exc)
             await self.publish_error(message, exc)
             return
-        
+
         # Use validated data
         category = payload.category
         key = payload.key
@@ -263,7 +260,7 @@ class MemoryAgent(BaseAgent):
                 correlation_id=message.correlation_id,
             )
             return
-        
+
         # Use validated data
         query = payload.query
         category = payload.category

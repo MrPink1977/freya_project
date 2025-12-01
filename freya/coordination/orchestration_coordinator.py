@@ -24,7 +24,6 @@ from freya.memory import ChromaMemoryStore
 from freya.ollama_client import OllamaClient
 from freya.stt import SpeechToText
 from freya.tools import ToolManager
-from freya.tts import TextToSpeech
 from freya.wake import WakeWordDetector
 import keyboard
 from colorama import Fore, Style, init as colorama_init
@@ -118,7 +117,6 @@ class OrchestrationCoordinator:
         self._memory_store = memory_store
 
         # Create temporary STT for wake word (until we have multi-channel STT)
-        from freya.stt import SpeechToText
 
         _temp_stt = SpeechToText(config.stt)
 
@@ -138,7 +136,7 @@ class OrchestrationCoordinator:
         if hasattr(config, "personality") and config.personality.get("enabled", False):
             try:
                 from freya.personality import PersonalityEngine
-                
+
                 personality_engine = PersonalityEngine(config.personality)
                 logger.info("Personality engine enabled")
             except Exception as exc:
@@ -773,7 +771,6 @@ def create_coordinator_from_config(config) -> OrchestrationCoordinator:
     This matches the interface of the old orchestrator for easy migration.
     """
     # Import here to avoid circular dependencies
-    from freya.config import Settings
     from freya.context import ConversationContext
     from freya.memory import ChromaMemoryStore
     from freya.ollama_client import OllamaClient
