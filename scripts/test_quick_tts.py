@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from freya.config import load_settings
-from freya.tts import TextToSpeech
+from freya.core.config import load_settings
+from freya.voice.tts import TextToSpeech
 
 print("Loading config...")
 config = load_settings(Path("config/default.yaml"))

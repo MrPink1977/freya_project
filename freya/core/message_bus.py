@@ -14,7 +14,7 @@ from enum import Enum
 from typing import Any, Callable, Coroutine, Dict, List, Optional
 
 from freya.core.persistence import MessagePersistence
-from freya.logger import get_logger
+from freya.core.logger import get_logger
 
 logger = get_logger(__name__)
 

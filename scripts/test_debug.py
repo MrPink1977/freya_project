@@ -17,7 +17,7 @@ try:
     print("\n3. Importing config...")
     from pathlib import Path
 
-    from freya.config import load_settings
+    from freya.core.config import load_settings
 
     print("   ✓ Config module imported")
 
@@ -27,7 +27,7 @@ try:
     print(f"   TTS Engine: {config.tts.engine}")
 
     print("\n5. Importing TTS...")
-    from freya.tts import TextToSpeech
+    from freya.voice.tts import TextToSpeech
 
     print("   ✓ TTS imported")
 

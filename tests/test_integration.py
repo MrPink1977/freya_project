@@ -11,9 +11,9 @@ from freya.agents.dialog_agent import DialogAgent
 from freya.agents.memory_agent import MemoryAgent
 from freya.agents.tool_executor_agent import ToolExecutorAgent
 from freya.agents.wake_word_agent import WakeWordAgent
-from freya.context import ConversationContext
+from freya.core.context import ConversationContext
 from freya.core.message_bus import Message, MessageBus, MessagePriority
-from freya.memory import ChromaMemoryStore
+from freya.memory.memory_store import ChromaMemoryStore
 from freya.tools import ToolManager
 
 

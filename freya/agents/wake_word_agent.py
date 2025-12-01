@@ -12,9 +12,9 @@ from typing import Optional
 
 from freya.agents.base_agent import AgentCapability, BaseAgent
 from freya.core.message_bus import Message, MessageBus, MessagePriority
-from freya.stt import SpeechToText
-from freya.wake import WakeWordDetector
-from freya.wake_word_matcher import WakeWordMatcher
+from freya.voice.stt import SpeechToText
+from freya.voice.wake import WakeWordDetector
+from freya.voice.wake_word_matcher import WakeWordMatcher
 
 
 class WakeWordAgent(BaseAgent):

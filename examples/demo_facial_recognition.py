@@ -21,10 +21,10 @@ import cv2
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from freya.config import FaceRecognitionConfig
-from freya.facial_recognition import FaceRecognitionError, FacialRecognition
-from freya.multi_channel_coordinator import ChannelConfig, ChannelType
-from freya.rtsp_stream import RTSPStreamHandler
+from freya.core.config import FaceRecognitionConfig
+from freya.vision.facial_recognition import FaceRecognitionError, FacialRecognition
+from freya.coordination.multi_channel_coordinator import ChannelConfig, ChannelType
+from freya.vision.rtsp_stream import RTSPStreamHandler
 
 
 def main():

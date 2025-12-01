@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Dict, List, Type
 
-from ..exceptions import (
+from freya.core.exceptions import (
     ToolExecutionError,
     ToolInputError,
     ToolNetworkError,
     ToolPermissionError,
 )
-from ..logger import get_logger
+from freya.core.logger import get_logger
 from .base import FreyaTool, ToolResult
 
 logger = get_logger("tools.manager")

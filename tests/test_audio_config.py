@@ -9,8 +9,8 @@ from pathlib import Path
 from textwrap import dedent
 
 from freya import audio_config
-from freya.audio_config import load_channel_configs
-from freya.multi_channel_coordinator import ChannelType
+from freya.voice.audio_config import load_channel_configs
+from freya.coordination.multi_channel_coordinator import ChannelType
 
 
 class AudioConfigLoaderTests(unittest.TestCase):

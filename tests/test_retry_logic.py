@@ -5,8 +5,8 @@ from unittest.mock import Mock, patch
 import pytest
 from requests import HTTPError, Response
 
-from freya.config import OllamaConfig
-from freya.ollama_client import OllamaClient, OllamaModelNotFoundError
+from freya.core.config import OllamaConfig
+from freya.core.ollama_client import OllamaClient, OllamaModelNotFoundError
 from freya.tools.web_search import WebSearchError, search_web_async
 
 

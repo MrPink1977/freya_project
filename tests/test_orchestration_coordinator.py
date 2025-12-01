@@ -6,9 +6,9 @@ import asyncio
 
 import pytest
 
-from freya.context import ConversationContext
+from freya.core.context import ConversationContext
 from freya.coordination.orchestration_coordinator import OrchestrationCoordinator
-from freya.memory import ChromaMemoryStore
+from freya.memory.memory_store import ChromaMemoryStore
 from freya.tools import ToolManager
 
 

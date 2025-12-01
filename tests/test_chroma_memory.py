@@ -10,7 +10,7 @@ from pathlib import Path
 # Add project to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from freya.memory import ChromaMemoryStore
+from freya.memory.memory_store import ChromaMemoryStore
 
 
 def test_store_and_retrieve():

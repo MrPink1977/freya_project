@@ -6,7 +6,7 @@ and proper exception propagation through the system.
 """
 import pytest
 
-from freya.exceptions import (
+from freya.core.exceptions import (
     AgentCleanupError,
     AgentCommunicationError,
     AgentError,
@@ -277,7 +277,7 @@ class TestLegacyCompatibility:
 
     def test_legacy_exceptions_exist(self):
         """Legacy exception names are still available."""
-        from freya.exceptions import (
+        from freya.core.exceptions import (
             FaceRecognitionError,
             OllamaError,
             SpeechToTextError,

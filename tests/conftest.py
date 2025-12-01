@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from freya.config import Settings
+from freya.core.config import Settings
 
 
 # ============================================================================
@@ -33,7 +33,7 @@ def event_loop():
 @pytest.fixture
 def test_config() -> Settings:
     """Provide a test configuration with safe defaults."""
-    from freya.config import load_settings
+    from freya.core.config import load_settings
     
     config_path = Path("config/default.yaml")
     if not config_path.exists():
@@ -52,7 +52,7 @@ def test_config() -> Settings:
 def minimal_config() -> Settings:
     """Provide a minimal configuration for unit tests."""
     from dataclasses import replace
-    from freya.config import load_settings
+    from freya.core.config import load_settings
     
     config = load_settings(Path("config/default.yaml"))
     

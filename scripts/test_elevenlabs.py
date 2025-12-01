@@ -8,7 +8,7 @@ try:
     print("\n1. Importing config...")
     from pathlib import Path
 
-    from freya.config import load_settings
+    from freya.core.config import load_settings
 
     print("\n2. Loading config...")
     config = load_settings(Path("config/default.yaml"))
@@ -17,7 +17,7 @@ try:
     print(f"   ElevenLabs Voice ID: {config.tts.elevenlabs.voice_id}")
 
     print("\n3. Importing ElevenLabs TTS...")
-    from freya.tts_elevenlabs import ElevenLabsTTS
+    from freya.voice.tts_elevenlabs import ElevenLabsTTS
 
     print("\n4. Creating ElevenLabs TTS instance...")
     tts = ElevenLabsTTS(

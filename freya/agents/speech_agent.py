@@ -7,11 +7,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from ..config import Settings
+from freya.core.config import Settings
 from ..core.message_bus import Message, MessageBus
-from ..logger import get_logger
-from ..stt import SpeechToText
-from ..tts import TextToSpeech
+from freya.core.logger import get_logger
+from freya.voice.stt import SpeechToText
+from freya.voice.tts import TextToSpeech
 from .base_agent import BaseAgent
 
 logger = get_logger("speech_agent")
@@ -89,7 +89,7 @@ class SpeechAgent(BaseAgent):
 
         # Initialize STT
         print("[DEBUG] SpeechAgent: Initializing STT...")
-        from ..stt import SpeechToText
+        from freya.voice.stt import SpeechToText
 
         self.stt = SpeechToText(self.config.stt)
         print("[DEBUG] SpeechAgent: STT initialized")
@@ -168,12 +168,12 @@ class SpeechAgent(BaseAgent):
             self.tts.close()
 
         if engine == TTSEngine.PIPER:
-            from ..tts import TextToSpeech
+            from freya.voice.tts import TextToSpeech
 
             self.tts = TextToSpeech(self.config.tts)
             logger.info("TTS initialized: engine=Piper, voice=%s", self.config.tts.voice_path)
         elif engine == TTSEngine.ELEVENLABS:
-            from ..tts_elevenlabs import ElevenLabsTTS
+            from freya.voice.tts_elevenlabs import ElevenLabsTTS
 
             self.tts = ElevenLabsTTS(
                 api_key=self.config.tts.elevenlabs.api_key,

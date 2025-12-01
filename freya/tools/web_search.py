@@ -21,7 +21,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from ..logger import get_logger
+from freya.core.logger import get_logger
 from ..utils.circuit_breaker import CircuitBreaker
 from ..utils.rate_limiter import RateLimitError, TokenBucketRateLimiter
 

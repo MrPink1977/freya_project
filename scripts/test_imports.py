@@ -21,7 +21,7 @@ try:
     print("   ✓")
 
     print("4. Importing freya.config...")
-    from freya.config import load_settings
+    from freya.core.config import load_settings
 
     print("   ✓")
 

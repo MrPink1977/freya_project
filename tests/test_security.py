@@ -296,7 +296,7 @@ class TestFrozenDataclassSecurity:
 
     def test_frozen_dataclass_immutability(self):
         """Verify config dataclasses are frozen and cannot be mutated directly."""
-        from freya.config import load_settings
+        from freya.core.config import load_settings
 
         config = load_settings()
 
@@ -316,7 +316,7 @@ class TestEnvironmentVariableSecurity:
 
     def test_env_override_works(self, monkeypatch):
         """Verify ELEVENLABS_API_KEY can be overridden via environment."""
-        from freya.config import load_settings
+        from freya.core.config import load_settings
 
         # Set test API key
         test_key = "sk_test_security_key_12345"

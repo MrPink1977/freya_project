@@ -23,7 +23,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from ..logger import get_logger
+from freya.core.logger import get_logger
 from .base import FreyaTool, ToolResult
 
 logger = get_logger("web_scraper")

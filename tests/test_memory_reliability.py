@@ -7,7 +7,7 @@ import pytest
 
 from freya.agents.memory_agent import MemoryAgent
 from freya.core.message_bus import Message, MessageBus
-from freya.memory import ChromaMemoryStore, Fact
+from freya.memory.memory_store import ChromaMemoryStore, Fact
 
 
 class TestMemoryEmptyResults:

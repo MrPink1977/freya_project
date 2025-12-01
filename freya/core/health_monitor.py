@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
-from freya.logger import get_logger
+from freya.core.logger import get_logger
 
 logger = get_logger(__name__)
 

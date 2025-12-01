@@ -19,9 +19,9 @@ print()
 print("Test 1: Module Imports")
 print("-" * 80)
 try:
-    from freya.config import load_settings
-    from freya.context import ConversationContext
-    from freya.ollama_client import OllamaClient
+    from freya.core.config import load_settings
+    from freya.core.context import ConversationContext
+    from freya.core.ollama_client import OllamaClient
     from freya.tools import ToolManager
 
     print("✓ All core modules imported successfully")
@@ -127,7 +127,7 @@ try:
     import os
     import tempfile
 
-    from freya.memory import PersistentMemoryStore
+    from freya.memory.memory_store import PersistentMemoryStore
 
     # Create temporary DB
     temp_db = os.path.join(tempfile.gettempdir(), "test_freya_memory.db")

@@ -9,7 +9,7 @@ from typing import Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from freya.exceptions import AgentMessageError, ToolInputError
+from freya.core.exceptions import AgentMessageError, ToolInputError
 
 logger = logging.getLogger(__name__)
 

@@ -14,11 +14,11 @@ from typing import Any, Dict, Optional
 
 from freya.core.health_monitor import HealthMonitor
 from freya.core.message_bus import Message, MessageBus, MessagePriority
-from freya.exceptions import (
+from freya.core.exceptions import (
     AgentInitializationError,
     AgentMessageError,
 )
-from freya.logger import get_logger
+from freya.core.logger import get_logger
 
 
 class AgentState(Enum):
