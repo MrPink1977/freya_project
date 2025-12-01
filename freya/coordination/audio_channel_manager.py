@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Optional
 
 from ..core.message_bus import Message, MessageBus, MessagePriority
-from ..logger import get_logger
+from freya.core.logger import get_logger
 
 logger = get_logger("audio_channel_manager")
 

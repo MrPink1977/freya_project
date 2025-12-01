@@ -12,9 +12,9 @@ from freya.agents.dialog_agent import (
     DialogAgent,
     StreamTimeoutError,
 )
-from freya.context import ConversationContext
+from freya.core.context import ConversationContext
 from freya.core.message_bus import Message, MessageBus
-from freya.ollama_client import OllamaClient, OllamaError
+from freya.core.ollama_client import OllamaClient, OllamaError
 
 
 @pytest.fixture

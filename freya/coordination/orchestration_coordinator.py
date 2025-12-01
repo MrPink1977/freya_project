@@ -16,15 +16,15 @@ from freya.agents.memory_agent import MemoryAgent
 from freya.agents.speech_agent import SpeechAgent
 from freya.agents.tool_executor_agent import ToolExecutorAgent
 from freya.agents.wake_word_agent import WakeWordAgent
-from freya.context import ConversationContext
+from freya.core.context import ConversationContext
 from freya.coordination.audio_channel_manager import AudioChannelManager
 from freya.core.message_bus import Message, MessageBus, MessagePriority
-from freya.logger import get_logger
-from freya.memory import ChromaMemoryStore
-from freya.ollama_client import OllamaClient
-from freya.stt import SpeechToText
+from freya.core.logger import get_logger
+from freya.memory.memory_store import ChromaMemoryStore
+from freya.core.ollama_client import OllamaClient
+from freya.voice.stt import SpeechToText
 from freya.tools import ToolManager
-from freya.wake import WakeWordDetector
+from freya.voice.wake import WakeWordDetector
 import keyboard
 from colorama import Fore, Style, init as colorama_init
 
@@ -771,11 +771,11 @@ def create_coordinator_from_config(config) -> OrchestrationCoordinator:
     This matches the interface of the old orchestrator for easy migration.
     """
     # Import here to avoid circular dependencies
-    from freya.context import ConversationContext
-    from freya.memory import ChromaMemoryStore
-    from freya.ollama_client import OllamaClient
+    from freya.core.context import ConversationContext
+    from freya.memory.memory_store import ChromaMemoryStore
+    from freya.core.ollama_client import OllamaClient
     from freya.tools import ToolManager
-    from freya.wake import WakeWordDetector
+    from freya.voice.wake import WakeWordDetector
 
     # Initialize components
     print("[DEBUG] factory: Creating OllamaClient...")

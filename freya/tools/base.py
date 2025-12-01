@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
-from ..logger import get_logger
+from freya.core.logger import get_logger
 
 logger = get_logger("tools.base")
 

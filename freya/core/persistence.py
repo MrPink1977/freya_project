@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 if TYPE_CHECKING:
     from freya.core.message_bus import Message
 
-from freya.logger import get_logger
+from freya.core.logger import get_logger
 
 logger = get_logger(__name__)
 

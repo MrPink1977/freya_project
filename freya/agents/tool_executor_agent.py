@@ -11,7 +11,7 @@ from typing import Optional
 
 from freya.agents.base_agent import AgentCapability, BaseAgent
 from freya.core.message_bus import Message, MessageBus, MessagePriority
-from freya.exceptions import AgentMessageError
+from freya.core.exceptions import AgentMessageError
 from freya.schemas.messages import UserQueryPayload
 from freya.schemas.validation import validate_message_payload
 from freya.tools.manager import ToolManager

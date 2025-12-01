@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from freya.agents.base_agent import AgentCapability, BaseAgent
 from freya.core.message_bus import Message, MessageBus
-from freya.exceptions import AgentMessageError, MemoryQueryError, MemoryStorageError
-from freya.logger import get_logger
-from freya.memory import ChromaMemoryStore
+from freya.core.exceptions import AgentMessageError, MemoryQueryError, MemoryStorageError
+from freya.core.logger import get_logger
+from freya.memory.memory_store import ChromaMemoryStore
 from freya.schemas.messages import FactQueryPayload, FactStorePayload, MemoryQueryPayload, MemoryStorePayload
 from freya.schemas.validation import validate_message_payload
 from freya.utils.fact_patterns import get_extraction_patterns, is_question

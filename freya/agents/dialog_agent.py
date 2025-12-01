@@ -14,11 +14,11 @@ from freya.agents.base_agent import AgentCapability, BaseAgent
 
 if TYPE_CHECKING:
     from freya.personality.engine import PersonalityEngine
-from freya.context import ConversationContext
+from freya.core.context import ConversationContext
 from freya.core.message_bus import Message, MessageBus, MessagePriority
-from freya.exceptions import AgentMessageError
-from freya.logger import get_logger
-from freya.ollama_client import OllamaClient, OllamaError, OllamaModelNotFoundError
+from freya.core.exceptions import AgentMessageError
+from freya.core.logger import get_logger
+from freya.core.ollama_client import OllamaClient, OllamaError, OllamaModelNotFoundError
 from freya.schemas.messages import DialogRequestPayload
 from freya.schemas.validation import validate_message_payload
 from freya.utils.confusion_detection import detect_confusion

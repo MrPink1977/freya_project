@@ -7,7 +7,7 @@ import asyncio
 import pytest
 
 from freya.agents.dialog_agent import DialogAgent
-from freya.context import ConversationContext
+from freya.core.context import ConversationContext
 from freya.core.message_bus import Message, MessageBus, MessagePriority
 
 

@@ -19,8 +19,8 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from freya.multi_channel_coordinator import ChannelConfig, ChannelType
-from freya.rtsp_stream import AudioChunk, RTSPStreamHandler, VideoFrame
+from freya.coordination.multi_channel_coordinator import ChannelConfig, ChannelType
+from freya.vision.rtsp_stream import AudioChunk, RTSPStreamHandler, VideoFrame
 
 
 class CameraConnectionTester:

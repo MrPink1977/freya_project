@@ -95,8 +95,8 @@ wake_stub.WakeWordDetector = _WakeWordDetector
 wake_stub.WakeWordDetectorError = _WakeWordDetectorError
 sys.modules.setdefault("freya.wake", wake_stub)
 
-from freya.context import ConversationContext  # noqa: E402
-from freya.orchestrator import InteractionMode, Orchestrator  # noqa: E402
+from freya.core.context import ConversationContext  # noqa: E402
+from freya.coordination.orchestrator import InteractionMode, Orchestrator  # noqa: E402
 
 
 class _KeyboardStub:

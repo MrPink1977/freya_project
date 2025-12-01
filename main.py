@@ -25,9 +25,9 @@ try:
 except ImportError:
     Fore = Style = type('', (), {'GREEN': '', 'RED': '', 'CYAN': '', 'YELLOW': '', 'MAGENTA': '', 'RESET_ALL': ''})()
 
-from freya.config import load_settings
+from freya.core.config import load_settings
 from freya.coordination.orchestration_coordinator import create_coordinator_from_config
-from freya.logger import get_logger
+from freya.core.logger import get_logger
 
 logger = get_logger("main")
 
@@ -145,13 +145,13 @@ async def main():
 
     # Run system check if requested (quick check mode)
     if args.check:
-        from freya.system_check import run_system_check_with_display
+        from freya.utils.system_check import run_system_check_with_display
 
         run_system_check_with_display(config)
         return
 
     # Run interactive startup system (checks + menu + mode selection)
-    from freya.startup_system import run_interactive_startup
+    from freya.utils.startup_system import run_interactive_startup
     
     selected_mode = run_interactive_startup(config)
     
@@ -170,7 +170,7 @@ async def main():
     # Run diagnostics if requested
     if config.app.startup_mode == "diagnostic":
         logger.info("Running startup diagnostics...")
-        from freya.system_check import run_system_check
+        from freya.utils.system_check import run_system_check
 
         run_system_check(config)
 

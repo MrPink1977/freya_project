@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from freya.agents.memory_agent import MemoryAgent
 from freya.core import MessageBus
-from freya.memory import ChromaMemoryStore
+from freya.memory.memory_store import ChromaMemoryStore
 
 
 async def test_memory_storage():

@@ -8,9 +8,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from freya.agents.wake_word_agent import WakeWordAgent
-from freya.config import load_settings
+from freya.core.config import load_settings
 from freya.core.message_bus import Message, MessageBus
-from freya.stt import SpeechToText
+from freya.voice.stt import SpeechToText
 
 
 async def main():

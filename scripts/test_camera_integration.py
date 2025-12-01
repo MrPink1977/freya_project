@@ -11,7 +11,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from freya.audio_config import load_channel_configs
+from freya.voice.audio_config import load_channel_configs
 
 
 def test_camera_config():

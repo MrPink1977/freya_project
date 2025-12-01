@@ -11,10 +11,10 @@ import asyncio
 import sys
 from pathlib import Path
 
-from freya.config import load_settings
-from freya.logger import get_logger
-from freya.tts import TextToSpeech
-from freya.tts_elevenlabs import ElevenLabsTTS
+from freya.core.config import load_settings
+from freya.core.logger import get_logger
+from freya.voice.tts import TextToSpeech
+from freya.voice.tts_elevenlabs import ElevenLabsTTS
 
 logger = get_logger("tts_test")
 
