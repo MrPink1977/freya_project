@@ -17,6 +17,9 @@ from typing import Optional
 import subprocess
 import json
 
+# Import Freya integration
+from freya.web.freya_integration import FreyaIntegration
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,10 +38,14 @@ freya_state = {
     "model_loaded": None,
     "agents_running": [],
     "conversation_active": False,
+    "freya_initialized": False,
 }
 
 # WebSocket connections for real-time updates
 active_connections: list[WebSocket] = []
+
+# Freya integration instance
+freya_integration: Optional[FreyaIntegration] = None
 
 
 # ============================================================================
@@ -225,23 +232,33 @@ async def load_model(model: dict):
 
 @app.post("/api/chat")
 async def chat(message: dict):
-    """Send a chat message (placeholder for Freya integration)."""
+    """Send a chat message to Freya."""
+    global freya_integration
+
     user_message = message.get("message", "")
 
-    # TODO: Integrate with Freya's DialogAgent
-    # For now, just echo back
-    response = {
-        "status": "success",
-        "response": f"[Freya placeholder] You said: {user_message}",
-        "timestamp": asyncio.get_event_loop().time()
-    }
+    # Check if Freya is initialized
+    if not freya_integration or not freya_integration.is_running:
+        return {
+            "status": "error",
+            "message": "Freya is not initialized. Please start Ollama and load a model first."
+        }
 
-    await manager.broadcast({
-        "type": "chat_response",
-        "message": response["response"]
-    })
+    try:
+        # Send message to Freya's dialog system
+        await freya_integration.send_message(user_message, user_id="web_user")
 
-    return response
+        return {
+            "status": "success",
+            "message": "Message sent to Freya"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to send message to Freya: {e}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
 
 # ============================================================================
@@ -289,17 +306,121 @@ async def get_debug_logs():
 
 @app.get("/api/debug/agents")
 async def get_agent_status():
-    """Get status of all agents (placeholder)."""
-    # TODO: Integrate with Freya's agent system
+    """Get status of all agents."""
+    global freya_integration
+
+    if not freya_integration or not freya_integration.is_running:
+        return {
+            "agents": [
+                {"name": "DialogAgent", "status": "stopped", "messages_processed": 0},
+                {"name": "MemoryAgent", "status": "stopped", "memories_stored": 0},
+                {"name": "ToolAgent", "status": "stopped", "tools_executed": 0},
+                {"name": "SpeechAgent", "status": "stopped", "recordings": 0},
+                {"name": "WakeWordAgent", "status": "stopped", "wake_words_detected": 0},
+            ]
+        }
+
+    # Return actual status
+    status = freya_integration.status
     return {
         "agents": [
-            {"name": "DialogAgent", "status": "ready", "messages_processed": 0},
-            {"name": "MemoryAgent", "status": "ready", "memories_stored": 0},
-            {"name": "ToolAgent", "status": "ready", "tools_executed": 0},
-            {"name": "SpeechAgent", "status": "stopped", "recordings": 0},
-            {"name": "WakeWordAgent", "status": "stopped", "wake_words_detected": 0},
+            {"name": "DialogAgent", "status": "ready" if status["dialog_agent"] else "stopped", "messages_processed": 0},
+            {"name": "MessageBus", "status": "ready" if status["message_bus"] else "stopped"},
+            {"name": "LLMClient", "status": "ready" if status["llm_client"] else "stopped", "model": status.get("model")},
         ]
     }
+
+
+@app.post("/api/freya/initialize")
+async def initialize_freya():
+    """Initialize Freya's core components."""
+    global freya_integration
+
+    if freya_integration and freya_integration.is_running:
+        return {
+            "status": "success",
+            "message": "Freya is already initialized"
+        }
+
+    try:
+        logger.info("Initializing Freya integration...")
+        freya_integration = FreyaIntegration()
+
+        # Register callback for responses
+        async def response_callback(response_type: str, data: dict):
+            """Handle Freya responses and broadcast to WebSocket."""
+            if response_type == "chunk":
+                await manager.broadcast({
+                    "type": "chat_chunk",
+                    "chunk": data["chunk"]
+                })
+            elif response_type == "complete":
+                await manager.broadcast({
+                    "type": "chat_response",
+                    "message": data["response"]
+                })
+            elif response_type == "error":
+                await manager.broadcast({
+                    "type": "error",
+                    "message": f"Freya error: {data['error']}"
+                })
+
+        freya_integration.register_response_callback(response_callback)
+
+        # Initialize
+        success = await freya_integration.initialize()
+
+        if success:
+            freya_state["freya_initialized"] = True
+            freya_state["conversation_active"] = True
+
+            await manager.broadcast({
+                "type": "status",
+                "message": "Freya initialized successfully",
+                "status": "success"
+            })
+
+            return {
+                "status": "success",
+                "message": "Freya initialized",
+                "details": freya_integration.status
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "Failed to initialize Freya"
+            }
+
+    except Exception as e:
+        logger.error(f"Failed to initialize Freya: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+# ============================================================================
+# Startup / Shutdown Handlers
+# ============================================================================
+
+@app.on_event("startup")
+async def startup_event():
+    """Handle application startup."""
+    logger.info("Freya Web GUI starting up...")
+    logger.info("WebSocket manager ready")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Handle application shutdown."""
+    global freya_integration
+
+    logger.info("Freya Web GUI shutting down...")
+
+    if freya_integration:
+        await freya_integration.shutdown()
+
+    logger.info("Shutdown complete")
 
 
 # ============================================================================
