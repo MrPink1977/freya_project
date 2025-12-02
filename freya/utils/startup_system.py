@@ -154,9 +154,8 @@ class StartupSystem:
             print(f"  Temperature: {self.config.ollama.options['temperature']}")
         
         print(f"\n{Fore.YELLOW}Speech Recognition:{Style.RESET_ALL}")
-        print(f"  Model: {self.config.stt.model_id}")
+        print(f"  Model: {self.config.stt.model}")
         print(f"  Device: {self.config.stt.device}")
-        print(f"  Language: {self.config.stt.language}")
         
         print(f"\n{Fore.YELLOW}Text-to-Speech:{Style.RESET_ALL}")
         print(f"  Engine: {self.config.tts.engine}")
