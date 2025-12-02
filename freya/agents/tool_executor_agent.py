@@ -72,6 +72,10 @@ class ToolExecutorAgent(BaseAgent):
                 r"\b(search\s+(the\s+)?web|google|look\s+up|find\s+online)\b",
                 re.IGNORECASE,
             ),
+            "web_scraper": re.compile(
+                r"\b(scrape|extract|fetch|get\s+content|read\s+page|parse)\s+(from\s+)?(web|website|url|page|site)\b",
+                re.IGNORECASE,
+            ),
         }
 
     async def initialize(self) -> None:
@@ -195,6 +199,10 @@ class ToolExecutorAgent(BaseAgent):
         # Check web search
         if self._tool_patterns["web_search"].search(query):
             return await self._execute_web_search_tool(query)
+
+        # Check web scraper
+        if self._tool_patterns["web_scraper"].search(query):
+            return await self._execute_web_scraper_tool(query)
 
         return None
 
@@ -333,6 +341,34 @@ class ToolExecutorAgent(BaseAgent):
         result = self.tool_manager.execute_tool("web_search", query=search_query)
         return {
             "tool_name": "web_search",
+            "success": result.success,
+            "output": result.output,
+            "error": result.error,
+        }
+
+    async def _execute_web_scraper_tool(self, query: str) -> dict:
+        """Execute web scraper tool."""
+        # Extract URL from query (look for http/https URLs)
+        url_match = re.search(r"https?://[^\s]+", query, re.IGNORECASE)
+        if not url_match:
+            # Try to find domain-like patterns
+            domain_match = re.search(r"\b([a-z0-9-]+\.)+[a-z]{2,}\b", query, re.IGNORECASE)
+            if domain_match:
+                url = f"https://{domain_match.group(0)}"
+            else:
+                return {
+                    "tool_name": "web_scraper",
+                    "success": False,
+                    "output": "",
+                    "error": "No URL found in query. Please provide a URL to scrape.",
+                }
+        else:
+            url = url_match.group(0)
+
+        # Default to 'text' mode (extract main content)
+        result = self.tool_manager.execute_tool("web_scraper", url=url, mode="text")
+        return {
+            "tool_name": "web_scraper",
             "success": result.success,
             "output": result.output,
             "error": result.error,
