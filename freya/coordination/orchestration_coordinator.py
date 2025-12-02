@@ -603,9 +603,15 @@ class OrchestrationCoordinator:
         error = message.payload.get("error")
 
         if success and output:
-            # Format tool result for injection
-            context_text = f"TOOL RESULT: ({tool_name})\n{output}"
-            
+            # Format tool result for injection with clear headers
+            context_text = (
+                f"=== TOOL EXECUTION RESULT ===\n"
+                f"Tool: {tool_name}\n"
+                f"Query: {query}\n"
+                f"Output:\n{output}\n"
+                f"=== END TOOL RESULT ==="
+            )
+
             # Inject tool result into dialog context
             await self.bus.publish(
                 topic="dialog.inject_context",
