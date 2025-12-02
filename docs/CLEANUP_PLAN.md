@@ -2,6 +2,32 @@
 
 **Status**: 57% functionality complete | 3 critical issues | 11 untested features
 **Goal**: Production-ready voice assistant with robust agent architecture
+**Release Target**: **v0.4.0** - Stable Agent Architecture Release
+
+---
+
+## 🎯 Release Milestone: v0.4.0
+
+**Theme**: "Stable Foundation"
+**Target Date**: 4 weeks from start
+**Scope**: Bug-free core + tested baseline + clean architecture
+
+### Release Criteria (Must have ALL):
+- ✅ **Zero critical bugs** (Phase 1 complete)
+- ✅ **100% core feature testing** (Phase 2 complete)
+- ✅ **Module interfaces documented** (Phase 3 design complete)
+- ✅ **CI/CD enforced** (Phase 5 complete)
+- ✅ **80%+ test coverage** (Integration tests passing)
+
+### Optional (Nice-to-have for v0.4.0):
+- 🎯 Hardware abstraction layer (Phase 3)
+- 🎯 Smart agent routing (Phase 4)
+- 🎯 Load-balanced tools (Phase 4)
+
+### Deferred to v0.5.0:
+- ⏭️ Home Assistant integration (Phase 6)
+- ⏭️ Advanced multi-model pipeline (Phase 4)
+- ⏭️ Comprehensive docs (Phase 7)
 
 ---
 
@@ -62,6 +88,34 @@
 
 ---
 
+## 🔒 FREEZE RULE: Phase 1-2 Stabilization Period
+
+**CRITICAL**: During Phase 1-2, the following rules apply:
+
+### ❌ FORBIDDEN:
+- **NO new features** - Don't add capabilities, only fix existing ones
+- **NO new modules** - Don't create new directories or subsystems
+- **NO architecture changes** - Don't refactor core systems
+- **NO dependency additions** - Don't add new libraries to requirements.txt
+- **NO scope creep** - "Just one more tool" → NO
+
+### ✅ ALLOWED:
+- **Bug fixes only** - Fix crashes, errors, broken functionality
+- **Testing** - Add tests for existing features
+- **Documentation** - Document what already exists
+- **Configuration** - Tweak settings, timeouts, thresholds
+- **Logging** - Add debug output to understand issues
+
+### Why This Matters:
+- **Focus**: Fix what's broken before building new things
+- **Quality**: 100% working baseline > 50% working features
+- **Velocity**: Switching contexts kills productivity
+- **Trust**: Users need reliability before features
+
+**Enforcement**: Code reviews MUST reject PRs that violate freeze rules during Phase 1-2.
+
+---
+
 ## 🏗️ Phase 3: Architecture Foundation (HIGH - 3-5 days)
 **Blocking**: Needed before advanced features, prevents future refactors
 
@@ -98,7 +152,87 @@
    - **Estimated**: 6-8 hours
    - **Files**: `freya/hardware/audio_hal.py`, `freya/hardware/camera_hal.py`
 
-**Success Criteria**: Clear module contracts, hardware dependencies isolated
+9. **Add unified logging instrumentation**
+   - **Purpose**: Make debugging 10× easier across all modules
+
+   - **Unified Logging Format**:
+     ```python
+     [2025-12-02 14:32:15.234] [DialogAgent] [INFO] Generated response (142 tokens, 2.3s)
+     [2025-12-02 14:32:15.456] [ToolExecutor] [DEBUG] Executing tool: time_tool
+     [2025-12-02 14:32:15.789] [MemoryAgent] [ERROR] ChromaDB connection failed
+     ```
+
+   - **Log Levels** (following Python stdlib):
+     - `DEBUG`: Tool execution details, agent events, message flow
+     - `INFO`: User interactions, model switches, config changes
+     - `WARNING`: Timeouts, fallbacks, degraded performance
+     - `ERROR`: Tool failures, API errors, agent crashes
+     - `CRITICAL`: System-wide failures, data corruption
+
+   - **Module-Level Log Routing**:
+     ```python
+     # Each module gets its own logger
+     freya.agents.dialog → logs/agents_dialog.log
+     freya.tools.web_search → logs/tools_web_search.log
+     freya.memory.chroma_store → logs/memory_chroma.log
+     freya.voice.stt → logs/voice_stt.log
+     ```
+
+   - **Timestamped Piped Logs**:
+     - All logs → `logs/freya_YYYYMMDD_HHMMSS.log` (master log)
+     - Module-specific → `logs/{module}_{date}.log` (filtered)
+     - Console output: INFO and above (no DEBUG spam)
+     - File output: DEBUG and above (everything)
+
+   - **Structured Logging** (JSON for parsing):
+     ```json
+     {
+       "timestamp": "2025-12-02T14:32:15.234Z",
+       "module": "DialogAgent",
+       "level": "INFO",
+       "message": "Generated response",
+       "context": {
+         "tokens": 142,
+         "duration_ms": 2300,
+         "model": "llama3.2:3b"
+       }
+     }
+     ```
+
+   - **Log Rotation**:
+     - Max file size: 10MB
+     - Keep last 7 days
+     - Compress old logs (gzip)
+
+   - **Performance Impact**:
+     - Use lazy evaluation: `logger.debug("Result: %s", expensive_fn)` (only calls expensive_fn if DEBUG enabled)
+     - Async logging to avoid blocking
+
+   - **Implementation**:
+     ```python
+     # freya/core/logger.py
+     import logging
+     from pathlib import Path
+
+     def get_logger(module_name: str) -> logging.Logger:
+         logger = logging.getLogger(f"freya.{module_name}")
+         # ... setup handlers, formatters, rotation
+         return logger
+     ```
+
+   - **Estimated**: 4-5 hours
+   - **Files**:
+     - `freya/core/logger.py` (central logging config)
+     - Update all modules to use `get_logger(__name__)`
+     - `config/default.yaml` (add logging section)
+
+   - **Debugging Benefits**:
+     - Trace full message flow through agents
+     - Identify slow tools/models
+     - Catch silent failures
+     - Reproduce bugs from logs
+
+**Success Criteria**: Clear module contracts, hardware dependencies isolated, comprehensive logging
 
 ---
 
@@ -106,17 +240,17 @@
 **Dependency**: Phase 3 interfaces designed
 
 ### P2 - Smart Orchestration
-9. **Review and enhance agent routing system**
-   - **Current**: MessageBus pub/sub, agents subscribe to events
-   - **Enhancements**:
-     - Add agent priority levels (critical, normal, background)
-     - Implement agent health monitoring (crash recovery)
-     - Add event replay for failed agents
-     - Create agent dependency graph
-   - **Estimated**: 4-6 hours
-   - **Files**: `freya/core/message_bus.py`, `freya/coordination/orchestration_coordinator.py`
+10. **Review and enhance agent routing system**
+    - **Current**: MessageBus pub/sub, agents subscribe to events
+    - **Enhancements**:
+      - Add agent priority levels (critical, normal, background)
+      - Implement agent health monitoring (crash recovery)
+      - Add event replay for failed agents
+      - Create agent dependency graph
+    - **Estimated**: 4-6 hours
+    - **Files**: `freya/core/message_bus.py`, `freya/coordination/orchestration_coordinator.py`
 
-10. **Implement model-switching orchestrator**
+11. **Implement model-switching orchestrator**
     - **Current State**: Dialog agent has basic escalation (llama3.2 → dolphin-mixtral)
     - **Enhancements**:
       - Formalize confusion detection metrics
@@ -126,7 +260,7 @@
     - **Estimated**: 6-8 hours
     - **Files**: `freya/agents/dialog_agent.py`, `freya/core/model_selector.py` (new)
 
-11. **Create load-balanced tool chain**
+12. **Create load-balanced tool chain**
     - **Current**: Tools execute sequentially
     - **Enhancement**: Parallel tool execution when independent
       - Example: "What's the weather and time?" → execute both tools simultaneously
@@ -136,7 +270,7 @@
     - **Estimated**: 8-10 hours
     - **Files**: `freya/agents/tool_executor_agent.py`, `freya/tools/manager.py`
 
-12. **Create unified pipeline for multi-model coordination**
+13. **Create unified pipeline for multi-model coordination**
     - **Goal**: Seamless handoff between models for complex tasks
     - **Example Flow**:
       1. User: "Search for Python async tutorials and summarize the top 3"
@@ -155,7 +289,7 @@
 **Dependency**: Phase 2 complete (known baseline)
 
 ### P2 - Test Coverage
-13. **Add integration tests**
+14. **Add integration tests**
     - **Agent Coordination Tests**:
       - Test MessageBus event flow (wake.detected → dialog.request → memory.stored)
       - Test agent crash recovery
@@ -178,7 +312,7 @@
     - **Estimated**: 10-12 hours
     - **Files**: `tests/test_integration_*.py`
 
-14. **Set up CI/CD checks**
+15. **Set up CI/CD checks**
     - **GitHub Actions Workflow**:
       - Lint: ruff check (block on errors)
       - Type check: mypy (block on errors)
@@ -206,7 +340,7 @@
 **Dependency**: Phase 3 IoT interface designed
 
 ### P3 - IoT Integration
-15. **Add Home Assistant integration**
+16. **Add Home Assistant integration**
     - **Features**:
       - Auto-discover HA entities (lights, switches, sensors)
       - Send commands via HA REST API ("turn off bedroom lights")
@@ -240,7 +374,7 @@
 **Dependency**: Phase 3-6 complete
 
 ### P3 - Knowledge Base
-16. **Expand module documentation**
+17. **Expand module documentation**
     - **Vision Module** (`docs/VISION_MODULE.md`):
       - Facial recognition setup guide
       - Camera integration guide (RTSP, ONVIF)
@@ -282,9 +416,11 @@
 | Priority | Items | Estimated Time | Rationale |
 |----------|-------|----------------|-----------|
 | **P0** (Critical) | 3 | 4-6 hours | Blocks basic functionality |
-| **P1** (High) | 5 | 18-24 hours | Foundation for all future work |
+| **P1** (High) | 6 | 22-29 hours | Foundation for all future work |
 | **P2** (Medium) | 6 | 30-36 hours | Enhanced intelligence & quality |
 | **P3** (Low) | 2 | 14-18 hours | Nice-to-have features |
+
+**Total**: 17 items | 70-89 hours (~2-3 weeks with buffer)
 
 ### Recommended Execution Order
 **Week 1** (Foundation):
