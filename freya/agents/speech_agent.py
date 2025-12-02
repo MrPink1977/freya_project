@@ -65,6 +65,13 @@ class SpeechAgent(BaseAgent):
         message_bus: MessageBus,
         config: Settings,
     ):
+        """Initialize SpeechAgent with STT/TTS configuration.
+
+        Args:
+            agent_id: Unique identifier for this agent.
+            message_bus: MessageBus for inter-agent communication.
+            config: Application settings with STT/TTS configuration.
+        """
         super().__init__(agent_id, message_bus)
         self.config = config
 

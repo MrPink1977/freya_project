@@ -70,6 +70,11 @@ class AudioChannelManager:
     """
 
     def __init__(self, message_bus: MessageBus):
+        """Initialize AudioChannelManager.
+
+        Args:
+            message_bus: MessageBus for inter-component communication.
+        """
         self.message_bus = message_bus
 
         # Channel tracking

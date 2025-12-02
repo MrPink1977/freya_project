@@ -53,6 +53,14 @@ class TextToSpeech:
     """Convert text responses into spoken audio output using Piper."""
 
     def __init__(self, config: TextToSpeechConfig) -> None:
+        """Initialize TextToSpeech with Piper voice configuration.
+
+        Args:
+            config: Text-to-speech configuration with voice and playback settings.
+
+        Raises:
+            TextToSpeechError: If piper-tts, pyaudio, or voice file is unavailable.
+        """
         self._config = config
         self._stop_speech = threading.Event()
 

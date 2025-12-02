@@ -41,6 +41,14 @@ class WakeWordDetector:
     """Capture short audio windows and transcribe them with faster-whisper tiny."""
 
     def __init__(self, config: WakeDetectorConfig) -> None:
+        """Initialize WakeWordDetector with faster-whisper configuration.
+
+        Args:
+            config: Wake word detector configuration with model and audio settings.
+
+        Raises:
+            WakeWordDetectorError: If faster-whisper or sounddevice are not available.
+        """
         self._config = config
         self._ensure_dependencies()
         self._model, self._active_device = self._load_model(config)
