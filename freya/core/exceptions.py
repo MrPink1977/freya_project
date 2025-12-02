@@ -43,6 +43,8 @@ Exception Hierarchy:
 
 from __future__ import annotations
 
+from typing import Any, Dict, Optional
+
 # =============================================================================
 # Base Exception
 # =============================================================================
@@ -53,19 +55,89 @@ class FreyaError(Exception):
 
     All custom exceptions in Freya should inherit from this class to enable
     systematic error handling and logging.
+
+    Attributes:
+        message: Human-readable error description
+        correlation_id: Optional request/operation ID for tracing
+        context: Additional context data as key-value pairs
     """
 
-    def __init__(self, message: str, *args, **kwargs):
-        """Initialize FreyaError with message and optional context.
+    def __init__(
+        self,
+        message: str,
+        *args,
+        correlation_id: Optional[str] = None,
+        **context
+    ):
+        """Initialize FreyaError with message, correlation ID, and context.
 
         Args:
             message: Human-readable error description
             *args: Additional positional arguments for Exception
-            **kwargs: Optional context data (stored in self.context)
+            correlation_id: Optional correlation ID for request tracing
+            **context: Additional context data (available in self.context)
+
+        Example:
+            raise ToolExecutionError(
+                "Web search failed",
+                correlation_id="req-12345",
+                tool_name="web_search",
+                query="Python tutorials"
+            )
         """
         super().__init__(message, *args)
         self.message = message
-        self.context = kwargs
+        self.correlation_id = correlation_id
+        self.context = context
+
+    def __str__(self) -> str:
+        """Human-readable error message with correlation ID and context.
+
+        Returns:
+            Formatted error string including correlation ID and context if present.
+
+        Example:
+            Failed to execute web search [correlation_id=req-12345] (tool_name='web_search', query='Python tutorials')
+        """
+        parts = [self.message]
+        if self.correlation_id:
+            parts.append(f"[correlation_id={self.correlation_id}]")
+        if self.context:
+            context_str = ", ".join(f"{k}={v!r}" for k, v in self.context.items())
+            parts.append(f"({context_str})")
+        return " ".join(parts)
+
+    def __repr__(self) -> str:
+        """Developer-friendly representation showing class name and key attributes.
+
+        Returns:
+            String representation suitable for debugging.
+
+        Example:
+            ToolExecutionError('Web search failed', correlation_id='req-12345')
+        """
+        return f"{self.__class__.__name__}({self.message!r}, correlation_id={self.correlation_id!r})"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert exception to JSON-serializable dictionary.
+
+        Returns:
+            Dictionary with error_type, message, correlation_id, and context.
+
+        Example:
+            {
+                "error_type": "ToolExecutionError",
+                "message": "Web search failed",
+                "correlation_id": "req-12345",
+                "context": {"tool_name": "web_search", "query": "Python tutorials"}
+            }
+        """
+        return {
+            "error_type": self.__class__.__name__,
+            "message": self.message,
+            "correlation_id": self.correlation_id,
+            "context": self.context,
+        }
 
 
 # =============================================================================
@@ -322,6 +394,75 @@ class HotkeyUnregistrationError(HotkeyError):
 
 
 # =============================================================================
+# Hardware Abstraction Layer Errors
+# =============================================================================
+
+
+class HALError(FreyaError):
+    """Base exception for hardware abstraction layer errors.
+
+    The HAL provides protocol-based interfaces for camera, audio, memory, and
+    IoT modules. These exceptions enable consistent error handling across all
+    hardware-dependent operations.
+    """
+
+
+class CameraUnavailableError(HALError):
+    """Camera device cannot be accessed or is not available.
+
+    Common causes: camera in use by another process, permission denied,
+    hardware disconnected.
+    """
+
+
+class FaceDetectionError(HALError):
+    """Face detection operation failed.
+
+    This could indicate image quality issues, missing face detection models,
+    or processing errors.
+    """
+
+
+class AudioCaptureError(HALError):
+    """Audio recording/capture failed.
+
+    Common causes: microphone not available, permission denied, audio device
+    malfunction.
+    """
+
+
+class TranscriptionError(HALError):
+    """Speech-to-text transcription failed.
+
+    This could indicate model loading issues, invalid audio format, or
+    processing errors.
+    """
+
+
+class SpeechSynthesisError(HALError):
+    """Text-to-speech synthesis failed.
+
+    Common causes: TTS backend unavailable, invalid text input, voice model
+    not found.
+    """
+
+
+class DeviceConnectionError(HALError):
+    """IoT device connection failed.
+
+    This indicates failure to connect to smart home devices via Home Assistant
+    or other IoT protocols.
+    """
+
+
+class DeviceCommandError(HALError):
+    """IoT device command execution failed.
+
+    Device is connected but failed to execute the requested command.
+    """
+
+
+# =============================================================================
 # Legacy Exception Compatibility
 # =============================================================================
 
@@ -421,6 +562,15 @@ __all__ = [
     "HotkeyError",
     "HotkeyRegistrationError",
     "HotkeyUnregistrationError",
+    # HAL
+    "HALError",
+    "CameraUnavailableError",
+    "FaceDetectionError",
+    "AudioCaptureError",
+    "TranscriptionError",
+    "SpeechSynthesisError",
+    "DeviceConnectionError",
+    "DeviceCommandError",
     # Legacy
     "SpeechToTextError",
     "TextToSpeechError",
