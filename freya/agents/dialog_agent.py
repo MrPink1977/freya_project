@@ -401,10 +401,17 @@ class DialogAgent(BaseAgent):
         if self._injected_context:
             context_text = "\n\n".join(self._injected_context)
 
-            # Insert before last user message
+            # Insert before last user message with explicit instructions
             if messages and messages[-1]["role"] == "user":
+                system_message = (
+                    "IMPORTANT - TOOL OUTPUT BELOW:\n"
+                    "The following information comes from tool execution. "
+                    "You MUST use this exact information in your response. "
+                    "Do NOT make up or hallucinate information when tool output is provided.\n\n"
+                    f"{context_text}"
+                )
                 messages.insert(
-                    -1, {"role": "system", "content": f"Relevant context:\n{context_text}"}
+                    -1, {"role": "system", "content": system_message}
                 )
 
         return messages
