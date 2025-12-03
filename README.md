@@ -77,12 +77,13 @@ User: "Hey Freya, what time is it?"
 ## Features
 
 ### Core Voice Assistant
-- **Speech-to-Text**: Faster Whisper for accurate speech recognition
-- **Text-to-Speech**: Piper TTS with ElevenLabs support
+- **Speech-to-Text**: Dual-Whisper architecture (tiny model for wake word, base model for full transcription)
+- **Text-to-Speech**: Multiple engines (Piper local, ElevenLabs API, ElevenLabs MCP)
 - **Wake Word Detection**: Background always-listening with session windows
 - **Smart Memory**: ChromaDB vector storage with semantic search (O(log n) HNSW indexing)
 - **Context Management**: Automatic transfer to long-term memory at 75% capacity
 - **Model Escalation**: Starts with fast llama3.2:3b, escalates to dolphin-mixtral on confusion
+- **MCP Integration**: Model Context Protocol support for standardized tool ecosystem
 
 ### Vision Capabilities
 - **Facial Recognition**: Identify known individuals using face_recognition library
@@ -95,6 +96,7 @@ User: "Hey Freya, what time is it?"
 - **Multi-Model Strategy**: llama3.2:3b (fast), dolphin-mixtral:8x7b (reasoning), deepseek-coder-v2:16b-lite (code)
 - **Streaming Responses**: Real-time text-to-speech streaming during generation
 - **Tool Integration**: 9 built-in tools (time, date, calculator, files, system, web search, performance)
+- **MCP Servers**: Extensible Model Context Protocol integration for ecosystem-wide tools
 
 ### Interaction Modes
 - **Voice Mode**: Hands-free conversation with wake word detection
@@ -151,9 +153,22 @@ pip install -e ".[face-recognition]"
 # Copy example environment file
 cp .env.example .env
 
-# Edit .env and set your ElevenLabs API key (if using ElevenLabs TTS)
-# ELEVENLABS_API_KEY=sk_your_api_key_here
+# Edit .env and set your API keys
+# ELEVENLABS_API_KEY=sk_your_api_key_here  # For ElevenLabs TTS (optional)
+# ELEVENLABS_VOICE_ID=your_voice_id_here   # Custom voice ID (optional)
 ```
+
+### 3.5. Install MCP Servers (Optional)
+For enhanced capabilities using Model Context Protocol:
+
+```bash
+# Install ElevenLabs MCP for premium TTS
+pip install elevenlabs-mcp==0.9.0
+
+# More MCP servers coming soon (web search, memory, etc.)
+```
+
+See `docs/ELEVENLABS_MCP_INTEGRATION.md` for complete MCP setup guide.
 
 ### 4. Install Ollama
 Download and install Ollama from [ollama.ai](https://ollama.ai)

@@ -57,8 +57,20 @@ app:
     web scraping, system info, commands, and performance monitoring. Use them naturally 
     without announcing "I will use tool X" - just use them and share the results.
     
-    When you see "TOOL RESULT:" or "WEB SEARCH RESULTS:", that's real data - use it 
-    confidently and cite sources briefly when relevant.
+    VOICE CAPABILITIES:
+    - Speech-to-Text: Dual-Whisper architecture (tiny model for wake word, base model for full transcription)
+    - Text-to-Speech: Multiple engines available (Piper local, ElevenLabs API, ElevenLabs MCP)
+    - Wake Word Detection: Always listening for "Hey, Freya" to start conversations
+    - Multi-Channel Audio: Can handle audio from PC, cameras, and other sources
+    
+    MCP INTEGRATION:
+    - You now have access to Model Context Protocol (MCP) servers for enhanced capabilities
+    - MCP tools are standardized, ecosystem-compatible, and maintained by official providers
+    - Current MCP integrations: ElevenLabs TTS (premium voice synthesis)
+    - More MCP servers coming soon (web search, memory, version control, etc.)
+    
+    When you see "TOOL RESULT:", "WEB SEARCH RESULTS:", or "MCP RESPONSE:", that's real data - 
+    use it confidently and cite sources briefly when relevant.
 
     CONVERSATION GUIDELINES:
     - PRIORITY: Be concise and efficient - respect the user's time
