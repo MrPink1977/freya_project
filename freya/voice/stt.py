@@ -60,6 +60,14 @@ class SpeechToText:
     """Capture microphone audio and transcribe it using faster-whisper."""
 
     def __init__(self, config: SpeechToTextConfig) -> None:
+        """Initialize SpeechToText with faster-whisper configuration.
+
+        Args:
+            config: Speech-to-text configuration with model and device settings.
+
+        Raises:
+            SpeechToTextError: If faster-whisper or required dependencies are not available.
+        """
         self._config = config
         self._ensure_dependencies()
         self._model, self._active_device = self._load_whisper_model(config)

@@ -31,6 +31,12 @@ class OllamaModelNotFoundError(OllamaError):
     """Raised when the requested Ollama model is not available locally."""
 
     def __init__(self, model: str, response: Response | None = None) -> None:
+        """Initialize OllamaModelNotFoundError.
+
+        Args:
+            model: Name of the Ollama model that was not found.
+            response: Optional HTTP response that triggered this error.
+        """
         message = (
             f"Ollama model '{model}' is not installed. " "Run `ollama pull {model}` to download it."
         )
@@ -46,6 +52,12 @@ class OllamaClient:
     """Thin wrapper around the Ollama chat API."""
 
     def __init__(self, config: OllamaConfig, session: Optional[Session] = None) -> None:
+        """Initialize OllamaClient with configuration and optional session.
+
+        Args:
+            config: Ollama configuration containing host and model settings.
+            session: Optional requests Session for connection pooling.
+        """
         self._config = config
         self._session = session or requests.Session()
         self._base_url = config.host.rstrip("/")
