@@ -101,8 +101,9 @@ Issues = "https://github.com/MrPink1977/freya_project/issues"
 [project.scripts]
 freya = "main:main"
 
-[tool.setuptools]
-packages = ["freya", "freya.tools"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["freya*", "freya_mcp*"]
 
 [tool.setuptools.package-data]
 freya = ["*.yaml"]

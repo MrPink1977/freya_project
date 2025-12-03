@@ -143,7 +143,35 @@ class OllamaClient:
         except RuntimeError:
             return asyncio.run(_chat_with_breaker())
 
-    def _chat_impl(self, messages: Iterable[dict]) -> str:
+    def chat_with_tools(self, messages: Iterable[dict], tools_schema: list[dict]) -> dict:
+        """Send chat messages with tool metadata and return a structured reply."""
+
+        import asyncio
+
+        async def _chat_with_breaker():
+            return await self._circuit_breaker.call(
+                self._chat_impl, messages, tools_schema, True
+            )
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, _chat_with_breaker())
+                    return future.result()
+            else:
+                return loop.run_until_complete(_chat_with_breaker())
+        except RuntimeError:
+            return asyncio.run(_chat_with_breaker())
+
+    def _chat_impl(
+        self,
+        messages: Iterable[dict],
+        tools_schema: Optional[list[dict]] = None,
+        expect_structured: bool = False,
+    ) -> str | dict:
         """Implementation of chat without circuit breaker."""
         payload = {
             "model": self._config.model,
@@ -152,6 +180,8 @@ class OllamaClient:
         }
         if self._config.options:
             payload["options"] = self._config.options
+        if tools_schema:
+            payload["tools"] = tools_schema
 
         chat_endpoints = ["/api/chat", "/chat"]
         response: Optional[Response] = None
@@ -177,10 +207,22 @@ class OllamaClient:
             logger.warning("Falling back to Ollama legacy generate endpoint")
             if last_exc is not None:
                 logger.debug("Last Ollama chat error: %s", last_exc)
-            return self._chat_via_generate(payload["messages"])
+            generated = self._chat_via_generate(payload["messages"])
+            if expect_structured:
+                return {"content": generated, "message": {}, "raw": {}}
+            return generated
 
         data = response.json()
         logger.debug("Ollama response payload=%s", data)
+
+        if expect_structured:
+            message = data.get("message") if isinstance(data, dict) else {}
+            content = ""
+            if isinstance(message, dict):
+                content = str(message.get("content", "")).strip()
+            elif "response" in data:
+                content = str(data.get("response", "")).strip()
+            return {"content": content, "message": message or {}, "raw": data}
 
         # Ollama may stream responses; when aggregated it exposes `message`.
         if "message" in data and data["message"]:
