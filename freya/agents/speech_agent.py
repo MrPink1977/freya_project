@@ -22,6 +22,7 @@ class TTSEngine(str, Enum):
 
     PIPER = "piper"
     ELEVENLABS = "elevenlabs"
+    ELEVENLABS_MCP = "elevenlabs_mcp"
 
 
 @dataclass
@@ -182,6 +183,19 @@ class SpeechAgent(BaseAgent):
             )
             logger.info(
                 "TTS initialized: engine=ElevenLabs, voice=%s, model=%s",
+                self.config.tts.elevenlabs.voice_id,
+                self.config.tts.elevenlabs.model,
+            )
+        elif engine == TTSEngine.ELEVENLABS_MCP:
+            from freya.voice.tts_elevenlabs_mcp import ElevenLabsMCPTTS
+
+            self.tts = ElevenLabsMCPTTS(
+                api_key=self.config.tts.elevenlabs.api_key,
+                voice_id=self.config.tts.elevenlabs.voice_id,
+                model_id=self.config.tts.elevenlabs.model,
+            )
+            logger.info(
+                "TTS initialized: engine=ElevenLabs MCP, voice=%s, model=%s",
                 self.config.tts.elevenlabs.voice_id,
                 self.config.tts.elevenlabs.model,
             )
