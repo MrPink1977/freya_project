@@ -54,6 +54,9 @@ dependencies = [
     "lxml>=6.0.0",
     "psutil>=7.1.0",
     
+    # MCP Integration
+    "mcp>=1.0.0",
+    
     # Vision (optional but included)
     "opencv-python>=4.12.0",
     "face-recognition>=1.3.0",

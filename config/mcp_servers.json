@@ -1,0 +1,53 @@
+{
+  "mcpServers": {
+    "freya-system": {
+      "command": "python",
+      "args": ["-m", "freya.run_mcp_servers", "system"],
+      "description": "System information and command execution tools",
+      "tools": [
+        "system_info",
+        "execute_command",
+        "calculator"
+      ]
+    },
+    "freya-file": {
+      "command": "python",
+      "args": ["-m", "freya.run_mcp_servers", "file"],
+      "description": "File operation tools with path traversal protection",
+      "tools": [
+        "list_files",
+        "read_file",
+        "write_file"
+      ]
+    },
+    "freya-web": {
+      "command": "python",
+      "args": ["-m", "freya.run_mcp_servers", "web"],
+      "description": "Web search and scraping tools",
+      "tools": [
+        "web_search",
+        "web_scraper"
+      ]
+    },
+    "freya-audio": {
+      "command": "python",
+      "args": ["-m", "freya.run_mcp_servers", "audio"],
+      "description": "Speech-to-text and text-to-speech tools (stub)",
+      "tools": [
+        "speech_to_text",
+        "text_to_speech"
+      ],
+      "status": "stub"
+    },
+    "freya-vision": {
+      "command": "python",
+      "args": ["-m", "freya.run_mcp_servers", "vision"],
+      "description": "Facial recognition and camera control tools (stub)",
+      "tools": [
+        "detect_faces",
+        "camera_control"
+      ],
+      "status": "stub"
+    }
+  }
+}
