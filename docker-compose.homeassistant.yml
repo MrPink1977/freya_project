@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: ghcr.io/home-assistant/home-assistant:stable
+    volumes:
+      - ./config:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    environment:
+      - TZ=America/New_York  # Change to your timezone
+
+  wyoming-whisper:
+    container_name: wyoming-whisper
+    image: rhasspy/wyoming-whisper:latest
+    volumes:
+      - ./whisper_data:/data
+    ports:
+      - "10300:10300"
+    command: --model base --language en
+    restart: unless-stopped
+    environment:
+      - TZ=America/New_York
+
+  wyoming-piper:
+    container_name: wyoming-piper
+    image: rhasspy/wyoming-piper:latest
+    volumes:
+      - ./piper_data:/data
+    ports:
+      - "10200:10200"
+    command: --voice en_US-lessac-medium
+    restart: unless-stopped
+    environment:
+      - TZ=America/New_York
+
+  wyoming-openwakeword:
+    container_name: wyoming-openwakeword
+    image: rhasspy/wyoming-openwakeword:latest
+    volumes:
+      - ./openwakeword_data:/data
+      - ./config/custom_wakewords:/custom
+    ports:
+      - "10400:10400"
+    command: --preload-model hey_jarvis --custom-model-dir /custom
+    restart: unless-stopped
+    environment:
+      - TZ=America/New_York
+
+  ollama:
+    container_name: ollama
+    image: ollama/ollama:latest
+    volumes:
+      - ./ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    environment:
+      - TZ=America/New_York
+    # Uncomment below if you have NVIDIA GPU
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  chromadb:
+    container_name: chromadb
+    image: chromadb/chroma:latest
+    volumes:
+      - ./chroma_data:/chroma/chroma
+    ports:
+      - "8000:8000"
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+      - TZ=America/New_York
+    restart: unless-stopped
+
+# Optional: Add Jupyter for wake word training
+  # jupyter-microwakeword:
+  #   container_name: jupyter-microwakeword
+  #   image: ghcr.io/tatertotterson/microwakeword:latest
+  #   ports:
+  #     - "8888:8888"
+  #   volumes:
+  #     - ./microwakeword_training:/data
+  #   restart: "no"  # Manual start only when training
+  #   environment:
+  #     - TZ=America/New_York

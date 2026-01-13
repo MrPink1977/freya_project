@@ -1,0 +1,286 @@
+# ESPHome Configuration for Voice PE Device with Custom Wake Word
+# This template shows how to configure your Voice PE device to use a custom
+# wake word trained with microWakeWord
+
+substitutions:
+  name: home-assistant-voice-0a52fa  # Change to your device name
+  friendly_name: Home Assistant Voice 0a52fa  # Change to your friendly name
+
+# Import the base Voice PE configuration from ESPHome
+packages:
+  Nabu Casa.Home Assistant Voice PE: github://esphome/voice-kit/home-assistant-voice.yaml
+
+esphome:
+  name: ${name}
+  name_add_mac_suffix: false
+  friendly_name: ${friendly_name}
+
+# API encryption key for secure communication with Home Assistant
+api:
+  encryption:
+    key: !secret api_key  # Generate with: esphome run <config> --generate-encryption-key
+
+# WiFi configuration
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot in case WiFi connection fails
+  ap:
+    ssid: "${friendly_name} Fallback"
+    password: "fallback123"
+
+# Enable captive portal for easy WiFi setup
+captive_portal:
+
+# Enable Home Assistant API
+api:
+
+# Enable OTA updates
+ota:
+  platform: esphome
+
+# Enable logging
+logger:
+  level: INFO
+
+# Web server for diagnostics (optional, comment out to save memory)
+web_server:
+  port: 80
+
+# Custom wake word configuration
+micro_wake_word:
+  models:
+    # Custom wake word: "Hey Freya"
+    - model: /config/custom_wakewords/hey_freya.json
+      id: hey_freya
+      # Adjust sensitivity (0.5 = very sensitive, 0.95 = very strict)
+      probability_cutoff: 0.85
+      # Sliding window for detection stability
+      sliding_window_size: 5
+    
+    # Optional: Keep default wake words as fallback
+    # Comment out to save memory if you only want custom wake word
+    - model: hey_jarvis
+      id: hey_jarvis
+    
+    # Remove unwanted default wake words to save memory
+    - id: !remove hey_mycroft
+    - id: !remove alexa
+
+# LED ring configuration for visual feedback
+light:
+  - platform: esp32_rmt_led_strip
+    id: led_ring
+    name: "LED Ring"
+    pin: GPIO27  # Adjust based on your hardware
+    num_leds: 12
+    rmt_channel: 0
+    rgb_order: GRB
+    chipset: WS2812
+    effects:
+      # Wake word detected effect
+      - pulse:
+          name: "Wake Word Pulse"
+          transition_length: 0.5s
+          update_interval: 0.5s
+      # Listening effect
+      - strobe:
+          name: "Listening"
+          colors:
+            - state: true
+              brightness: 100%
+              red: 0%
+              green: 100%
+              blue: 0%
+              duration: 500ms
+            - state: false
+              duration: 500ms
+      # Processing effect
+      - strobe:
+          name: "Processing"
+          colors:
+            - state: true
+              brightness: 100%
+              red: 0%
+              green: 0%
+              blue: 100%
+              duration: 250ms
+            - state: false
+              duration: 250ms
+      # Error effect
+      - strobe:
+          name: "Error"
+          colors:
+            - state: true
+              brightness: 100%
+              red: 100%
+              green: 0%
+              blue: 0%
+              duration: 100ms
+            - state: false
+              duration: 100ms
+
+# Microphone configuration
+microphone:
+  - platform: i2s_audio
+    id: mic
+    adc_type: external
+    i2s_din_pin: GPIO26  # Adjust based on your hardware
+    pdm: false
+
+# Speaker configuration
+speaker:
+  - platform: i2s_audio
+    id: speaker
+    dac_type: external
+    i2s_dout_pin: GPIO25  # Adjust based on your hardware
+    mode: mono
+
+# Voice assistant configuration
+voice_assistant:
+  microphone: mic
+  speaker: speaker
+  
+  # Wake word configuration
+  on_wake_word_detected:
+    - light.turn_on:
+        id: led_ring
+        effect: "Wake Word Pulse"
+        brightness: 100%
+        red: 0%
+        green: 100%
+        blue: 0%
+  
+  # Listening state
+  on_listening:
+    - light.turn_on:
+        id: led_ring
+        effect: "Listening"
+  
+  # Processing state
+  on_stt_end:
+    - light.turn_on:
+        id: led_ring
+        effect: "Processing"
+  
+  # TTS start
+  on_tts_start:
+    - light.turn_on:
+        id: led_ring
+        brightness: 50%
+        red: 0%
+        green: 0%
+        blue: 100%
+  
+  # TTS end
+  on_tts_end:
+    - light.turn_off: led_ring
+  
+  # Error handling
+  on_error:
+    - light.turn_on:
+        id: led_ring
+        effect: "Error"
+    - delay: 2s
+    - light.turn_off: led_ring
+  
+  # Idle state
+  on_idle:
+    - light.turn_off: led_ring
+
+# Button configuration (if your hardware has buttons)
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0  # Adjust based on your hardware
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    name: "Action Button"
+    on_press:
+      - voice_assistant.start:
+
+# Sensors for diagnostics
+sensor:
+  # WiFi signal strength
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+  
+  # Uptime
+  - platform: uptime
+    name: "Uptime"
+
+# Text sensors
+text_sensor:
+  # IP address
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+    mac_address:
+      name: "MAC Address"
+  
+  # ESPHome version
+  - platform: version
+    name: "ESPHome Version"
+
+# Switch for enabling/disabling wake word detection
+switch:
+  - platform: template
+    name: "Wake Word Detection"
+    id: wake_word_switch
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      - micro_wake_word.start:
+    on_turn_off:
+      - micro_wake_word.stop:
+
+# ============================================================================
+# CUSTOMIZATION NOTES
+# ============================================================================
+#
+# 1. WAKE WORD SENSITIVITY
+#    Adjust probability_cutoff to tune detection:
+#    - 0.50-0.70: Very sensitive (more false positives)
+#    - 0.75-0.85: Balanced (recommended)
+#    - 0.90-0.95: Very strict (may miss some detections)
+#
+# 2. MEMORY OPTIMIZATION
+#    If device runs out of memory:
+#    - Remove unused default wake words (hey_jarvis, alexa, etc.)
+#    - Comment out web_server
+#    - Reduce LED effects
+#    - Disable diagnostic sensors
+#
+# 3. HARDWARE PINS
+#    Adjust GPIO pins based on your specific hardware:
+#    - LED ring: GPIO27 (default for Voice PE)
+#    - Microphone: GPIO26 (I2S DIN)
+#    - Speaker: GPIO25 (I2S DOUT)
+#    - Button: GPIO0 (boot button)
+#
+# 4. CUSTOM WAKE WORD PATH
+#    The path /config/custom_wakewords/ maps to:
+#    C:\AI_Projects\homeassistant\config\custom_wakewords\
+#    
+#    Ensure both files exist:
+#    - hey_freya.tflite (model file)
+#    - hey_freya.json (manifest file)
+#
+# 5. MULTIPLE WAKE WORDS
+#    You can have multiple wake words active:
+#    - model: /config/custom_wakewords/hey_freya.json
+#      id: hey_freya
+#    - model: /config/custom_wakewords/hey_jarvis.json
+#      id: hey_jarvis
+#
+# 6. TESTING
+#    After flashing, check logs in ESPHome dashboard:
+#    - Look for "Wake word detected: hey_freya"
+#    - Monitor probability scores
+#    - Adjust probability_cutoff if needed
+#
+# ============================================================================
