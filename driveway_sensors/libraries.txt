@@ -1,0 +1,49 @@
+# Required Arduino Libraries for Driveway Sensor System
+
+Install these libraries via Arduino IDE Library Manager:
+(Sketch → Include Library → Manage Libraries)
+
+1. LoRa by Sandeep Mistry
+   Version: 0.8.0 or later
+   URL: https://github.com/sandeepmistry/arduino-LoRa
+
+2. Adafruit GFX Library by Adafruit
+   Version: 1.11.0 or later
+   URL: https://github.com/adafruit/Adafruit-GFX-Library
+
+3. Adafruit SSD1306 by Adafruit
+   Version: 2.5.0 or later
+   URL: https://github.com/adafruit/Adafruit_SSD1306
+
+4. PubSubClient by Nick O'Leary
+   Version: 2.8.0 or later
+   URL: https://github.com/knolleary/pubsubclient
+
+5. ArduinoJson by Benoit Blanchon
+   Version: 6.21.0 or later (must be version 6.x, NOT 7.x)
+   URL: https://github.com/bblanchon/ArduinoJson
+
+# ESP32 Board Support
+
+Add to Arduino IDE Board Manager:
+(File → Preferences → Additional Board Manager URLs)
+
+https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+
+Then install:
+- esp32 by Espressif Systems (version 2.0.0 or later)
+
+# Board Selection
+
+Tools → Board → ESP32 Arduino → Heltec WiFi LoRa 32(V3)
+
+# Upload Settings
+
+- Upload Speed: 921600
+- CPU Frequency: 240MHz (WiFi/BT)
+- Flash Frequency: 80MHz
+- Flash Mode: QIO
+- Flash Size: 4MB (32Mb)
+- Partition Scheme: Default 4MB with spiffs
+- Core Debug Level: None (or "Info" for debugging)
+- PSRAM: Disabled
