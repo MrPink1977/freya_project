@@ -277,20 +277,53 @@ You have access to and should actively use:
 - ChromaDB memory — persist and retrieve personal context, preferences, facts, and history.
 - Current time, date, day of week, and season are always available — use them for smart contextual inference.
 
-## Web Search Optimization
-You have access to a Google dorking knowledge base in ChromaDB (collection: 'google_dorking_knowledge').
-When performing web searches:
-1. Query ChromaDB for relevant dorking techniques.
-2. Construct an optimized search query using appropriate operators.
-3. Execute the dorked search.
+## ChromaDB Knowledge Bases
+You have access to the following ChromaDB collections. Query them proactively when the topic is relevant — do not wait to be asked.
 
-Core operators quick reference:
+- ha_docs — Home Assistant documentation (37,791 docs). Use for HA config, integrations, automations, YAML syntax, and troubleshooting.
+- home_entities — Tomie's smart home devices with entity IDs, friendly names, and locations. Query for any ambiguous device reference.
+- google_dorking_knowledge — Google search operators and OSINT techniques. Query BEFORE constructing any web search.
+- prompt_engineering_kb — Pro-level prompt engineering techniques (151 docs). Query for questions about prompting strategies, LLM techniques, RAG design, agent workflows, image generation prompts, and AI best practices.
+
+## Web Search Optimization
+You have access to a comprehensive Google dorking knowledge base in ChromaDB (collection: 'google_dorking_knowledge').
+
+ALWAYS query this collection BEFORE constructing any web search query. Do not skip this step.
+
+Workflow:
+1. Identify the search intent (finding a person, researching a company, finding files, OSINT, vulnerability research, news, academic, etc.)
+2. Query ChromaDB collection 'google_dorking_knowledge' with the intent as the query string.
+3. Review the returned techniques and operators relevant to the intent.
+4. Construct an optimized, operator-rich search query using what you retrieved.
+5. Execute the search. If results are poor, refine using additional operators from the knowledge base.
+
+Core operators quick reference (always available without querying):
 - site:domain.com — limit to domain
 - filetype:ext — filter by file type
 - "exact phrase" — exact match
 - -term — exclude term
+- intitle:word — word in page title
+- inurl:word — word in URL
+- intext:word — word in page body
 - term1 OR term2 — either term
-- 2024..2026 — number range
+
+## Home Entity Resolution
+You have access to a semantic home entity knowledge base in ChromaDB (collection: 'home_entities').
+This collection contains all of Tomie's smart home devices with their real entity IDs, friendly names, locations, and types.
+
+ALWAYS query this collection when:
+- Resolving a device reference that isn't an exact entity ID (e.g., "the lamp by the couch", "the office light", "the front camera")
+- Unsure which entity ID corresponds to a device Tomie mentions
+- Listing or describing devices in a room or category
+- Any IoT control request where the entity ID is ambiguous
+
+Workflow:
+1. Take the device reference from Tomie's request (e.g., "living room lamp", "front door camera")
+2. Query ChromaDB collection 'home_entities' with that reference as the query string
+3. Use the returned entity ID for the action — do NOT guess or fabricate an entity ID
+4. If no match is found, tell Tomie the device wasn't found rather than attempting a made-up entity ID
+
+Hard rule: Never use an entity ID you are not certain exists. Query first, act second.
 
 ## Proactive Behavior (Critical Alerts Only)
 Only volunteer unsolicited information when it genuinely matters:
@@ -342,10 +375,27 @@ ChromaDB is used for persistent memory and knowledge base storage. It stores vec
 
 The following collections are present in the ChromaDB database:
 
-| Collection Name | Document Count |
-| --- | --- |
-| ha_docs | 37791 |
-| home_entities | 0 |
+| Collection Name | Document Count | Purpose |
+| --- | --- | --- |
+| ha_docs | 37,791 | Home Assistant documentation for HA config, integrations, automations, and troubleshooting |
+| home_entities | 0 | Tomie's smart home devices with entity IDs, friendly names, and locations |
+| google_dorking_knowledge | varies | Google search operators and OSINT techniques, queried before every web search |
+| prompt_engineering_kb | 151 | Pro-level prompt engineering techniques across 8 domains, added March 4, 2026 |
+
+### prompt_engineering_kb Knowledge Domains
+
+The `prompt_engineering_kb` collection covers the following domains:
+
+| Category | Chunks | Topics |
+| --- | --- | --- |
+| Agentic Prompting | 41 | ReAct, Reflexion, tool-use, multi-step agent workflows |
+| Adversarial & Security | 20 | Prompt injection, jailbreaking, red-teaming, defense strategies |
+| In-Context Learning | 18 | Few-shot, zero-shot, example selection, label calibration |
+| RAG & Retrieval Design | 16 | Query construction, context injection, chunking strategies |
+| Reasoning Techniques | 15 | Chain-of-Thought, Tree of Thought, Self-Consistency |
+| Prompt Optimization | 14 | OPRO, APE (Automatic Prompt Engineer), DSPy |
+| Text-to-Image Prompting | 14 | Stable Diffusion, Midjourney, DALL-E, hyperrealism |
+| System Prompt Engineering | 13 | Persona design, constraint setting, output format control |
 
 ## 8. Voice Assistant Pipeline
 
@@ -414,12 +464,19 @@ All project files are stored on the Windows host at `C:\AI_Projects\homeassistan
 | `C:\AI_Projects\homeassistant\config\` | Home Assistant configuration directory (mounted as `/config`) |
 | `C:\AI_Projects\homeassistant\ollama_data\` | Ollama model storage (mounted as `/root/.ollama`) |
 | `C:\AI_Projects\homeassistant\ollama-init.sh` | Ollama startup script (used as container entrypoint) |
-| `C:\AI_Projects\homeassistant\chroma_data\` | ChromaDB persistent data storage |
+| `C:\AI_Projects\homeassistant\chroma_data\` | ChromaDB persistent data storage (active mount) |
 | `C:\AI_Projects\homeassistant\mosquitto\` | Mosquitto MQTT broker config, data, and logs |
 | `C:\AI_Projects\homeassistant\esphome\` | ESPHome device configuration files |
+| `C:\AI_Projects\homeassistant\freya_project\` | Git repository for all Freya AI project code and knowledge bases (GitHub: MrPink1977/freya_project) |
+| `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\` | Unified directory for all ChromaDB knowledge base scripts and data |
+| `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\ha_docs\scripts\` | HA docs import script |
+| `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\google_dorking_knowledge\scripts\` | Google dorking import script |
+| `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\prompt_engineering_kb\scripts\` | Prompt engineering ingestion and processing scripts |
+| `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\prompt_engineering_kb\data\` | prompt_engineering_chunks.json (151 chunks, ready to ingest) |
+| `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\freya_system_prompt.txt` | Current active system prompt for Freya (paste into Home Agent) |
 | `C:\AI_Projects\ha_knowledge_base\chroma_db\` | ChromaDB data with ha_docs collection (37,791 docs) |
 | `C:\AI_Projects\ha_knowledge_base\home-assistant.io\` | Source HA documentation repository |
-| `C:\AI_Projects\ha_knowledge_base\import_ha_docs_to_chromadb.py` | Script for importing HA docs to ChromaDB |
+| `C:\AI_Projects\ha_knowledge_base\import_ha_docs_to_chromadb.py` | Original HA docs import script (also copied to knowledge_bases) |
 
 ## 12. Known Issues & Troubleshooting Guide
 
@@ -518,15 +575,27 @@ docker compose up -d
 docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
 ```
 
-### Re-importing HA Documentation to ChromaDB
+### Re-importing Knowledge Bases to ChromaDB
 
-If the ChromaDB `ha_docs` collection needs to be rebuilt, run the import script:
+All knowledge base scripts are organized under `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\`.
+
+**HA Documentation (ha_docs):**
 ```powershell
-cd C:\AI_Projects\ha_knowledge_base
-python import_ha_docs_to_chromadb.py
+cd C:\AI_Projects\homeassistant
+python freya_project\knowledge_bases\ha_docs\scripts\import_ha_docs_to_chromadb.py
 ```
 
-This will re-import all documents from `C:\AI_Projects\ha_knowledge_base\home-assistant.io\` into the `ha_docs` collection.
+**Google Dorking Knowledge:**
+```powershell
+cd C:\AI_Projects\homeassistant
+python freya_project\knowledge_bases\google_dorking_knowledge\scripts\import_dorking_knowledge_to_chromadb.py
+```
+
+**Prompt Engineering KB:**
+```powershell
+cd C:\AI_Projects\homeassistant
+python freya_project\knowledge_bases\prompt_engineering_kb\scripts\ingest_to_chromadb.py
+```
 
 ### Pulling a New Ollama Model
 
@@ -542,7 +611,7 @@ docker exec ollama ollama pull llama3.1:8b-instruct-q6_K
 
 ---
 
-*Document last updated: March 3, 2026*
+*Document last updated: March 4, 2026*
 
 ---
 
