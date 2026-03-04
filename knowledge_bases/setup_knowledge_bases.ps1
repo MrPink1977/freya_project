@@ -144,15 +144,15 @@ Write-Host "  Setup Complete — Final Structure" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  $KB_ROOT\" -ForegroundColor White
-Write-Host "  ├── ha_docs\" -ForegroundColor White
-Write-Host "  │   ├── scripts\import_ha_docs_to_chromadb.py" -ForegroundColor DarkGray
-Write-Host "  │   └── data\  (source docs live at C:\AI_Projects\ha_knowledge_base\)" -ForegroundColor DarkGray
-Write-Host "  ├── google_dorking_knowledge\" -ForegroundColor White
-Write-Host "  │   └── scripts\import_google_dorking.py" -ForegroundColor DarkGray
-Write-Host "  └── prompt_engineering_kb\" -ForegroundColor White
-Write-Host "      ├── scripts\ingest_to_chromadb.py" -ForegroundColor DarkGray
-Write-Host "      ├── scripts\process_research.py" -ForegroundColor DarkGray
-Write-Host "      └── data\prompt_engineering_chunks.json" -ForegroundColor DarkGray
+Write-Host "  +-- ha_docs\" -ForegroundColor White
+Write-Host "  |   +-- scripts\import_ha_docs_to_chromadb.py" -ForegroundColor DarkGray
+Write-Host "  |   +-- data\  (source docs live at C:\AI_Projects\ha_knowledge_base\)" -ForegroundColor DarkGray
+Write-Host "  +-- google_dorking_knowledge\" -ForegroundColor White
+Write-Host "  |   +-- scripts\import_google_dorking.py" -ForegroundColor DarkGray
+Write-Host "  +-- prompt_engineering_kb\" -ForegroundColor White
+Write-Host "      +-- scripts\ingest_to_chromadb.py" -ForegroundColor DarkGray
+Write-Host "      +-- scripts\process_research.py" -ForegroundColor DarkGray
+Write-Host "      +-- data\prompt_engineering_chunks.json" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  Next step: Run the ingestion script to load prompt_engineering_kb" -ForegroundColor Yellow
 Write-Host "  into ChromaDB:" -ForegroundColor Yellow
