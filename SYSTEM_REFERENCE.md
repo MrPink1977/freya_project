@@ -378,7 +378,7 @@ The following collections are present in the ChromaDB database:
 | Collection Name | Document Count | Purpose |
 | --- | --- | --- |
 | ha_docs | 37,791 | Home Assistant documentation for HA config, integrations, automations, and troubleshooting |
-| home_entities | 0 | Tomie's smart home devices with entity IDs, friendly names, and locations |
+| home_entities | 86 | Tomie's smart home devices with entity IDs, friendly names, and locations (verified March 4, 2026) |
 | google_dorking_knowledge | varies | Google search operators and OSINT techniques, queried before every web search |
 | prompt_engineering_kb | 151 | Pro-level prompt engineering techniques across 8 domains, added March 4, 2026 |
 
@@ -468,12 +468,17 @@ All project files are stored on the Windows host at `C:\AI_Projects\homeassistan
 | `C:\AI_Projects\homeassistant\mosquitto\` | Mosquitto MQTT broker config, data, and logs |
 | `C:\AI_Projects\homeassistant\esphome\` | ESPHome device configuration files |
 | `C:\AI_Projects\homeassistant\freya_project\` | Git repository for all Freya AI project code and knowledge bases (GitHub: MrPink1977/freya_project) |
-| `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\` | Unified directory for all ChromaDB knowledge base scripts and data |
-| `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\ha_docs\scripts\` | HA docs import script |
-| `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\google_dorking_knowledge\scripts\` | Google dorking import script |
-| `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\prompt_engineering_kb\scripts\` | Prompt engineering ingestion and processing scripts |
-| `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\prompt_engineering_kb\data\` | prompt_engineering_chunks.json (151 chunks, ready to ingest) |
+| `C:\AI_Projects\homeassistant\freya_project\SYSTEM_REFERENCE.md` | This document (authoritative version in repo) |
+| `C:\AI_Projects\homeassistant\knowledge_bases\` | Unified directory for all ChromaDB knowledge base scripts and data |
+| `C:\AI_Projects\homeassistant\knowledge_bases\ha_docs\scripts\` | HA docs import script |
+| `C:\AI_Projects\homeassistant\knowledge_bases\google_dorking_knowledge\scripts\` | Google dorking import script |
+| `C:\AI_Projects\homeassistant\knowledge_bases\prompt_engineering_kb\scripts\` | Prompt engineering ingestion and processing scripts |
+| `C:\AI_Projects\homeassistant\knowledge_bases\prompt_engineering_kb\data\` | prompt_engineering_chunks.json (151 chunks, ready to ingest) |
+| `C:\AI_Projects\homeassistant\knowledge_bases\home_entities\scripts\` | Home entities ingestion script |
 | `C:\AI_Projects\homeassistant\freya_project\knowledge_bases\freya_system_prompt.txt` | Current active system prompt for Freya (paste into Home Agent) |
+| `C:\AI_Projects\homeassistant\freya_mic_fft.py` | Windows host mic capture + FFT script for visualizer |
+| `C:\AI_Projects\homeassistant\freya_conversation_log.py` | Script to generate human-readable conversation log |
+| `C:\AI_Projects\homeassistant\ha_entities_export.json` | Last exported HA entity snapshot (March 4, 2026) |
 | `C:\AI_Projects\ha_knowledge_base\chroma_db\` | ChromaDB data with ha_docs collection (37,791 docs) |
 | `C:\AI_Projects\ha_knowledge_base\home-assistant.io\` | Source HA documentation repository |
 | `C:\AI_Projects\ha_knowledge_base\import_ha_docs_to_chromadb.py` | Original HA docs import script (also copied to knowledge_bases) |
@@ -611,7 +616,7 @@ docker exec ollama ollama pull llama3.1:8b-instruct-q6_K
 
 ---
 
-*Document last updated: March 4, 2026*
+*Document last updated: March 4, 2026 — Added prompt_engineering_kb (151 docs), verified home_entities (86 docs), added voice conversation loop automations (Sections 17–18)*
 
 ---
 
@@ -761,4 +766,140 @@ The raw history file is updated automatically after every conversation. To gener
 cd C:\AI_Projects\homeassistant
 python freya_conversation_log.py
 notepad freya_conversation_log.txt
+```
+
+---
+
+## 17. Voice Conversation Loop Automations
+
+These two automations work together to create a natural multi-turn conversation experience without requiring the wake word for every follow-up.
+
+### Required Helpers
+
+| Helper | Entity ID | Purpose |
+| --- | --- | --- |
+| voice session closed | `input_boolean.voice_session_closed` | Signals that the user has ended the session — blocks the loop from restarting |
+
+### Automation 1: Freya - Conversation Loop
+
+Triggers when Freya finishes responding and goes idle. Waits 2 seconds (to avoid re-triggering on the loop's own `start_message`), then starts listening again for 10 seconds.
+
+```yaml
+alias: Freya - Conversation Loop
+description: After Freya responds, listen for follow-up for 10 seconds
+triggers:
+  - entity_id: assist_satellite.home_assistant_voice_0a52fa_assist_satellite
+    from: responding
+    to: idle
+    for: "00:00:02"
+    trigger: state
+conditions:
+  - condition: state
+    entity_id: input_boolean.voice_session_closed
+    state: "off"
+actions:
+  - target:
+      entity_id: assist_satellite.home_assistant_voice_0a52fa_assist_satellite
+    data:
+      preannounce: false
+      start_message: "."
+    action: assist_satellite.start_conversation
+mode: single
+```
+
+**Key design decisions:**
+
+- `for: "00:00:02"` prevents the automation from re-firing on the brief `responding → idle` cycle caused by the `start_message` itself.
+- `mode: single` prevents re-entry while already running.
+- No `assist_satellite.stop` action is used — the 10-second listen window expires naturally if no speech is detected.
+- The `start_message: "."` sends a near-silent acknowledgment, keeping the interaction natural.
+
+### Automation 2: Freya - Stop Listening
+
+Triggers when the user says a closing phrase. Sets `voice_session_closed` to `on` for 8 seconds to block the conversation loop from restarting after Freya's final response.
+
+```yaml
+alias: Freya - Stop Listening
+description: Stop the conversation loop when user says a closing phrase
+triggers:
+  - trigger: conversation
+    command:
+      - ok thank you
+      - okay thank you
+      - ok thanks
+      - okay thanks
+      - no thanks
+      - no thank you
+      - ok later
+      - thats all
+      - stop listening
+      - nevermind
+      - ok goodbye
+      - goodbye freya
+      - goodnight freya
+actions:
+  - target:
+      entity_id: input_boolean.voice_session_closed
+    action: input_boolean.turn_on
+  - delay: "00:00:08"
+  - target:
+      entity_id: input_boolean.voice_session_closed
+    action: input_boolean.turn_off
+mode: single
+```
+
+**Key design decisions:**
+
+- No state condition on `assist_satellite` — by the time the automation checks, the satellite may already be in `processing` state, causing a false negative and failing to stop the loop.
+- The 8-second `delay` covers the time Freya takes to respond to the closing phrase and return to idle. After 8 seconds, `voice_session_closed` resets to `off` so the next wake word session can start normally.
+- The conversation trigger handles STT matching — Whisper transcribes the phrase and HA routes it to this automation before passing to the LLM.
+
+### Conversation Flow
+
+```
+User: "Hey Freya" (wake word)
+    → satellite: idle → listening
+User: asks question
+    → satellite: listening → processing → responding → idle
+Automation 1 fires (after 2s idle)
+    → satellite: idle → listening (10s window)
+User: asks follow-up (no wake word needed)
+    → satellite: listening → processing → responding → idle
+Automation 1 fires again...
+    (loop continues)
+User: "Ok, thanks" (closing phrase)
+    → Automation 2 fires: voice_session_closed = on
+    → Freya responds with short sign-off
+    → satellite: responding → idle
+    → Automation 1 condition fails (voice_session_closed = on) → loop stops
+    → After 8s: voice_session_closed = off (ready for next session)
+```
+
+---
+
+## 18. GitHub Repository
+
+The `freya_project` repository tracks all scripts, knowledge base data, and documentation for this project.
+
+| Property | Value |
+| --- | --- |
+| Repository | https://github.com/MrPink1977/freya_project |
+| Local clone | `C:\AI_Projects\homeassistant\freya_project\` |
+| Active branch | `feature/prompt-engineering-kb` |
+
+### Key directories in repo
+
+| Path | Contents |
+| --- | --- |
+| `knowledge_bases/ha_docs/scripts/` | HA docs ingestion script |
+| `knowledge_bases/home_entities/scripts/` | Verified home entities ingestion script |
+| `knowledge_bases/prompt_engineering_kb/scripts/` | Prompt engineering KB ingestion + processing scripts |
+| `knowledge_bases/prompt_engineering_kb/data/` | 151 processed prompt engineering chunks (JSON) |
+| `knowledge_bases/google_dorking_knowledge/scripts/` | Google dorking ingestion script |
+| `SYSTEM_REFERENCE.md` | This document |
+
+To pull latest:
+```powershell
+cd C:\AI_Projects\homeassistant\freya_project
+git pull origin feature/prompt-engineering-kb
 ```
